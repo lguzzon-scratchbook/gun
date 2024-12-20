@@ -59,16 +59,16 @@
     "directory": "types"
   },
   "dependencies": {
-    "ws": "^7.2.1"
+    "ws": "^8.18.0"
   },
   "optionalDependencies": {
-    "@peculiar/webcrypto": "^1.1.1"
+    "@peculiar/webcrypto": "^1.5.0"
   },
   "devDependencies": {
-    "mocha": "^6.2.0",
-    "ip": "^1.1.5",
-    "aws-sdk": "^2.528.0",
-    "emailjs": "^2.2.0",
-    "uglify-js": "^3.6.0"
+    "mocha": "^11.0.1",
+    "ip": "^2.0.1",
+    "aws-sdk": "^2.1692.0",
+    "emailjs": "^4.0.3",
+    "uglify-js": "^3.19.3"
   }
 }
