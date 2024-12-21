@@ -479,37 +479,77 @@
     module.exports = State;
 })(USE, './state');
 
-	;USE(function(module){
-		USE('./shim');
-		function Dup(opt){
-			var dup = {s:{}}, s = dup.s;
-			opt = opt || {max: 999, age: 1000 * 9};//*/ 1000 * 9 * 3};
-			dup.check = function(id){
-				if(!s[id]){ return false }
-				return dt(id);
-			}
-			var dt = dup.track = function(id){
-				var it = s[id] || (s[id] = {});
-				it.was = dup.now = +new Date;
-				if(!dup.to){ dup.to = setTimeout(dup.drop, opt.age + 9) }
-				if(dt.ed){ dt.ed(id) }
-				return it;
-			}
-			dup.drop = function(age){
-				dup.to = null;
-				dup.now = +new Date;
-				var l = Object.keys(s);
-				console.STAT && console.STAT(dup.now, +new Date - dup.now, 'dup drop keys'); // prev ~20% CPU 7% RAM 300MB // now ~25% CPU 7% RAM 500MB
-				setTimeout.each(l, function(id){ var it = s[id]; // TODO: .keys( is slow?
-					if(it && (age || opt.age) > (dup.now - it.was)){ return }
-					delete s[id];
-				},0,99);
-			}
-			return dup;
-		}
-		module.exports = Dup;
-	})(USE, './dup');
+USE(function (module) {
+  USE('./shim');
 
+  /**
+   * Duplication tracking utility.
+   * @param {Object} [opt] - Options for the Dup instance.
+   * @param {number} [opt.max=999] - Maximum number of entries.
+   * @param {number} [opt.age=9000] - Age threshold for entries in milliseconds.
+   * @returns {Object} dup - The Dup instance.
+   */
+  function Dup(opt = { max: 999, age: 9000 }) {
+    const dup = { s: {} };
+    const s = dup.s;
+
+    /**
+     * Checks if an ID exists in the tracking system.
+     * @param {string} id - The ID to check.
+     * @returns {boolean} - True if the ID exists, false otherwise.
+     */
+    dup.check = function (id) {
+      if (!s[id]) {
+        return false;
+      }
+      return dt(id);
+    };
+
+    /**
+     * Tracks an ID, updating its timestamp.
+     * @param {string} id - The ID to track.
+     * @returns {Object} - The tracked item.
+     */
+    const dt = (dup.track = function (id) {
+      const it = s[id] || (s[id] = {});
+      it.was = dup.now = Date.now();
+      if (!dup.to) {
+        dup.to = setTimeout(dup.drop, opt.age + 9);
+      }
+      if (dt.ed) {
+        dt.ed(id);
+      }
+      return it;
+    });
+
+    /**
+     * Drops old entries from the tracking system.
+     * @param {number} [age] - The age threshold for dropping entries.
+     */
+    dup.drop = function (age) {
+      dup.to = null;
+      dup.now = Date.now();
+      const keys = Object.keys(s);
+      console.STAT && console.STAT(dup.now, Date.now() - dup.now, 'dup drop keys');
+      setTimeout.each(
+        keys,
+        (id) => {
+          const it = s[id];
+          if (it && (age || opt.age) > dup.now - it.was) {
+            return;
+          }
+          delete s[id];
+        },
+        0,
+        99
+      );
+    };
+
+    return dup;
+  }
+
+  module.exports = Dup;
+})(USE, './dup');
 	;USE(function(module){
 		// request / response module, for asking and acking messages.
 		USE('./onto'); // depends upon onto!
@@ -2248,74 +2288,118 @@
 		var noop = function(){}, u;
 	})(USE, './websocket');
 
-	;USE(function(module){
-		if(typeof Gun === 'undefined'){ return }
+USE(function(module) {
+    if (typeof Gun === 'undefined') return;
 
-		var noop = function(){}, store, u;
-		try{store = (Gun.window||noop).localStorage}catch(e){}
-		if(!store){
-			Gun.log("Warning: No localStorage exists to persist data to!");
-			store = {setItem: function(k,v){this[k]=v}, removeItem: function(k){delete this[k]}, getItem: function(k){return this[k]}};
-		}
+    const noop = () => {};
+    let store;
+    try {
+        store = (Gun.window || noop).localStorage;
+    } catch (e) {
+        Gun.log("Warning: No localStorage exists to persist data to!");
+        store = {
+            setItem: function(k, v) { this[k] = v; },
+            removeItem: function(k) { delete this[k]; },
+            getItem: function(k) { return this[k]; }
+        };
+    }
 
-		var parse = JSON.parseAsync || function(t,cb,r){ var u; try{ cb(u, JSON.parse(t,r)) }catch(e){ cb(e) } }
-		var json = JSON.stringifyAsync || function(v,cb,r,s){ var u; try{ cb(u, JSON.stringify(v,r,s)) }catch(e){ cb(e) } }
+    const parse = JSON.parseAsync || ((t, cb, r) => {
+        try {
+            cb(undefined, JSON.parse(t, r));
+        } catch (e) {
+            cb(e);
+        }
+    });
 
-		Gun.on('create', function lg(root){
-			this.to.next(root);
-			var opt = root.opt, graph = root.graph, acks = [], disk, to, size, stop;
-			if(false === opt.localStorage){ return }
-			opt.prefix = opt.file || 'gun/';
-			try{ disk = lg[opt.prefix] = lg[opt.prefix] || JSON.parse(size = store.getItem(opt.prefix)) || {}; // TODO: Perf! This will block, should we care, since limited to 5MB anyways?
-			}catch(e){ disk = lg[opt.prefix] = {}; }
-			size = (size||'').length;
+    const json = JSON.stringifyAsync || ((v, cb, r, s) => {
+        try {
+            cb(undefined, JSON.stringify(v, r, s));
+        } catch (e) {
+            cb(e);
+        }
+    });
 
-			root.on('get', function(msg){
-				this.to.next(msg);
-				var lex = msg.get, soul, data, tmp, u;
-				if(!lex || !(soul = lex['#'])){ return }
-				data = disk[soul] || u;
-				if(data && (tmp = lex['.']) && !Object.plain(tmp)){ // pluck!
-					data = Gun.state.ify({}, tmp, Gun.state.is(data, tmp), data[tmp], soul);
-				}
-				//if(data){ (tmp = {})[soul] = data } // back into a graph.
-				//setTimeout(function(){
-				Gun.on.get.ack(msg, data); //root.on('in', {'@': msg['#'], put: tmp, lS:1});// || root.$});
-				//}, Math.random() * 10); // FOR TESTING PURPOSES!
-			});
+    Gun.on('create', function lg(root) {
+        this.to.next(root);
+        const opt = root.opt;
+        const graph = root.graph;
+        let acks = [];
+        let disk;
+        let to;
+        let size;
+        let stop;
 
-			root.on('put', function(msg){
-				this.to.next(msg); // remember to call next middleware adapter
-				var put = msg.put, soul = put['#'], key = put['.'], id = msg['#'], ok = msg.ok||'', tmp; // pull data off wire envelope
-				disk[soul] = Gun.state.ify(disk[soul], key, put['>'], put[':'], soul); // merge into disk object
-				if(stop && size > (4999880)){ root.on('in', {'@': id, err: "localStorage max!"}); return; }
-				//if(!msg['@']){ acks.push(id) } // then ack any non-ack write. // TODO: use batch id.
-				if(!msg['@'] && (!msg._.via || Math.random() < (ok['@'] / ok['/']))){ acks.push(id) } // then ack any non-ack write. // TODO: use batch id.
-				if(to){ return }
-				to = setTimeout(flush, 9+(size / 333)); // 0.1MB = 0.3s, 5MB = 15s 
-			});
-			function flush(){
-				if(!acks.length && ((setTimeout.turn||'').s||'').length){ setTimeout(flush,99); return; } // defer if "busy" && no saves.
-				var err, ack = acks; clearTimeout(to); to = false; acks = [];
-				json(disk, function(err, tmp){
-					try{!err && store.setItem(opt.prefix, tmp);
-					}catch(e){ err = stop = e || "localStorage failure" }
-					if(err){
-						Gun.log(err + " Consider using GUN's IndexedDB plugin for RAD for more storage space, https://gun.eco/docs/RAD#install");
-						root.on('localStorage:error', {err: err, get: opt.prefix, put: disk});
-					}
-					size = tmp.length;
+        if (opt.localStorage === false) return;
 
-					//if(!err && !Object.empty(opt.peers)){ return } // only ack if there are no peers. // Switch this to probabilistic mode
-					setTimeout.each(ack, function(id){
-						root.on('in', {'@': id, err: err, ok: 0}); // localStorage isn't reliable, so make its `ok` code be a low number.
-					},0,99);
-				})
-			}
-		
-		});
-	})(USE, './localStorage');
+        opt.prefix = opt.file || 'gun/';
+        try {
+            disk = lg[opt.prefix] = lg[opt.prefix] || JSON.parse(size = store.getItem(opt.prefix)) || {};
+        } catch (e) {
+            disk = lg[opt.prefix] = {};
+        }
+        size = (size || '').length;
 
+        root.on('get', function(msg) {
+            this.to.next(msg);
+            const lex = msg.get;
+            if (!lex || !lex['#']) return;
+
+            const soul = lex['#'];
+            let data = disk[soul];
+            if (data && lex['.'] && !Object.plain(lex['.'])) {
+                data = Gun.state.ify({}, lex['.'], Gun.state.is(data, lex['.']), data[lex['.']], soul);
+            }
+            Gun.on.get.ack(msg, data);
+        });
+
+        root.on('put', function(msg) {
+            this.to.next(msg);
+            const put = msg.put;
+            const soul = put['#'];
+            const key = put['.'];
+            const id = msg['#'];
+            const ok = msg.ok || '';
+
+            disk[soul] = Gun.state.ify(disk[soul], key, put['>'], put[':'], soul);
+            if (stop && size > 4999880) {
+                root.on('in', { '@': id, err: "localStorage max!" });
+                return;
+            }
+            if (!msg['@'] && (!msg._.via || Math.random() < (ok['@'] / ok['/']))) {
+                acks.push(id);
+            }
+            if (to) return;
+            to = setTimeout(flush, 9 + (size / 333));
+        });
+
+        function flush() {
+            if (!acks.length && ((setTimeout.turn || '').s || '').length) {
+                setTimeout(flush, 99);
+                return;
+            }
+            const ack = acks;
+            clearTimeout(to);
+            to = false;
+            acks = [];
+            json(disk, function(err, tmp) {
+                try {
+                    if (!err) store.setItem(opt.prefix, tmp);
+                } catch (e) {
+                    err = stop = e || "localStorage failure";
+                }
+                if (err) {
+                    Gun.log(`${err} Consider using GUN's IndexedDB plugin for RAD for more storage space, https://gun.eco/docs/RAD#install`);
+                    root.on('localStorage:error', { err, get: opt.prefix, put: disk });
+                }
+                size = tmp.length;
+                setTimeout.each(ack, function(id) {
+                    root.on('in', { '@': id, err, ok: 0 });
+                }, 0, 99);
+            });
+        }
+    });
+})(USE, './localStorage');
 }());
 
 /* BELOW IS TEMPORARY FOR OLD INTERNAL COMPATIBILITY, THEY ARE IMMEDIATELY DEPRECATED AND WILL BE REMOVED IN NEXT VERSION */
