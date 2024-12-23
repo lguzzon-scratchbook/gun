@@ -551,34 +551,54 @@ USE(function (module) {
 		module.exports = Dup;
 	})(USE, './dup');
 
-	; USE(function (module) {
-		// request / response module, for asking and acking messages.
-		USE('./onto'); // depends upon onto!
-		module.exports = function ask(cb, as){
-			if(!this.on){ return }
-			var lack = (this.opt||{}).lack || 9000;
-			if(!('function' == typeof cb)){
-				if(!cb){ return }
-				var id = cb['#'] || cb, tmp = (this.tag||'')[id];
-				if(!tmp){ return }
-				if(as){
-					tmp = this.on(id, as);
-					clearTimeout(tmp.err);
-					tmp.err = setTimeout(function(){ tmp.off() }, lack);
-				}
-				return true;
-			}
-			var id = (as && as['#']) || random(9);
-			if(!cb){ return id }
-			var to = this.on(id, cb, as);
-			to.err = to.err || setTimeout(function(){ to.off();
-				to.next({err: "Error: No ACK yet.", lack: true});
-			}, lack);
-			return id;
-		}
-		var random = String.random || function(){ return Math.random().toString(36).slice(2) }
-	})(USE, './ask');
+	USE(function (module) {
+    // Request/response module for asking and acknowledging messages.
+    USE('./onto'); // Depends upon onto!
 
+    /**
+     * Function to handle request/response messages.
+     * @param {Function|string|Object} cb - Callback function or message ID.
+     * @param {Object} [as] - Additional parameters.
+     * @returns {string|boolean} - Message ID or true if successful.
+     */
+    module.exports = function ask(cb, as) {
+        if (!this.on) return;
+
+        const lack = (this.opt || {}).lack || 9000;
+
+        if (typeof cb !== 'function') {
+            if (!cb) return;
+            const id = cb['#'] || cb;
+            let tmp = (this.tag || '')[id];
+            if (!tmp) return;
+            if (as) {
+                tmp = this.on(id, as);
+                clearTimeout(tmp.err);
+                tmp.err = setTimeout(() => tmp.off(), lack);
+            }
+            return true;
+        }
+
+        const id = (as && as['#']) || random(9);
+        if (!cb) return id;
+
+        const to = this.on(id, cb, as);
+        to.err = to.err || setTimeout(() => {
+            to.off();
+            to.next({ err: "Error: No ACK yet.", lack: true });
+        }, lack);
+
+        return id;
+    };
+
+    /**
+     * Generates a random string of specified length.
+     * @param {number} [length=9] - Length of the random string.
+     * @returns {string} - Random string.
+     */
+		const random = String.random || function (length = 9) { return Math.random().toString(36).slice(2, 2 + length) };
+	})(USE, './ask');
+	
 	;USE(function(module){
 
 		function Gun(o){
@@ -943,7 +963,7 @@ USE(function (module) {
         return this;
     };
 
-})(USE, './back');
+	})(USE, './back');
 
 	;USE(function(module){
 		// WARNING: GUN is very simple, but the JavaScript chaining API around GUN
