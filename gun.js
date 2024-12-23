@@ -490,67 +490,68 @@ USE(function (module) {
    * @returns {Object} dup - The Dup instance.
    */
   function Dup(opt = { max: 999, age: 9000 }) {
-    const dup = { s: {} };
-    const s = dup.s;
+			const dup = { s: {} };
+			const s = dup.s;
 
-    /**
-     * Checks if an ID exists in the tracking system.
-     * @param {string} id - The ID to check.
-     * @returns {boolean} - True if the ID exists, false otherwise.
-     */
-    dup.check = function (id) {
-      if (!s[id]) {
-        return false;
-      }
-      return dt(id);
-    };
+			/**
+			 * Checks if an ID exists in the tracking system.
+			 * @param {string} id - The ID to check.
+			 * @returns {boolean} - True if the ID exists, false otherwise.
+			 */
+			dup.check = function (id) {
+				if (!s[id]) {
+					return false;
+				}
+				return dt(id);
+			};
 
-    /**
-     * Tracks an ID, updating its timestamp.
-     * @param {string} id - The ID to track.
-     * @returns {Object} - The tracked item.
-     */
-    const dt = (dup.track = function (id) {
-      const it = s[id] || (s[id] = {});
-      it.was = dup.now = Date.now();
-      if (!dup.to) {
-        dup.to = setTimeout(dup.drop, opt.age + 9);
-      }
-      if (dt.ed) {
-        dt.ed(id);
-      }
-      return it;
-    });
+			/**
+			 * Tracks an ID, updating its timestamp.
+			 * @param {string} id - The ID to track.
+			 * @returns {Object} - The tracked item.
+			 */
+			const dt = (dup.track = function (id) {
+				const it = s[id] || (s[id] = {});
+				it.was = dup.now = Date.now();
+				if (!dup.to) {
+					dup.to = setTimeout(dup.drop, opt.age + 9);
+				}
+				if (dt.ed) {
+					dt.ed(id);
+				}
+				return it;
+			});
 
-    /**
-     * Drops old entries from the tracking system.
-     * @param {number} [age] - The age threshold for dropping entries.
-     */
-    dup.drop = function (age) {
-      dup.to = null;
-      dup.now = Date.now();
-      const keys = Object.keys(s);
-      console.STAT && console.STAT(dup.now, Date.now() - dup.now, 'dup drop keys');
-      setTimeout.each(
-        keys,
-        (id) => {
-          const it = s[id];
-          if (it && (age || opt.age) > dup.now - it.was) {
-            return;
-          }
-          delete s[id];
-        },
-        0,
-        99
-      );
-    };
+			/**
+			 * Drops old entries from the tracking system.
+			 * @param {number} [age] - The age threshold for dropping entries.
+			 */
+			dup.drop = function (age) {
+				dup.to = null;
+				dup.now = Date.now();
+				const keys = Object.keys(s);
+				console.STAT && console.STAT(dup.now, Date.now() - dup.now, 'dup drop keys');
+				setTimeout.each(
+					keys,
+					(id) => {
+						const it = s[id];
+						if (it && (age || opt.age) > dup.now - it.was) {
+							return;
+						}
+						delete s[id];
+					},
+					0,
+					99
+				);
+			};
 
-    return dup;
-  }
+			return dup;
+		}
 
-  module.exports = Dup;
-})(USE, './dup');
-	;USE(function(module){
+		module.exports = Dup;
+	})(USE, './dup');
+
+	; USE(function (module) {
 		// request / response module, for asking and acking messages.
 		USE('./onto'); // depends upon onto!
 		module.exports = function ask(cb, as){
