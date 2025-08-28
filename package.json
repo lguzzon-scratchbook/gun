@@ -6,14 +6,14 @@
     "url": "https://github.com/amark/gun/issues"
   },
   "dependencies": {
-    "ws": "^8.18.0"
+    "ws": "^8.18.3"
   },
   "description": "A realtime, decentralized, offline-first, graph data synchronization engine.",
   "devDependencies": {
     "aws-sdk": "^2.1692.0",
     "emailjs": "^4.0.3",
     "ip": "^2.0.1",
-    "mocha": "^11.0.1",
+    "mocha": "^11.7.1",
     "uglify-js": "^3.19.3"
   },
   "engines": {
