@@ -1,0 +1,26 @@
+{
+    "mcpServers": {
+        "langgraph-docs-mcp": {
+            "command": "uvx",
+            "args": [
+                "--from",
+                "mcpdoc",
+                "mcpdoc",
+                "--urls",
+                "rsbuild:https://rsbuild.rs/llms-full.txt",
+                "--transport",
+                "stdio"
+            ]
+        },
+        "context7": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@upstash/context7-mcp"
+            ],
+            "env": {
+                "DEFAULT_MINIMUM_TOKENS": ""
+            }
+        }
+    }
+}
