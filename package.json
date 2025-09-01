@@ -8,6 +8,8 @@
   "ios": "browser.ios.js",
   "android": "browser.android.js",
   "scripts": {
+    "_:update": "npx -y  -p npm-check-updates ncu -u",
+    "_:update:install": "npm run _:update ; npm install",
     "start": "node --prof examples/http.js",
     "debug": "node --prof-process --preprocess -j isolate*.log > v8data.json && rm isolate*.log && echo 'drag & drop ./v8data.json into https://mapbox.github.io/flamebearer/'",
     "https": "HTTPS_KEY=test/https/server.key HTTPS_CERT=test/https/server.crt npm start",
@@ -59,16 +61,16 @@
     "directory": "types"
   },
   "dependencies": {
-    "ws": "^7.2.1"
+    "ws": "^8.18.3"
   },
   "optionalDependencies": {
-    "@peculiar/webcrypto": "^1.1.1"
+    "@peculiar/webcrypto": "^1.5.0"
   },
   "devDependencies": {
-    "mocha": "^6.2.0",
-    "ip": "^1.1.5",
-    "aws-sdk": "^2.528.0",
-    "emailjs": "^2.2.0",
-    "uglify-js": "^3.6.0"
+    "aws-sdk": "^2.1692.0",
+    "emailjs": "^4.0.3",
+    "ip": "^2.0.1",
+    "mocha": "^11.7.2",
+    "uglify-js": "^3.19.3"
   }
 }
