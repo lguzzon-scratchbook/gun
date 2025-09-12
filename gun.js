@@ -14,150 +14,216 @@
   /* UNBUILD */
 
 	;USE(function(module){
-		// Shim for generic javascript utilities.
-		String.random = function(l, c){
-			var s = '';
-			l = l || 24; // you are not going to make a 0 length random number, so no need to check type
-			c = c || '0123456789ABCDEFGHIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz';
-			while(l-- > 0){ s += c.charAt(Math.floor(Math.random() * c.length)) }
-			return s;
+		// Shim for generic JavaScript utilities.
+		// Provides polyfills and extensions for String, Object, and setTimeout.
+
+		/**
+		 * Generates a random string of specified length using given charset.
+		 * @param {number} [length=24] - Length of the random string.
+		 * @param {string} [charset] - Characters to use for generation.
+		 * @returns {string} Random string.
+		 */
+		String.random = function(length, charset){
+			var result = '';
+			length = length || 24; // Default length, no need to check type for 0
+			charset = charset || '0123456789ABCDEFGHIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz';
+			while(length-- > 0){ result += charset.charAt(Math.floor(Math.random() * charset.length)) }
+			return result;
 		}
-		String.match = function(t, o){ var tmp, u;
-			if('string' !== typeof t){ return false }
-			if('string' == typeof o){ o = {'=': o} }
-			o = o || {};
-			tmp = (o['='] || o['*'] || o['>'] || o['<']);
-			if(t === tmp){ return true }
-			if(u !== o['=']){ return false }
-			tmp = (o['*'] || o['>']);
-			if(t.slice(0, (tmp||'').length) === tmp){ return true }
-			if(u !== o['*']){ return false }
-			if(u !== o['>'] && u !== o['<']){
-				return (t >= o['>'] && t <= o['<'])? true : false;
+
+		/**
+		 * Matches a string against patterns defined in options object.
+		 * @param {string} text - Text to match.
+		 * @param {Object} options - Matching options.
+		 * @returns {boolean} True if matches.
+		 */
+		String.match = function(text, options){
+			if('string' !== typeof text){ return false }
+			if('string' == typeof options){ options = {'=': options} }
+			options = options || {};
+			var pattern = (options['='] || options['*'] || options['>'] || options['<']);
+			if(text === pattern){ return true }
+			if(undefined !== options['=']){ return false }
+			pattern = (options['*'] || options['>']);
+			if(text.slice(0, (pattern||'').length) === pattern){ return true }
+			if(undefined !== options['*']){ return false }
+			if(undefined !== options['>'] && undefined !== options['<']){
+				return (text >= options['>'] && text <= options['<'])? true : false;
 			}
-			if(u !== o['>'] && t >= o['>']){ return true }
-			if(u !== o['<'] && t <= o['<']){ return true }
+			if(undefined !== options['>'] && text >= options['>']){ return true }
+			if(undefined !== options['<'] && text <= options['<']){ return true }
 			return false;
 		}
-		String.hash = function(s, c){ // via SO
-			if(typeof s !== 'string'){ return }
-	    c = c || 0; // CPU schedule hashing by
-	    if(!s.length){ return c }
-	    for(var i=0,l=s.length,n; i<l; ++i){
-	      n = s.charCodeAt(i);
-	      c = ((c<<5)-c)+n;
-	      c |= 0;
-	    }
-	    return c;
-	  }
-		var has = Object.prototype.hasOwnProperty;
-		Object.plain = function(o){ return o? (o instanceof Object && o.constructor === Object) || Object.prototype.toString.call(o).match(/^\[object (\w+)\]$/)[1] === 'Object' : false }
-		Object.empty = function(o, n){
-			for(var k in o){ if(has.call(o, k) && (!n || -1==n.indexOf(k))){ return false } }
+
+		/**
+		 * Computes a hash for a string using a simple algorithm.
+		 * @param {string} str - String to hash.
+		 * @param {number} [hash=0] - Initial hash value.
+		 * @returns {number} Hash value.
+		 */
+		String.hash = function(str, hash){
+			if(typeof str !== 'string'){ return }
+			hash = hash || 0; // CPU schedule hashing by
+			if(!str.length){ return hash }
+			for(var i=0, len=str.length, charCode; i<len; ++i){
+				charCode = str.charCodeAt(i);
+				hash = ((hash<<5)-hash)+charCode;
+				hash |= 0;
+			}
+			return hash;
+		}
+
+		var hasOwnProperty = Object.prototype.hasOwnProperty;
+
+		/**
+		 * Checks if an object is a plain object (not an instance of a custom class).
+		 * @param {*} obj - Object to check.
+		 * @returns {boolean} True if plain object.
+		 */
+		Object.plain = function(obj){
+			return obj? (obj instanceof Object && obj.constructor === Object) || Object.prototype.toString.call(obj).match(/^\[object (\w+)\]$/)[1] === 'Object' : false
+		}
+
+		/**
+		 * Checks if an object is empty, optionally excluding certain keys.
+		 * @param {Object} obj - Object to check.
+		 * @param {Array} [exclude] - Keys to exclude from check.
+		 * @returns {boolean} True if empty.
+		 */
+		Object.empty = function(obj, exclude){
+			for(var key in obj){
+				if(hasOwnProperty.call(obj, key) && (!exclude || -1==exclude.indexOf(key))){ return false }
+			}
 			return true;
 		}
-		Object.keys = Object.keys || function(o){
-			var l = [];
-			for(var k in o){ if(has.call(o, k)){ l.push(k) } }
-			return l;
+
+		/**
+		 * Polyfill for Object.keys.
+		 * @param {Object} obj - Object to get keys from.
+		 * @returns {Array} Array of keys.
+		 */
+		Object.keys = Object.keys || function(obj){
+			var keys = [];
+			for(var key in obj){ if(hasOwnProperty.call(obj, key)){ keys.push(key) } }
+			return keys;
 		}
+
+		// setTimeout utilities for better async handling
 		;(function(){
-			var u, sT = setTimeout, l = 0, c = 0
-			, sI = (typeof setImmediate !== ''+u && setImmediate) || (function(c,f){
-				if(typeof MessageChannel == ''+u){ return sT }
-				(c = new MessageChannel()).port1.onmessage = function(e){ ''==e.data && f() }
-				return function(q){ f=q;c.port2.postMessage('') }
-			}()), check = sT.check = sT.check || (typeof performance !== ''+u && performance)
+			var undefinedValue, setTimeoutRef = setTimeout, lastTime = 0, pollCount = 0
+			, setImmediateShim = (typeof setImmediate !== ''+undefinedValue && setImmediate) || (function(callback, func){
+				if(typeof MessageChannel == ''+undefinedValue){ return setTimeoutRef }
+				var channel = new MessageChannel();
+				channel.port1.onmessage = function(event){ ''==event.data && func() }
+				return function(queue){ func=queue; channel.port2.postMessage('') }
+			}()), performanceCheck = setTimeoutRef.check = setTimeoutRef.check || (typeof performance !== ''+undefinedValue && performance)
 			|| {now: function(){ return +new Date }};
-			sT.hold = sT.hold || 9; // half a frame benchmarks faster than < 1ms?
-			sT.poll = sT.poll || function(f){
-				if((sT.hold >= (check.now() - l)) && c++ < 3333){ f(); return }
-				sI(function(){ l = check.now(); f() },c=0)
+			setTimeoutRef.hold = setTimeoutRef.hold || 9; // Half a frame benchmarks faster than < 1ms?
+			setTimeoutRef.poll = setTimeoutRef.poll || function(func){
+				if((setTimeoutRef.hold >= (performanceCheck.now() - lastTime)) && pollCount++ < 3333){ func(); return }
+				setImmediateShim(function(){ lastTime = performanceCheck.now(); func() }, pollCount=0)
 			}
 		}());
-		;(function(){ // Too many polls block, this "threads" them in turns over a single thread in time.
-			var sT = setTimeout, t = sT.turn = sT.turn || function(f){ 1 == s.push(f) && p(T) }
-			, s = t.s = [], p = sT.poll, i = 0, f, T = function(){
-				if(f = s[i++]){ f() }
-				if(i == s.length || 99 == i){
-					s = t.s = s.slice(i);
-					i = 0;
-				}
-				if(s.length){ p(T) }
-			}
-		}());
+
+		// Threading mechanism to handle multiple polls in turns
 		;(function(){
-			var u, sT = setTimeout, T = sT.turn;
-			(sT.each = sT.each || function(l,f,e,S){ S = S || 9; (function t(s,L,r){
-			  if(L = (s = (l||[]).splice(0,S)).length){
-			  	for(var i = 0; i < L; i++){
-			  		if(u !== (r = f(s[i]))){ break }
-			  	}
-			  	if(u === r){ T(t); return }
-			  } e && e(r);
-			}())})();
+			var setTimeoutRef = setTimeout, turn = setTimeoutRef.turn = setTimeoutRef.turn || function(func){ 1 == queue.push(func) && poll(turnFunc) }
+			, queue = turn.s = [], poll = setTimeoutRef.poll, index = 0, currentFunc, turnFunc = function(){
+				if(currentFunc = queue[index++]){ currentFunc() }
+				if(index == queue.length || 99 == index){
+					queue = turn.s = queue.slice(index);
+					index = 0;
+				}
+				if(queue.length){ poll(turnFunc) }
+			}
+		}());
+
+		// Each utility for processing arrays in chunks
+		;(function(){
+			var undefinedValue, setTimeoutRef = setTimeout, turn = setTimeoutRef.turn;
+			(setTimeoutRef.each = setTimeoutRef.each || function(list, func, end, chunkSize){
+				chunkSize = chunkSize || 9;
+				(function process(subList, length, result){
+					if(length = (subList = (list||[]).splice(0, chunkSize)).length){
+						for(var i = 0; i < length; i++){
+							if(undefinedValue !== (result = func(subList[i]))){ break }
+						}
+						if(undefinedValue === result){ turn(process); return }
+					}
+					end && end(result);
+				}())
+			})();
 		}());
 	})(USE, './shim');
 
 	;USE(function(module){
-		// On event emitter generic javascript utility.
+		// On event emitter generic JavaScript utility.
+		// Provides a simple event system for chaining listeners.
+
+		/**
+		 * Creates or manages event listeners for a given tag.
+		 * @param {string} tag - The event tag to listen to or emit on.
+		 * @param {Function|*} arg - Function to add as listener, or data to emit.
+		 * @param {*} as - Additional context or metadata.
+		 * @returns {Object|undefined} Listener object if adding, or target if emitting.
+		 */
 		module.exports = function onto(tag, arg, as){
-			if(!tag){ return {to: onto} }
-			
+			if(!tag){ return {to: onto} } // Return a chainable object if no tag provided
+
 			var isFunction = typeof arg === 'function';
 			var defaultNext = {
-				next: function(arg){
-					var tmp = this.to;
-					if(tmp){ tmp.next(arg) }
+				next: function(data){
+					var nextTarget = this.to;
+					if(nextTarget){ nextTarget.next(data) }
 				}
 			};
 
-			// Get or create tag
+			// Get or create tag object in the context
 			var tagObj = (this.tag || (this.tag = {}))[tag];
 			if(!tagObj && isFunction){
 				tagObj = this.tag[tag] = {
 					tag: tag,
-					to: onto._ = defaultNext
+					to: onto._ = defaultNext // Set default handler
 				};
 			}
 
-			// Handle function case
+			// Handle function case: add listener
 			if(isFunction){
 				var listener = {
 					off: onto.off || function(){
-						if(this.next === defaultNext.next){ return true }
-						
+						if(this.next === defaultNext.next){ return true } // Already off
+
 						if(this === this.the.last){
-							this.the.last = this.back;
+							this.the.last = this.back; // Update last pointer
 						}
 
-						this.to.back = this.back;
-						this.next = defaultNext.next;
-						this.back.to = this.to;
+						this.to.back = this.back; // Link previous to next
+						this.next = defaultNext.next; // Mark as removed
+						this.back.to = this.to; // Link next to previous
 
 						if(this.the.last === this.the){
-							delete this.on.tag[this.the.tag];
+							delete this.on.tag[this.the.tag]; // Remove empty tag
 						}
 					},
-					to: defaultNext,
-					next: arg,
-					the: tagObj,
-					on: this,
-					as: as
+					to: defaultNext, // Next in chain
+					next: arg, // The listener function
+					the: tagObj, // Reference to tag object
+					on: this, // Context
+					as: as // Metadata
 				};
 
-				var last = tagObj.last || tagObj;
-				listener.back = last;
-				last.to = listener;
-				tagObj.last = listener;
+				var lastListener = tagObj.last || tagObj;
+				listener.back = lastListener; // Link to previous last
+				lastListener.to = listener; // Previous points to new
+				tagObj.last = listener; // Update last
 
 				return listener;
 			}
 
-			// Handle non-function case
+			// Handle non-function case: emit data
 			var target = tagObj && tagObj.to;
 			if(target && arg !== undefined){
-				target.next(arg);
+				target.next(arg); // Trigger listeners
 			}
 			return target;
 		};
@@ -166,217 +232,360 @@
 	;USE(function(module){
 		// TODO: BUG! Unbuild will make these globals... CHANGE unbuild to wrap files in a function.
 		// Book is a replacement for JS objects, maps, dictionaries.
-		var sT = setTimeout, B = sT.Book || (sT.Book = function(text){
-			var b = function book(word, is){
-				var has = b.all[word], p;
-				if(is === undefined){ return (has && has.is) || b.get(has || word) }
-				if(has){
-					if(p = has.page){
-						p.size += size(is) - size(has.is);
-						p.text = '';
+		// Provides a CRDT-like data structure for managing key-value pairs with versioning and paging.
+
+		/**
+		 * Creates a Book instance for managing key-value data with paging and versioning.
+		 * @param {string} text - Initial text data for the book.
+		 * @returns {Function} Book function that can get/set values.
+		 */
+		var setTimeoutRef = setTimeout, Book = setTimeoutRef.Book || (setTimeoutRef.Book = function(text){
+			/**
+			 * Main book function: get or set a value for a word.
+			 * @param {string} word - The key to get or set.
+			 * @param {*} is - The value to set (if provided).
+			 * @returns {*} The value if getting, or the book if setting.
+			 */
+			var book = function book(word, is){
+				var existing = book.all[word], pageRef;
+				if(is === undefined){ return (existing && existing.is) || book.get(existing || word) }
+				if(existing){
+					if(pageRef = existing.page){
+						pageRef.size += size(is) - size(existing.is);
+						pageRef.text = '';
 					}
-					has.text = '';
-					has.is = is;
-					return b;
+					existing.text = '';
+					existing.is = is;
+					return book;
 				}
-				//b.all[word] = {is: word}; return b;
-				return b.set(word, is);
+				//book.all[word] = {is: word}; return book;
+				return book.set(word, is);
 			};
 			// TODO: if from text, preserve the separator symbol.
-			b.list = [{from: text, size: (text||'').length, substring: sub, toString: to, book: b, get: b, read: list}];
-			b.page = page;
-			b.set = set;
-			b.get = get;
-			b.all = {};
-			return b;
-		}), PAGE = 2**12;
+			book.list = [{from: text, size: (text||'').length, substring: sub, toString: to, book: book, get: book, read: list}];
+			book.page = page;
+			book.set = set;
+			book.get = get;
+			book.all = {};
+			return book;
+		}), PAGE_SIZE = 2**12;
 
+		/**
+		 * Finds or creates a page for a given word.
+		 * @param {string} word - The word to find a page for.
+		 * @returns {Object} The page object.
+		 */
 		function page(word){
-			var b = this, l = b.list, i = spot(word, l, b.parse), p = l[i];
-			if('string' == typeof p){ l[i] = p = {size: -1, first: b.parse? b.parse(p) : p, substring: sub, toString: to, book: b, get: b, read: list} } // TODO: test, how do we arrive at this condition again?
-			//p.i = i;
-			return p;
+			var book = this, pages = book.list, index = spot(word, pages, book.parse), pageObj = pages[index];
+			if('string' == typeof pageObj){ pages[index] = pageObj = {size: -1, first: book.parse? book.parse(pageObj) : pageObj, substring: sub, toString: to, book: book, get: book, read: list} } // TODO: test, how do we arrive at this condition again?
+			//pageObj.i = index;
+			return pageObj;
 			// TODO: BUG! What if we get the page, it turns out to be too big & split, we must then RE get the page!
 		}
+		/**
+		 * Retrieves a value for a given word.
+		 * @param {string} word - The word to get the value for.
+		 * @returns {*} The value associated with the word.
+		 */
 		function get(word){
 			if(!word){ return }
 			if(undefined !== word.is){ return word.is } // JS falsey values!
-			var b = this, has = b.all[word];
-			if(has){ return has.is }
+			var book = this, existing = book.all[word];
+			if(existing){ return existing.is }
 			// get does an exact match, so we would have found it already, unless parseless page:
-			var page = b.page(word), l, has, a, i;
-			if(!page || !page.from){ return } // no parseless data
-			return got(word, page);
+			var pageObj = book.page(word), list, existing, array, index;
+			if(!pageObj || !pageObj.from){ return } // no parseless data
+			return got(word, pageObj);
 		}
+		/**
+		 * Helper function to retrieve a value from a page.
+		 * @param {string} word - The word to find.
+		 * @param {Object} page - The page to search in.
+		 * @returns {*} The value if found.
+		 */
 		function got(word, page){
-			var b = page.book, l, has, a, i;
-			if(l = from(page)){ has = l[got.i = i = spot(word, l, B.decode)]; } // TODO: POTENTIAL BUG! This assumes that each word on a page uses the same serializer/formatter/structure. // TOOD: BUG!!! Not actually, but if we want to do non-exact radix-like closest-word lookups on a page, we need to check limbo & potentially sort first.
+			var book = page.book, list, existing, array, index;
+			if(list = from(page)){ existing = list[got.i = index = spot(word, list, Book.decode)]; } // TODO: POTENTIAL BUG! This assumes that each word on a page uses the same serializer/formatter/structure. // TOOD: BUG!!! Not actually, but if we want to do non-exact radix-like closest-word lookups on a page, we need to check limbo & potentially sort first.
 			// parseless may return -1 from actual value, so we may need to test both. // TODO: Double check? I think this is correct.
-			if(has && word == has.word){ return (b.all[word] = has).is }
-			if('string' != typeof has){ has = l[got.i = i+=1] }
-			if(has && word == has.word){ return (b.all[word] = has).is }
-			a = slot(has) // Escape!
-			if(word != B.decode(a[0])){
-				has = l[got.i = i+=1]; // edge case bug?
-				a = slot(has); // edge case bug?
-				if(word != B.decode(a[0])){ return }
+			if(existing && word == existing.word){ return (book.all[word] = existing).is }
+			if('string' != typeof existing){ existing = list[got.i = index+=1] }
+			if(existing && word == existing.word){ return (book.all[word] = existing).is }
+			array = slot(existing) // Escape!
+			if(word != Book.decode(array[0])){
+				existing = list[got.i = index+=1]; // edge case bug?
+				array = slot(existing); // edge case bug?
+				if(word != Book.decode(array[0])){ return }
 			}
-			has = l[i] = b.all[word] = {word: ''+word, is: B.decode(a[1]), page: page, substring: subt, toString: tot}; // TODO: convert to a JS value!!! Maybe index! TODO: BUG word needs a page!!!! TODO: Check for other types!!!
-			return has.is;
+			existing = list[index] = book.all[word] = {word: ''+word, is: Book.decode(array[1]), page: page, substring: subt, toString: tot}; // TODO: convert to a JS value!!! Maybe index! TODO: BUG word needs a page!!!! TODO: Check for other types!!!
+			return existing.is;
 		}
 
+		/**
+		 * Finds the insertion point for a word in a sorted list using binary search.
+		 * @param {string} word - The word to find.
+		 * @param {Array} sorted - The sorted list to search in.
+		 * @param {Function} parse - Parser function.
+		 * @returns {number} The index where the word should be inserted.
+		 */
 		function spot(word, sorted, parse){ parse = parse || spot.no || (spot.no = function(t){ return t }); // TODO: BUG???? Why is there substring()||0 ? // TODO: PERF!!! .toString() is +33% faster, can we combine it with the export?
-			var L = sorted, min = 0, page, found, l = (word=''+word).length, max = L.length, i = max/2;
-			while(((word < (page = (parse(L[i=i>>0])||'').substring())) || ((parse(L[i+1])||'').substring() <= word)) && i != min){ // L[i] <= word < L[i+1]
-				i += (page <= word)? (max - (min = i))/2 : -((max = i) - min)/2;
+			var list = sorted, minIndex = 0, pageStr, found, wordLen = (word=''+word).length, maxIndex = list.length, index = maxIndex/2;
+			while(((word < (pageStr = (parse(list[index=i>>0])||'').substring())) || ((parse(list[index+1])||'').substring() <= word)) && index != minIndex){ // list[index] <= word < list[index+1]
+				index += (pageStr <= word)? (maxIndex - (minIndex = index))/2 : -((maxIndex = index) - minIndex)/2;
 			}
-			return i;
+			return index;
 		}
 
-		function from(a, t, l){
-			if('string' != typeof a.from){ return a.from }
-			//(l = a.from = (t = a.from||'').substring(1, t.length-1).split(t[0])); // slot
-			(l = a.from = slot(t = t||a.from||''));
-			return l;
+		/**
+		 * Parses the 'from' property of a page into a list if it's a string.
+		 * @param {Object} page - The page object.
+		 * @returns {Array} The parsed list.
+		 */
+		function from(page, temp, list){
+			if('string' != typeof page.from){ return page.from }
+			//(list = page.from = (temp = page.from||'').substring(1, temp.length-1).split(temp[0])); // slot
+			(list = page.from = slot(temp = temp||page.from||''));
+			return list;
 		}
-		function list(each){ each = each || function(x){return x} 
-			var i = 0, l = sort(this), w, r = [], p = this.book.parse || function(){};
-			//while(w = l[i++]){ r.push(each(slot(w)[1], p(w)||w, this)) }
-			while(w = l[i++]){ r.push(each(this.get(w = w.word||p(w)||w), w, this)) } // TODO: BUG! PERF?
-			return r;
+		/**
+		 * Reads all entries from the book, applying a callback to each.
+		 * @param {Function} each - Callback function for each entry.
+		 * @returns {Array} Array of results from the callback.
+		 */
+		function list(each){ each = each || function(x){return x}
+			var index = 0, sortedList = sort(this), entry, results = [], parseFunc = this.book.parse || function(){};
+			//while(entry = sortedList[index++]){ results.push(each(slot(entry)[1], parseFunc(entry)||entry, this)) }
+			while(entry = sortedList[index++]){ results.push(each(this.get(entry = entry.word||parseFunc(entry)||entry), entry, this)) } // TODO: BUG! PERF?
+			return results;
 		}
 
+		/**
+		 * Sets a value for a word, handling inserts and updates.
+		 * @param {string} word - The word to set.
+		 * @param {*} is - The value to set.
+		 * @returns {Function} The book function.
+		 */
 		function set(word, is){
 			// TODO: Perf on random write is decent, but short keys or seq seems significantly slower.
-			var b = this, has = b.all[word];
-			if(has){ return b(word, is) } // updates to in-memory items will always match exactly.
-			var page = b.page(word=''+word), tmp; // before we assume this is an insert tho, we need to check
-			if(page && page.from){ // if it could be an update to an existing word from parseless.
-				b.get(word);
-				if(b.all[word]){ return b(word, is) }
+			var book = this, existing = book.all[word];
+			if(existing){ return book(word, is) } // updates to in-memory items will always match exactly.
+			var pageObj = book.page(word=''+word), temp; // before we assume this is an insert tho, we need to check
+			if(pageObj && pageObj.from){ // if it could be an update to an existing word from parseless.
+				book.get(word);
+				if(book.all[word]){ return book(word, is) }
 			}
 			// MUST be an insert:
-			has = b.all[word] = {word: word, is: is, page: page, substring: subt, toString: tot};
-			page.first = (page.first < word)? page.first : word;
-			if(!page.limbo){ (page.limbo = []) }
-			page.limbo.push(has);
-			b(word, is);
-			page.size += size(word) + size(is);
-			if((b.PAGE || PAGE) < page.size){ split(page, b) }
-			return b;
+			existing = book.all[word] = {word: word, is: is, page: pageObj, substring: subt, toString: tot};
+			pageObj.first = (pageObj.first < word)? pageObj.first : word;
+			if(!pageObj.limbo){ (pageObj.limbo = []) }
+			pageObj.limbo.push(existing);
+			book(word, is);
+			pageObj.size += size(word) + size(is);
+			if((book.PAGE || PAGE_SIZE) < pageObj.size){ split(pageObj, book) }
+			return book;
 		}
 
-		function split(p, b){ // TODO: use closest hash instead of half.
+		/**
+		 * Splits a page when it exceeds the size limit.
+		 * @param {Object} page - The page to split.
+		 * @param {Function} book - The book function.
+		 */
+		function split(page, book){ // TODO: use closest hash instead of half.
 			//console.time();
-			//var S = performance.now();
-			var L = sort(p), l = L.length, i = l/2 >> 0, j = i, half = L[j], tmp;
+			//var startTime = performance.now();
+			var sortedList = sort(page), listLen = sortedList.length, midIndex = listLen/2 >> 0, midPos = midIndex, midWord = sortedList[midPos], temp;
 			//console.timeEnd();
-			var next = {first: half.substring(), size: 0, substring: sub, toString: to, book: b, get: b, read: list}, f = next.from = [];
-			while(tmp = L[i++]){
-				f.push(tmp);
-				next.size += (tmp.is||'').length||1;
-				tmp.page = next;
+			var newPage = {first: midWord.substring(), size: 0, substring: sub, toString: to, book: book, get: book, read: list}, newFrom = newPage.from = [];
+			while(temp = sortedList[midIndex++]){
+				newFrom.push(temp);
+				newPage.size += (temp.is||'').length||1;
+				temp.page = newPage;
 			}
-			p.from = p.from.slice(0, j);
-			p.size -= next.size;
-			b.list.splice(spot(next.first, b.list)+1, 0, next); // TODO: BUG! Make sure next.first is decoded text. // TODO: BUG! spot may need parse too?
+			page.from = page.from.slice(0, midPos);
+			page.size -= newPage.size;
+			book.list.splice(spot(newPage.first, book.list)+1, 0, newPage); // TODO: BUG! Make sure newPage.first is decoded text. // TODO: BUG! spot may need parse too?
 			//console.timeEnd();
-			if(b.split){ b.split(next, p) }
-			//console.log(S = (performance.now() - S), 'split');
-			//console.BIG = console.BIG > S? console.BIG : S;
+			if(book.split){ book.split(newPage, page) }
+			//console.log(startTime = (performance.now() - startTime), 'split');
+			//console.BIG = console.BIG > startTime? console.BIG : startTime;
 		}
 
-		function slot(t){ return heal((t=t||'').substring(1, t.length-1).split(t[0]), t[0]) } B.slot = slot; // TODO: check first=last & pass `s`.
-		function heal(l, s){ var i, e;
-			if(0 > (i = l.indexOf(''))){ return l } // ~700M ops/sec on 4KB of Math.random()s, even faster if escape does exist.
-			if('' == l[0] && 1 == l.length){ return [] } // annoying edge cases! how much does this slow us down?
-			//if((c=i+2+parseInt(l[i+1])) != c){ return [] } // maybe still faster than below?
-			if((e=i+2+parseInt((e=l[i+1]).substring(0, e.indexOf('"'))||e)) != e){ return [] } // NaN check in JS is weird.
-			l[i] = l.slice(i, e).join(s||'|'); // rejoin the escaped value
-			return l.slice(0,i+1).concat(heal(l.slice(e), s)); // merge left with checked right.
+		/**
+		 * Parses a string into an array using a separator.
+		 * @param {string} str - The string to parse.
+		 * @returns {Array} The parsed array.
+		 */
+		function slot(str){ return heal((str=str||'').substring(1, str.length-1).split(str[0]), str[0]) } Book.slot = slot; // TODO: check first=last & pass `s`.
+		/**
+		 * Handles escaped values in a parsed array.
+		 * @param {Array} list - The array to heal.
+		 * @param {string} sep - The separator.
+		 * @returns {Array} The healed array.
+		 */
+		function heal(list, sep){ var index, end;
+			if(0 > (index = list.indexOf(''))){ return list } // ~700M ops/sec on 4KB of Math.random()s, even faster if escape does exist.
+			if('' == list[0] && 1 == list.length){ return [] } // annoying edge cases! how much does this slow us down?
+			//if((count=index+2+parseInt(list[index+1])) != count){ return [] } // maybe still faster than below?
+			if((end=index+2+parseInt((end=list[index+1]).substring(0, end.indexOf('"'))||end)) != end){ return [] } // NaN check in JS is weird.
+			list[index] = list.slice(index, end).join(sep||'|'); // rejoin the escaped value
+			return list.slice(0,index+1).concat(heal(list.slice(end), sep)); // merge left with checked right.
 		}
 
-		function size(t){ return (t||'').length||1 } // bits/numbers less size? Bug or feature?
-		function subt(i,j){ return this.word }
-		//function tot(){ return this.text = this.text || "'"+(this.word)+"'"+(this.is)+"'" }
-		function tot(){ var tmp = {};
-			//if((tmp = this.page) && tmp.saving){ delete tmp.book.all[this.word]; } // TODO: BUG! Book can't know about RAD, this was from RAD, so this MIGHT be correct but we need to refactor. Make sure to add tests that will re-trigger this.
-			return this.text = this.text || ":"+B.encode(this.word)+":"+B.encode(this.is)+":";
-			tmp[this.word] = this.is;
-			return this.text = this.text || B.encode(tmp,'|',':').slice(1,-1);
+		/**
+		 * Calculates the size of a value.
+		 * @param {*} value - The value to measure.
+		 * @returns {number} The size.
+		 */
+		function size(value){ return (value||'').length||1 } // bits/numbers less size? Bug or feature?
+		/**
+		 * Substring for word.
+		 * @param {number} start - Start index.
+		 * @param {number} end - End index.
+		 * @returns {string} Substring.
+		 */
+		function subt(start, end){ return this.word }
+
+		/**
+		 * To string for entry.
+		 * @returns {string} String representation.
+		 */
+		function tot(){ var temp = {};
+			//if((temp = this.page) && temp.saving){ delete temp.book.all[this.word]; } // TODO: BUG! Book can't know about RAD, this was from RAD, so this MIGHT be correct but we need to refactor. Make sure to add tests that will re-trigger this.
+			return this.text = this.text || ":"+Book.encode(this.word)+":"+Book.encode(this.is)+":";
+			temp[this.word] = this.is;
+			return this.text = this.text || Book.encode(temp,'|',':').slice(1,-1);
 			//return this.text = this.text || "'"+(this.word)+"'"+(this.is)+"'";
 		}
-		function sub(i,j){ return (this.first||this.word||B.decode((from(this)||'')[0]||'')).substring(i,j) }
+
+		/**
+		 * Substring for page.
+		 * @param {number} start - Start index.
+		 * @param {number} end - End index.
+		 * @returns {string} Substring.
+		 */
+		function sub(start, end){ return (this.first||this.word||Book.decode((from(this)||'')[0]||'')).substring(start, end) }
+
+		/**
+		 * To string for page.
+		 * @returns {string} String representation.
+		 */
 		function to(){ return this.text = this.text || text(this) }
-		function text(p){ // PERF: read->[*] : text->"*" no edit waste 1 time perf.
-			if(p.limbo){ sort(p) } // TODO: BUG? Empty page meaning? undef, '', '||'?
-			return ('string' == typeof p.from)? p.from : '|'+(p.from||[]).join('|')+'|';
+		/**
+		 * Generates the text representation of a page.
+		 * @param {Object} page - The page to represent.
+		 * @returns {string} Text representation.
+		 */
+		function text(page){ // PERF: read->[*] : text->"*" no edit waste 1 time perf.
+			if(page.limbo){ sort(page) } // TODO: BUG? Empty page meaning? undef, '', '||'?
+			return ('string' == typeof page.from)? page.from : '|'+(page.from||[]).join('|')+'|';
 		}
 
-		function sort(p, l){
-			var f = p.from = ('string' == typeof p.from)? slot(p.from) : p.from||[];
-			if(!(l = l || p.limbo)){ return f }
-			return mix(p).sort(function(a,b){
-				return (a.word||B.decode(''+a)) < (b.word||B.decode(''+b))? -1:1;
+		/**
+		 * Sorts the entries in a page.
+		 * @param {Object} page - The page to sort.
+		 * @param {Array} limbo - Limbo entries.
+		 * @returns {Array} Sorted list.
+		 */
+		function sort(page, limbo){
+			var fromList = page.from = ('string' == typeof page.from)? slot(page.from) : page.from||[];
+			if(!(limbo = limbo || page.limbo)){ return fromList }
+			return mix(page).sort(function(a,b){
+				return (a.word||Book.decode(''+a)) < (b.word||Book.decode(''+b))? -1:1;
 			});
 		}
-		function mix(p, l){ // TODO: IMPROVE PERFORMANCE!!!! l[j] = i is 5X+ faster than .push(
-			l = l || p.limbo || []; p.limbo = null;
-			var j = 0, i, f = p.from;
-			while(i = l[j++]){
-				if(got(i.word, p)){
-					f[got.i] = i; // TODO: Trick: allow for a GUN'S HAM CRDT hook here.
+		/**
+		 * Mixes limbo entries into the from list.
+		 * @param {Object} page - The page.
+		 * @param {Array} limbo - Limbo entries.
+		 * @returns {Array} Mixed list.
+		 */
+		function mix(page, limbo){ // TODO: IMPROVE PERFORMANCE!!!! l[j] = i is 5X+ faster than .push(
+			limbo = limbo || page.limbo || []; page.limbo = null;
+			var index = 0, entry, fromList = page.from;
+			while(entry = limbo[index++]){
+				if(got(entry.word, page)){
+					fromList[got.i] = entry; // TODO: Trick: allow for a GUN'S HAM CRDT hook here.
 				} else {
-					f.push(i); 
+					fromList.push(entry);
 				}
 			}
-			return f;
+			return fromList;
 		}
 
-		B.encode = function(d, s, u){ s = s || "|"; u = u || String.fromCharCode(32);
-			switch(typeof d){
+		/**
+		 * Encodes a value to a string.
+		 * @param {*} data - The data to encode.
+		 * @param {string} sep - Separator.
+		 * @param {string} unitSep - Unit separator.
+		 * @returns {string} Encoded string.
+		 */
+		Book.encode = function(data, sep, unitSep){ sep = sep || "|"; unitSep = unitSep || String.fromCharCode(32);
+			switch(typeof data){
 				case 'string': // text
-					var i = d.indexOf(s), c = 0;
-					while(i != -1){ c++; i = d.indexOf(s, i+1) }
-					return (c?s+c:'')+ '"' + d;
-				case 'number': return (d < 0)? ''+d : '+'+d;
-				case 'boolean': return d? '+' : '-';
-				case 'object': if(!d){ return ' ' } // TODO: BUG!!! Nested objects don't slot correctly
-					var l = Object.keys(d).sort(), i = 0, t = s, k, v;
-					while(k = l[i++]){ t += u+B.encode(k,s,u)+u+B.encode(d[k],s,u)+u+s }
-					return t;
+					var index = data.indexOf(sep), count = 0;
+					while(index != -1){ count++; index = data.indexOf(sep, index+1) }
+					return (count?sep+count:'')+ '"' + data;
+				case 'number': return (data < 0)? ''+data : '+'+data;
+				case 'boolean': return data? '+' : '-';
+				case 'object': if(!data){ return ' ' } // TODO: BUG!!! Nested objects don't slot correctly
+					var keys = Object.keys(data).sort(), i = 0, result = sep, key, value;
+					while(key = keys[i++]){ result += unitSep+Book.encode(key,sep,unitSep)+unitSep+Book.encode(data[key],sep,unitSep)+unitSep+sep }
+					return result;
 			}
 		}
-		B.decode = function(t, s){ s = s || "|";
-			if('string' != typeof t){ return }
-			switch(t){ case ' ': return null; case '-': return false; case '+': return true; }
-			switch(t[0]){
-				case '-': case '+': return parseFloat(t);
-				case '"': return t.slice(1);
+		/**
+		 * Decodes a string back to a value.
+		 * @param {string} str - The string to decode.
+		 * @param {string} sep - Separator.
+		 * @returns {*} Decoded value.
+		 */
+		Book.decode = function(str, sep){ sep = sep || "|";
+			if('string' != typeof str){ return }
+			switch(str){ case ' ': return null; case '-': return false; case '+': return true; }
+			switch(str[0]){
+				case '-': case '+': return parseFloat(str);
+				case '"': return str.slice(1);
 			}
-			return t.slice(t.indexOf('"')+1);
+			return str.slice(str.indexOf('"')+1);
 		}
 
-		B.hash = function(s, c){ // via SO
-			if(typeof s !== 'string'){ return }
-		  c = c || 0; // CPU schedule hashing by
-		  if(!s.length){ return c }
-		  for(var i=0,l=s.length,n; i<l; ++i){
-		    n = s.charCodeAt(i);
-		    c = ((c<<5)-c)+n;
-		    c |= 0;
+		/**
+		 * Computes a hash for a string.
+		 * @param {string} str - String to hash.
+		 * @param {number} hash - Initial hash value.
+		 * @returns {number} Hash value.
+		 */
+		Book.hash = function(str, hash){ // via SO
+			if(typeof str !== 'string'){ return }
+		  hash = hash || 0; // CPU schedule hashing by
+		  if(!str.length){ return hash }
+		  for(var i=0, len=str.length, charCode; i<len; ++i){
+		    charCode = str.charCodeAt(i);
+		    hash = ((hash<<5)-hash)+charCode;
+		    hash |= 0;
 		  }
-		  return c;
+		  return hash;
 		}
 
-		function record(key, val){ return key+B.encode(val)+"%"+key.length }
-		function decord(t){
-			var o = {}, i = t.lastIndexOf("%"), c = parseFloat(t.slice(i+1));
-			o[t.slice(0,c)] = B.decode(t.slice(c,i));
-			return o;
+		/**
+		 * Records a key-value pair as a string.
+		 * @param {string} key - The key.
+		 * @param {*} value - The value.
+		 * @returns {string} Encoded record.
+		 */
+		function record(key, value){ return key+Book.encode(value)+"%"+key.length }
+
+		/**
+		 * Decords a string back to a key-value pair.
+		 * @param {string} str - The encoded record.
+		 * @returns {Object} Decoded object.
+		 */
+		function decord(str){
+			var obj = {}, index = str.lastIndexOf("%"), keyLen = parseFloat(str.slice(index+1));
+			obj[str.slice(0,keyLen)] = Book.decode(str.slice(keyLen,index));
+			return obj;
 		}
 
-		try{module.exports=B}catch(e){}
+		try{module.exports=Book}catch(e){}
 	})(USE, './book');
 
 	;USE(function(module){
@@ -384,230 +593,249 @@
 		// or a soul relation. Arrays need special algorithms to handle concurrency,
 		// so they are not supported directly. Use an extension that supports them if
 		// needed but research their problems first.
-		module.exports = function(v){
+
+		/**
+		 * Validates if a value is acceptable for storage.
+		 * @param {*} value - The value to validate.
+		 * @returns {boolean} True if valid.
+		 */
+		module.exports = function(value){
 		  // "deletes", nulling out keys.
-		  return v === null ||
-			"string" === typeof v ||
-			"boolean" === typeof v ||
+		  return value === null ||
+			"string" === typeof value ||
+			"boolean" === typeof value ||
 			// we want +/- Infinity to be, but JSON does not support it, sad face.
-			// can you guess what v === v checks for? ;)
-			("number" === typeof v && v != Infinity && v != -Infinity && v === v) ||
-			(!!v && "string" == typeof v["#"] && Object.keys(v).length === 1 && v["#"]);
+			// can you guess what value === value checks for? ;)
+			("number" === typeof value && value != Infinity && value != -Infinity && value === value) ||
+			(!!value && "string" == typeof value["#"] && Object.keys(value).length === 1 && value["#"]);
 		}
 	})(USE, './valid');
 
 	;USE(function(module) {
-    USE('./shim');
+	    USE('./shim');
 
-    /**
-     * @typedef {Object} StateNode
-     * @property {Object} _ - Metadata container
-     * @property {string} _['#'] - Soul identifier
-     * @property {Object} _['>'] - State timestamps
-     */
+	    /**
+	     * @typedef {Object} StateNode
+	     * @property {Object} _ - Metadata container
+	     * @property {string} _['#'] - Soul identifier
+	     * @property {Object} _['>'] - State timestamps
+	     */
 
-    /**
-     * Creates a timestamp-based state with drift compensation
-     * @returns {number} Calculated state timestamp
-     */
-    function State() {
-        const currentTime = +new Date();
-        const DECIMAL_PRECISION = 999; // Adjustable based on machine processing speed
-        
-        if (State.lastTimestamp < currentTime) {
-            State.counter = 0;
-            State.lastTimestamp = currentTime + State.drift;
-            return State.lastTimestamp;
-        }
+	    /**
+	     * Creates a timestamp-based state with drift compensation.
+	     * Generates unique timestamps for conflict resolution.
+	     * @returns {number} Calculated state timestamp.
+	     */
+	    function State() {
+	        const currentTime = +new Date();
+	        const DECIMAL_PRECISION = 999; // Adjustable based on machine processing speed
 
-        State.counter += 1;
-        State.lastTimestamp = currentTime + (State.counter / DECIMAL_PRECISION) + State.drift;
-        return State.lastTimestamp;
-    }
+	        if (State.lastTimestamp < currentTime) {
+	            State.counter = 0;
+	            State.lastTimestamp = currentTime + State.drift;
+	            return State.lastTimestamp;
+	        }
 
-    // Initialize state properties
-    State.drift = 0;
-    State.counter = 0;
-    State.lastTimestamp = -Infinity;
+	        State.counter += 1;
+	        State.lastTimestamp = currentTime + (State.counter / DECIMAL_PRECISION) + State.drift;
+	        return State.lastTimestamp;
+	    }
 
-    /**
-     * Retrieves state value for a given key on a node
-     * @param {StateNode} node - Target node
-     * @param {string} key - Key to check
-     * @param {Object} [fallback] - Fallback object if node state unavailable
-     * @returns {number|undefined} State value or -Infinity if not found
-     */
-    State.is = function(node, key, fallback) {
-        const stateContainer = (key && node?._?.['>']) || fallback;
-        if (!stateContainer) return undefined;
-        
-        const state = stateContainer[key];
-        return typeof state === 'number' ? state : -Infinity;
-    };
+	    // Initialize state properties
+	    State.drift = 0; // Clock drift compensation
+	    State.counter = 0; // Counter for same-millisecond timestamps
+	    State.lastTimestamp = -Infinity; // Last generated timestamp
 
-    /**
-     * Sets state for a key on a node
-     * @param {StateNode} node - Target node
-     * @param {string} key - Key to modify
-     * @param {number} state - State value
-     * @param {*} value - Associated value
-     * @param {string} [soul] - Soul identifier
-     * @returns {StateNode} Modified node
-     */
-    State.ify = function(node = {}, key, state, value, soul) {
-        // Initialize metadata container
-        node._ = node._ || {};
-        
-        if (soul) {
-            node._['#'] = soul;
-        }
+	    /**
+	     * Retrieves state value for a given key on a node.
+	     * @param {StateNode} node - Target node.
+	     * @param {string} key - Key to check.
+	     * @param {Object} [fallback] - Fallback object if node state unavailable.
+	     * @returns {number|undefined} State value or -Infinity if not found.
+	     */
+	    State.is = function(node, key, fallback) {
+	        const stateContainer = (key && node?._?.['>']) || fallback;
+	        if (!stateContainer) return undefined;
 
-        const states = node._['>'] || (node._['>'] = {});
+	        const stateValue = stateContainer[key];
+	        return typeof stateValue === 'number' ? stateValue : -Infinity;
+	    };
 
-        if (key !== undefined && key !== '_') {
-            if (typeof state === 'number') {
-                states[key] = state;
-            }
-            if (value !== undefined) {
-                node[key] = value;
-            }
-        }
+	    /**
+	     * Sets state for a key on a node.
+	     * @param {StateNode} node - Target node.
+	     * @param {string} key - Key to modify.
+	     * @param {number} state - State value.
+	     * @param {*} value - Associated value.
+	     * @param {string} [soul] - Soul identifier.
+	     * @returns {StateNode} Modified node.
+	     */
+	    State.ify = function(node = {}, key, state, value, soul) {
+	        // Initialize metadata container
+	        node._ = node._ || {};
 
-        return node;
-    };
+	        if (soul) {
+	            node._['#'] = soul;
+	        }
 
-    module.exports = State;
-})(USE, './state');
+	        const stateTimestamps = node._['>'] || (node._['>'] = {});
+
+	        if (key !== undefined && key !== '_') {
+	            if (typeof state === 'number') {
+	                stateTimestamps[key] = state;
+	            }
+	            if (value !== undefined) {
+	                node[key] = value;
+	            }
+	        }
+
+	        return node;
+	    };
+
+	    module.exports = State;
+	})(USE, './state');
 
 USE(function (module) {
   USE('./shim');
 
   /**
    * Duplication tracking utility.
-   * @param {Object} [opt] - Options for the Dup instance.
-   * @param {number} [opt.max=999] - Maximum number of entries.
-   * @param {number} [opt.age=9000] - Age threshold for entries in milliseconds.
+   * Prevents processing of duplicate messages within a time window.
+   * @param {Object} [options] - Options for the Dup instance.
+   * @param {number} [options.max=999] - Maximum number of entries.
+   * @param {number} [options.age=9000] - Age threshold for entries in milliseconds.
    * @returns {Object} dup - The Dup instance.
    */
-  function Dup(opt = { max: 999, age: 9000 }) {
-			const dup = { s: {} };
-			const s = dup.s;
+  function Dup(options = { max: 999, age: 9000 }) {
+		const dup = { s: {} }; // Storage for tracked items
+		const storage = dup.s;
 
-			/**
-			 * Checks if an ID exists in the tracking system.
-			 * @param {string} id - The ID to check.
-			 * @returns {boolean} - True if the ID exists, false otherwise.
-			 */
-			dup.check = function (id) {
-				if (!s[id]) {
-					return false;
-				}
-				return dt(id);
-			};
+		/**
+		 * Checks if an ID exists in the tracking system.
+		 * @param {string} id - The ID to check.
+		 * @returns {boolean} True if the ID exists, false otherwise.
+		 */
+		dup.check = function (id) {
+			if (!storage[id]) {
+				return false;
+			}
+			return trackFunction(id); // Update timestamp on check
+		};
 
-			/**
-			 * Tracks an ID, updating its timestamp.
-			 * @param {string} id - The ID to track.
-			 * @returns {Object} - The tracked item.
-			 */
-			const dt = (dup.track = function (id) {
-				const it = s[id] || (s[id] = {});
-				it.was = dup.now = Date.now();
-				if (!dup.to) {
-					dup.to = setTimeout(dup.drop, opt.age + 9);
-				}
-				if (dt.ed) {
-					dt.ed(id);
-				}
-				return it;
-			});
+		/**
+		 * Tracks an ID, updating its timestamp.
+		 * @param {string} id - The ID to track.
+		 * @returns {Object} The tracked item.
+		 */
+		const trackFunction = (dup.track = function (id) {
+			const item = storage[id] || (storage[id] = {});
+			item.was = dup.now = Date.now();
+			if (!dup.to) {
+				dup.to = setTimeout(dup.drop, options.age + 9); // Schedule cleanup
+			}
+			if (trackFunction.ed) {
+				trackFunction.ed(id);
+			}
+			return item;
+		});
 
-			/**
-			 * Drops old entries from the tracking system.
-			 * @param {number} [age] - The age threshold for dropping entries.
-			 */
-			dup.drop = function (age) {
-				dup.to = null;
-				dup.now = Date.now();
-				const keys = Object.keys(s);
-				console.STAT && console.STAT(dup.now, Date.now() - dup.now, 'dup drop keys');
-				setTimeout.each(
-					keys,
-					(id) => {
-						const it = s[id];
-						if (it && (age || opt.age) > dup.now - it.was) {
-							return;
-						}
-						delete s[id];
-					},
-					0,
-					99
-				);
-			};
+		/**
+		 * Drops old entries from the tracking system.
+		 * @param {number} [age] - The age threshold for dropping entries.
+		 */
+		dup.drop = function (age) {
+			dup.to = null;
+			dup.now = Date.now();
+			const keys = Object.keys(storage);
+			console.STAT && console.STAT(dup.now, Date.now() - dup.now, 'dup drop keys');
+			setTimeout.each(
+				keys,
+				(id) => {
+					const item = storage[id];
+					if (item && (age || options.age) > dup.now - item.was) {
+						return; // Keep if not old enough
+					}
+					delete storage[id];
+				},
+				0,
+				99
+			);
+		};
 
-			return dup;
-		}
+		return dup;
+	}
 
-		module.exports = Dup;
-	})(USE, './dup');
+	module.exports = Dup;
+})(USE, './dup');
 
 	USE(function (module) {
-    // Request/response module for asking and acknowledging messages.
-    USE('./onto'); // Depends upon onto!
+	    // Request/response module for asking and acknowledging messages.
+	    USE('./onto'); // Depends upon onto!
 
-    /**
-     * Function to handle request/response messages.
-     * @param {Function|string|Object} cb - Callback function or message ID.
-     * @param {Object} [as] - Additional parameters.
-     * @returns {string|boolean} - Message ID or true if successful.
-     */
-    module.exports = function ask(cb, as) {
-        if (!this.on) return;
+	    /**
+	     * Handles request/response messages for acknowledgments.
+	     * @param {Function|string|Object} callback - Callback function or message ID.
+	     * @param {Object} [options] - Additional parameters.
+	     * @returns {string|boolean} Message ID or true if successful.
+	     */
+	    module.exports = function ask(callback, options) {
+	        if (!this.on) return;
 
-        const lack = (this.opt || {}).lack || 9000;
+	        const timeout = (this.opt || {}).lack || 9000;
 
-        if (typeof cb !== 'function') {
-            if (!cb) return;
-            const id = cb['#'] || cb;
-            let tmp = (this.tag || '')[id];
-            if (!tmp) return;
-            if (as) {
-                tmp = this.on(id, as);
-                clearTimeout(tmp.err);
-                tmp.err = setTimeout(() => tmp.off(), lack);
-            }
-            return true;
-        }
+	        if (typeof callback !== 'function') {
+	            if (!callback) return;
+	            const messageId = callback['#'] || callback;
+	            let listener = (this.tag || '')[messageId];
+	            if (!listener) return;
+	            if (options) {
+	                listener = this.on(messageId, options);
+	                clearTimeout(listener.err);
+	                listener.err = setTimeout(() => listener.off(), timeout);
+	            }
+	            return true;
+	        }
 
-        const id = (as && as['#']) || random(9);
-        if (!cb) return id;
+	        const id = (options && options['#']) || randomString(9);
+	        if (!callback) return id;
 
-        const to = this.on(id, cb, as);
-        to.err = to.err || setTimeout(() => {
-            to.off();
-            to.next({ err: "Error: No ACK yet.", lack: true });
-        }, lack);
+	        const listener = this.on(id, callback, options);
+	        listener.err = listener.err || setTimeout(() => {
+	            listener.off();
+	            listener.next({ err: "Error: No ACK yet.", lack: true });
+	        }, timeout);
 
-        return id;
-    };
+	        return id;
+	    };
 
-    /**
-     * Generates a random string of specified length.
-     * @param {number} [length=9] - Length of the random string.
-     * @returns {string} - Random string.
-     */
-		const random = String.random || function (length = 9) { return Math.random().toString(36).slice(2, 2 + length) };
-	})(USE, './ask');
+	    /**
+	     * Generates a random string of specified length.
+	     * @param {number} [length=9] - Length of the random string.
+	     * @returns {string} Random string.
+	     */
+			const randomString = String.random || function (length = 9) { return Math.random().toString(36).slice(2, 2 + length) };
+		})(USE, './ask');
 	
 	;USE(function(module){
 
-		function Gun(o){
-			if(o instanceof Gun){ return (this._ = {$: this}).$ }
-			if(!(this instanceof Gun)){ return new Gun(o) }
-			return Gun.create(this._ = {$: this, opt: o});
+		/**
+		 * Main Gun constructor.
+		 * Creates a new Gun instance or returns existing if passed.
+		 * @param {Object} [options] - Configuration options.
+		 * @returns {Object} Gun chain instance.
+		 */
+		function Gun(options){
+			if(options instanceof Gun){ return (this._ = {$: this}).$ }
+			if(!(this instanceof Gun)){ return new Gun(options) }
+			return Gun.create(this._ = {$: this, opt: options});
 		}
 
-		Gun.is = function($){ return ($ instanceof Gun) || ($ && $._ && ($ === $._.$)) || false }
+		/**
+		 * Checks if an object is a Gun instance.
+		 * @param {*} obj - Object to check.
+		 * @returns {boolean} True if Gun instance.
+		 */
+		Gun.is = function(obj){ return (obj instanceof Gun) || (obj && obj._ && (obj === obj._.$)) || false }
 
 		Gun.version = 0.2020;
 
@@ -622,45 +850,55 @@ USE(function (module) {
 		Gun.ask = USE('./ask');
 
 		;(function(){
-			Gun.create = function(at){
-				at.root = at.root || at;
-				at.graph = at.graph || {};
-				at.on = at.on || Gun.on;
-				at.ask = at.ask || Gun.ask;
-				at.dup = at.dup || Gun.dup();
-				var gun = at.$.opt(at.opt);
-				if(!at.once){
-					at.on('in', universe, at);
-					at.on('out', universe, at);
-					at.on('put', map, at);
-					Gun.on('create', at);
-					at.on('create', at);
+			/**
+			 * Creates the internal Gun instance with event handlers.
+			 * @param {Object} context - The Gun context.
+			 * @returns {Object} The Gun chain.
+			 */
+			Gun.create = function(context){
+				context.root = context.root || context;
+				context.graph = context.graph || {}; // In-memory graph
+				context.on = context.on || Gun.on; // Event emitter
+				context.ask = context.ask || Gun.ask; // Request handler
+				context.dup = context.dup || Gun.dup(); // Duplication tracker
+				var chain = context.$.opt(context.opt);
+				if(!context.once){
+					context.on('in', universe, context); // Incoming messages
+					context.on('out', universe, context); // Outgoing messages
+					context.on('put', map, context); // Put operations
+					Gun.on('create', context); // Global create event
+					context.on('create', context); // Local create event
 				}
-				at.once = 1;
-				return gun;
+				context.once = 1;
+				return chain;
 			}
-			function universe(msg){
-				// TODO: BUG! msg.out = null being set!
-				//if(!F){ var eve = this; setTimeout(function(){ universe.call(eve, msg,1) },Math.random() * 100);return; } // ADD F TO PARAMS!
-				if(!msg){ return }
-				if(msg.out === universe){ this.to.next(msg); return }
-				var eve = this, as = eve.as, at = as.at || as, gun = at.$, dup = at.dup, tmp, DBG = msg.DBG;
-				(tmp = msg['#']) || (tmp = msg['#'] = text_rand(9));
-				if(dup.check(tmp)){ return } dup.track(tmp);
-				tmp = msg._; msg._ = ('function' == typeof tmp)? tmp : function(){};
-				(msg.$ && (msg.$ === (msg.$._||'').$)) || (msg.$ = gun);
-				if(msg['@'] && !msg.put){ ack(msg) }
-				if(!at.ask(msg['@'], msg)){ // is this machine listening for an ack?
-					DBG && (DBG.u = +new Date);
-					if(msg.put){ put(msg); return } else
-					if(msg.get){ Gun.on.get(msg, gun) }
+			/**
+			 * Main message processing function for incoming/outgoing messages.
+			 * Handles deduplication, routing, and event emission.
+			 * @param {Object} message - The message to process.
+			 */
+			function universe(message){
+				// TODO: BUG! message.out = null being set!
+				//if(!F){ var eve = this; setTimeout(function(){ universe.call(eve, message,1) },Math.random() * 100);return; } // ADD F TO PARAMS!
+				if(!message){ return }
+				if(message.out === universe){ this.to.next(message); return }
+				var event = this, context = event.as, instance = context.at || context, gunInstance = instance.$, dupTracker = instance.dup, temp, debug = message.DBG;
+				(temp = message['#']) || (temp = message['#'] = text_rand(9));
+				if(dupTracker.check(temp)){ return } dupTracker.track(temp);
+				temp = message._; message._ = ('function' == typeof temp)? temp : function(){};
+				(message.$ && (message.$ === (message.$._||'').$)) || (message.$ = gunInstance);
+				if(message['@'] && !message.put){ ack(message) }
+				if(!instance.ask(message['@'], message)){ // is this machine listening for an ack?
+					debug && (debug.u = +new Date);
+					if(message.put){ put(message); return } else
+					if(message.get){ Gun.on.get(message, gunInstance) }
 				}
-				DBG && (DBG.uc = +new Date);
-				eve.to.next(msg);
-				DBG && (DBG.ua = +new Date);
-				if(msg.nts || msg.NTS){ return } // TODO: This shouldn't be in core, but fast way to prevent NTS spread. Delete this line after all peers have upgraded to newer versions.
-				msg.out = universe; at.on('out', msg);
-				DBG && (DBG.ue = +new Date);
+				debug && (debug.uc = +new Date);
+				event.to.next(message);
+				debug && (debug.ua = +new Date);
+				if(message.nts || message.NTS){ return } // TODO: This shouldn't be in core, but fast way to prevent NTS spread. Delete this line after all peers have upgraded to newer versions.
+				message.out = universe; instance.on('out', message);
+				debug && (debug.ue = +new Date);
 			}
 			function put(msg){
 				if(!msg){ return }
@@ -912,56 +1150,56 @@ USE(function (module) {
 	})(USE, './root');
 
 	USE(function(module) {
-    const Gun = USE('./root');
+	    const Gun = USE('./root');
 
-    /**
-     * Navigates back in the chain.
-     * @param {number|string|function} n - The number of steps to go back, a string path, or a function to match.
-     * @param {object} [opt] - Optional parameter.
-     * @returns {object} - The resulting node in the chain.
-     */
-    Gun.chain.back = function(n = 1, opt) {
-        if (n === -1 || n === Infinity) {
-            return this._.root.$;
-        }
-        if (n === 1) {
-            return (this._.back || this._).$;
-        }
+	    /**
+	     * Navigates back in the chain to a previous context.
+	     * @param {number|string|function} steps - Number of steps, path string, or matcher function.
+	     * @param {object} [options] - Optional parameter.
+	     * @returns {object} The resulting node in the chain.
+	     */
+	    Gun.chain.back = function(steps = 1, options) {
+	        if (steps === -1 || steps === Infinity) {
+	            return this._.root.$; // Root of the chain
+	        }
+	        if (steps === 1) {
+	            return (this._.back || this._).$; // Immediate parent
+	        }
 
-        const gun = this;
-        let at = gun._;
+	        const gun = this;
+	        let context = gun._;
 
-        if (typeof n === 'string') {
-            n = n.split('.');
-        }
+	        if (typeof steps === 'string') {
+	            steps = steps.split('.'); // Convert path to array
+	        }
 
-        if (Array.isArray(n)) {
-            let tmp = at;
-            for (const key of n) {
-                tmp = (tmp || {})[key];
-            }
-            if (tmp !== undefined) {
-                return opt ? gun : tmp;
-            }
-            if ((tmp = at.back)) {
-                return tmp.$.back(n, opt);
-            }
-            return;
-        }
+	        if (Array.isArray(steps)) {
+	            let current = context;
+	            for (const key of steps) {
+	                current = (current || {})[key];
+	            }
+	            if (current !== undefined) {
+	                return options ? gun : current;
+	            }
+	            if ((current = context.back)) {
+	                return current.$.back(steps, options); // Recurse up
+	            }
+	            return;
+	        }
 
-        if (typeof n === 'function') {
-            let yes;
-            let tmp = { back: at };
-            while ((tmp = tmp.back) && (yes = n(tmp, opt)) === undefined) {}
-            return yes;
-        }
+	        if (typeof steps === 'function') {
+	            let result;
+	            let current = { back: context };
+	            while ((current = current.back) && (result = steps(current, options)) === undefined) {}
+	            return result;
+	        }
 
-        if (typeof n === 'number') {
-            return (at.back || at).$.back(n - 1);
-        }
+	        if (typeof steps === 'number') {
+	            return (context.back || context).$.back(steps - 1); // Decrement steps
+	        }
 
-        return this;
-    };
+	        return this;
+	    };
 
 	})(USE, './back');
 
