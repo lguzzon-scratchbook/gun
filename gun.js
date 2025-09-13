@@ -119,11 +119,11 @@
 		}
 
 		let charCode;
-		for (let i = 0, len = str.length; i < len; ++i) {
-			charCode = str.charCodeAt(i);
+		[...str].forEach(char => {
+			charCode = char.charCodeAt(0);
 			hash = ((hash << 5) - hash) + charCode;
 			hash |= 0;
-		}
+		});
 
 		return hash;
 	};
@@ -168,14 +168,7 @@
 	 * @returns {Array} Array of keys
 	 */
 	Object.keys = Object.keys || function(obj) {
-		let keys = [];
-		for (let key in obj) {
-			if (hasOwnProperty.call(obj, key)) {
-				keys.push(key);
-			}
-		}
-
-		return keys;
+		return Object.getOwnPropertyNames(obj).filter(key => obj.propertyIsEnumerable(key));
 	};
 
 	// setTimeout Utilities for Better Async Handling
@@ -288,24 +281,25 @@
 		setTimeoutRef.each = setTimeoutRef.each || function(list, func, end, chunkSize) {
 			chunkSize = chunkSize || CHUNK_SIZE_DEFAULT;
 
-			(function process(subList, length, result) {
-				if (length = (subList = (list || []).splice(0, chunkSize)).length) {
-					for (let i = 0; i < length; i++) {
-						if (undefinedValue !== (result = func(subList[i]))) {
-							break;
-						}
-						}
-
-						if (undefinedValue === result) {
-							turn(process);
-							return;
-						}
+			let index = 0;
+			(function process(result) {
+				const subList = (list || []).slice(index, index + chunkSize);
+				index += chunkSize;
+				if (subList.length) {
+					const stopped = subList.some(item => {
+						result = func(item);
+						return undefinedValue !== result;
+					});
+					if (!stopped) {
+						turn(process);
+						return;
 					}
-
-					if (end) {
-						end(result);
-					}
-				}());
+				}
+		
+				if (end) {
+					end(result);
+				}
+			}());
 		};
 	}());
 
@@ -483,11 +477,9 @@
 		 * @returns {number} The index where the word should be inserted.
 		 */
 		function spot(word, sorted, parse){ parse = parse || spot.no || (spot.no = function(t){ return t }); // TODO: BUG???? Why is there substring()||0 ? // TODO: PERF!!! .toString() is +33% faster, can we combine it with the export?
-			var list = sorted, minIndex = 0, pageStr, found, wordLen = (word=''+word).length, maxIndex = list.length, index = maxIndex/2;
-			while(((word < (pageStr = (parse(list[index=i>>0])||'').substring())) || ((parse(list[index+1])||'').substring() <= word)) && index != minIndex){ // list[index] <= word < list[index+1]
-				index += (pageStr <= word)? (maxIndex - (minIndex = index))/2 : -((maxIndex = index) - minIndex)/2;
-			}
-			return index;
+			var list = sorted, wordLen = (word=''+word).length;
+			var insertionIndex = list.findLastIndex(item => (parse(item)||'').substring() <= word);
+			return insertionIndex + 1;
 		}
 
 		/**
@@ -577,7 +569,7 @@
 		 * @returns {Array} The healed array.
 		 */
 		function heal(list, sep){ var index, end;
-			if(0 > (index = list.indexOf(''))){ return list } // ~700M ops/sec on 4KB of Math.random()s, even faster if escape does exist.
+			if(0 > (index = list.findLastIndex(item => item === ''))){ return list } // ~700M ops/sec on 4KB of Math.random()s, even faster if escape does exist.
 			if('' == list[0] && 1 == list.length){ return [] } // annoying edge cases! how much does this slow us down?
 			//if((count=index+2+parseInt(list[index+1])) != count){ return [] } // maybe still faster than below?
 			if((end=index+2+parseInt((end=list[index+1]).substring(0, end.indexOf('"'))||end)) != end){ return [] } // NaN check in JS is weird.
@@ -654,15 +646,15 @@
 		 * @returns {Array} Mixed list.
 		 */
 		function mix(page, limbo){ // TODO: IMPROVE PERFORMANCE!!!! l[j] = i is 5X+ faster than .push(
-			limbo = limbo || page.limbo || []; page.limbo = null;
-			var index = 0, entry, fromList = page.from;
-			while(entry = limbo[index++]){
+			limbo = (limbo || page.limbo || []).toReversed(); page.limbo = null;
+			var fromList = page.from;
+			limbo.forEach(entry => {
 				if(got(entry.word, page)){
 					fromList[got.i] = entry; // TODO: Trick: allow for a GUN'S HAM CRDT hook here.
 				} else {
 					fromList.push(entry);
 				}
-			}
+			});
 			return fromList;
 		}
 
@@ -676,14 +668,13 @@
 		Book.encode = function(data, sep, unitSep){ sep = sep || "|"; unitSep = unitSep || String.fromCharCode(32);
 			switch(typeof data){
 				case 'string': // text
-					var index = data.indexOf(sep), count = 0;
-					while(index != -1){ count++; index = data.indexOf(sep, index+1) }
+					const count = (data.match(new RegExp(sep.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
 					return (count?sep+count:'')+ '"' + data;
 				case 'number': return (data < 0)? ''+data : '+'+data;
 				case 'boolean': return data? '+' : '-';
 				case 'object': if(!data){ return ' ' } // TODO: BUG!!! Nested objects don't slot correctly
-					var keys = Object.keys(data).sort(), i = 0, result = sep, key, value;
-					while(key = keys[i++]){ result += unitSep+Book.encode(key,sep,unitSep)+unitSep+Book.encode(data[key],sep,unitSep)+unitSep+sep }
+					var keys = Object.keys(data).sort(), result = sep;
+					for(const key of keys){ result += unitSep+Book.encode(key,sep,unitSep)+unitSep+Book.encode(data[key],sep,unitSep)+unitSep+sep }
 					return result;
 			}
 		}
