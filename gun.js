@@ -13,148 +13,303 @@
   if(typeof module !== "undefined"){ var MODULE = module }
   /* UNBUILD */
 
-	;USE(function(module){
-		// Shim for generic JavaScript utilities.
-		// Provides polyfills and extensions for String, Object, and setTimeout.
+	;USE(function(module) {
+	// Shim for generic JavaScript utilities
+	// Provides polyfills and extensions for String, Object, and setTimeout
 
-		/**
-		 * Generates a random string of specified length using given charset.
-		 * @param {number} [length=24] - Length of the random string.
-		 * @param {string} [charset] - Characters to use for generation.
-		 * @returns {string} Random string.
-		 */
-		String.random = function(length, charset){
-			var result = '';
-			length = length || 24; // Default length, no need to check type for 0
-			charset = charset || '0123456789ABCDEFGHIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz';
-			while(length-- > 0){ result += charset.charAt(Math.floor(Math.random() * charset.length)) }
-			return result;
+	// Constants
+	const DEFAULT_RANDOM_LENGTH = 24;
+	const DEFAULT_CHARSET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz';
+	const UNDEFINED_VALUE = void 0;
+	const SET_TIMEOUT_HOLD = 9;
+	const POLL_COUNT_LIMIT = 3333;
+	const CHUNK_SIZE_DEFAULT = 9;
+	const TURN_BATCH_SIZE = 99;
+
+	// String Utilities
+
+	/**
+	 * Generates a random string of specified length using given charset.
+	 * @param {number} [length=24] - Length of the random string
+	 * @param {string} [charset] - Characters to use for generation
+	 * @returns {string} Random string
+	 */
+	String.random = function(length, charset) {
+		let result = '';
+		length = length || DEFAULT_RANDOM_LENGTH;
+		charset = charset || DEFAULT_CHARSET;
+
+		while (length-- > 0) {
+			result += charset.charAt(Math.floor(Math.random() * charset.length));
 		}
 
-		/**
-		 * Matches a string against patterns defined in options object.
-		 * @param {string} text - Text to match.
-		 * @param {Object} options - Matching options.
-		 * @returns {boolean} True if matches.
-		 */
-		String.match = function(text, options){
-			if('string' !== typeof text){ return false }
-			if('string' == typeof options){ options = {'=': options} }
-			options = options || {};
-			var pattern = (options['='] || options['*'] || options['>'] || options['<']);
-			if(text === pattern){ return true }
-			if(undefined !== options['=']){ return false }
-			pattern = (options['*'] || options['>']);
-			if(text.slice(0, (pattern||'').length) === pattern){ return true }
-			if(undefined !== options['*']){ return false }
-			if(undefined !== options['>'] && undefined !== options['<']){
-				return (text >= options['>'] && text <= options['<'])? true : false;
-			}
-			if(undefined !== options['>'] && text >= options['>']){ return true }
-			if(undefined !== options['<'] && text <= options['<']){ return true }
+		return result;
+	};
+
+	/**
+	 * Matches a string against patterns defined in options object.
+	 * @param {string} text - Text to match
+	 * @param {Object} options - Matching options
+	 * @returns {boolean} True if matches
+	 */
+	String.match = function(text, options) {
+		if (typeof text !== 'string') {
 			return false;
 		}
 
-		/**
-		 * Computes a hash for a string using a simple algorithm.
-		 * @param {string} str - String to hash.
-		 * @param {number} [hash=0] - Initial hash value.
-		 * @returns {number} Hash value.
-		 */
-		String.hash = function(str, hash){
-			if(typeof str !== 'string'){ return }
-			hash = hash || 0; // CPU schedule hashing by
-			if(!str.length){ return hash }
-			for(var i=0, len=str.length, charCode; i<len; ++i){
-				charCode = str.charCodeAt(i);
-				hash = ((hash<<5)-hash)+charCode;
-				hash |= 0;
-			}
-			return hash;
+		if (typeof options === 'string') {
+			options = { '=': options };
 		}
 
-		var hasOwnProperty = Object.prototype.hasOwnProperty;
+		options = options || {};
 
-		/**
-		 * Checks if an object is a plain object (not an instance of a custom class).
-		 * @param {*} obj - Object to check.
-		 * @returns {boolean} True if plain object.
-		 */
-		Object.plain = function(obj){
-			return obj? (obj instanceof Object && obj.constructor === Object) || Object.prototype.toString.call(obj).match(/^\[object (\w+)\]$/)[1] === 'Object' : false
-		}
-
-		/**
-		 * Checks if an object is empty, optionally excluding certain keys.
-		 * @param {Object} obj - Object to check.
-		 * @param {Array} [exclude] - Keys to exclude from check.
-		 * @returns {boolean} True if empty.
-		 */
-		Object.empty = function(obj, exclude){
-			for(var key in obj){
-				if(hasOwnProperty.call(obj, key) && (!exclude || -1==exclude.indexOf(key))){ return false }
-			}
+		// Exact match
+		let pattern = options['='] || options['*'] || options['>'] || options['<'];
+		if (text === pattern) {
 			return true;
 		}
 
-		/**
-		 * Polyfill for Object.keys.
-		 * @param {Object} obj - Object to get keys from.
-		 * @returns {Array} Array of keys.
-		 */
-		Object.keys = Object.keys || function(obj){
-			var keys = [];
-			for(var key in obj){ if(hasOwnProperty.call(obj, key)){ keys.push(key) } }
-			return keys;
+		// No exact match
+		if (UNDEFINED_VALUE !== options['=']) {
+			return false;
 		}
 
-		// setTimeout utilities for better async handling
-		;(function(){
-			var undefinedValue, setTimeoutRef = setTimeout, lastTime = 0, pollCount = 0
-			, setImmediateShim = (typeof setImmediate !== ''+undefinedValue && setImmediate) || (function(callback, func){
-				if(typeof MessageChannel == ''+undefinedValue){ return setTimeoutRef }
-				var channel = new MessageChannel();
-				channel.port1.onmessage = function(event){ ''==event.data && func() }
-				return function(queue){ func=queue; channel.port2.postMessage('') }
-			}()), performanceCheck = setTimeoutRef.check = setTimeoutRef.check || (typeof performance !== ''+undefinedValue && performance)
-			|| {now: function(){ return +new Date }};
-			setTimeoutRef.hold = setTimeoutRef.hold || 9; // Half a frame benchmarks faster than < 1ms?
-			setTimeoutRef.poll = setTimeoutRef.poll || function(func){
-				if((setTimeoutRef.hold >= (performanceCheck.now() - lastTime)) && pollCount++ < 3333){ func(); return }
-				setImmediateShim(function(){ lastTime = performanceCheck.now(); func() }, pollCount=0)
-			}
-		}());
+		// Prefix match
+		pattern = options['*'] || options['>'];
+		if (text.slice(0, (pattern || '').length) === pattern) {
+			return true;
+		}
 
-		// Threading mechanism to handle multiple polls in turns
-		;(function(){
-			var setTimeoutRef = setTimeout, turn = setTimeoutRef.turn = setTimeoutRef.turn || function(func){ 1 == queue.push(func) && poll(turnFunc) }
-			, queue = turn.s = [], poll = setTimeoutRef.poll, index = 0, currentFunc, turnFunc = function(){
-				if(currentFunc = queue[index++]){ currentFunc() }
-				if(index == queue.length || 99 == index){
-					queue = turn.s = queue.slice(index);
-					index = 0;
+		// No prefix match
+		if (UNDEFINED_VALUE !== options['*']) {
+			return false;
+		}
+
+		// Range match
+		if (UNDEFINED_VALUE !== options['>'] && UNDEFINED_VALUE !== options['<']) {
+			return (text >= options['>'] && text <= options['<']) ? true : false;
+		}
+
+		if (UNDEFINED_VALUE !== options['>'] && text >= options['>']) {
+			return true;
+		}
+
+		if (UNDEFINED_VALUE !== options['<'] && text <= options['<']) {
+			return true;
+		}
+
+		return false;
+	};
+
+	/**
+	 * Computes a hash for a string using a simple algorithm.
+	 * @param {string} str - String to hash
+	 * @param {number} [hash=0] - Initial hash value
+	 * @returns {number} Hash value
+	 */
+	String.hash = function(str, hash) {
+		if (typeof str !== 'string') {
+			return;
+		}
+
+		hash = hash || 0;
+
+		if (!str.length) {
+			return hash;
+		}
+
+		let charCode;
+		for (let i = 0, len = str.length; i < len; ++i) {
+			charCode = str.charCodeAt(i);
+			hash = ((hash << 5) - hash) + charCode;
+			hash |= 0;
+		}
+
+		return hash;
+	};
+
+	// Object Utilities
+
+	const hasOwnProperty = Object.prototype.hasOwnProperty;
+
+	/**
+	 * Checks if an object is a plain object (not an instance of a custom class).
+	 * @param {*} obj - Object to check
+	 * @returns {boolean} True if plain object
+	 */
+	Object.plain = function(obj) {
+		if (!obj) {
+			return false;
+		}
+
+		return (obj instanceof Object && obj.constructor === Object) ||
+			Object.prototype.toString.call(obj).match(/^\[object (\w+)\]$/)[1] === 'Object';
+	};
+
+	/**
+	 * Checks if an object is empty, optionally excluding certain keys.
+	 * @param {Object} obj - Object to check
+	 * @param {Array} [exclude] - Keys to exclude from check
+	 * @returns {boolean} True if empty
+	 */
+	Object.empty = function(obj, exclude) {
+		for (let key in obj) {
+			if (hasOwnProperty.call(obj, key) && (!exclude || exclude.indexOf(key) === -1)) {
+				return false;
+			}
+		}
+
+		return true;
+	};
+
+	/**
+	 * Polyfill for Object.keys.
+	 * @param {Object} obj - Object to get keys from
+	 * @returns {Array} Array of keys
+	 */
+	Object.keys = Object.keys || function(obj) {
+		let keys = [];
+		for (let key in obj) {
+			if (hasOwnProperty.call(obj, key)) {
+				keys.push(key);
+			}
+		}
+
+		return keys;
+	};
+
+	// setTimeout Utilities for Better Async Handling
+
+	(function() {
+		let undefinedValue;
+		const setTimeoutRef = setTimeout;
+		let lastTime = 0;
+		let pollCount = 0;
+
+		// SetImmediate shim
+		const setImmediateShim = (typeof setImmediate !== '' + undefinedValue && setImmediate) ||
+			(function(callback, func) {
+				if (typeof MessageChannel === '' + undefinedValue) {
+					return setTimeoutRef;
 				}
-				if(queue.length){ poll(turnFunc) }
-			}
-		}());
 
-		// Each utility for processing arrays in chunks
-		;(function(){
-			var undefinedValue, setTimeoutRef = setTimeout, turn = setTimeoutRef.turn;
-			(setTimeoutRef.each = setTimeoutRef.each || function(list, func, end, chunkSize){
-				chunkSize = chunkSize || 9;
-				(function process(subList, length, result){
-					if(length = (subList = (list||[]).splice(0, chunkSize)).length){
-						for(var i = 0; i < length; i++){
-							if(undefinedValue !== (result = func(subList[i]))){ break }
-						}
-						if(undefinedValue === result){ turn(process); return }
+				const channel = new MessageChannel();
+				channel.port1.onmessage = function(event) {
+					if ('' === event.data) {
+						func();
 					}
-					end && end(result);
-				}())
-			})();
-		}());
-	})(USE, './shim');
+				};
+
+				return function(queue) {
+					func = queue;
+					channel.port2.postMessage('');
+				};
+			}());
+
+		// Performance check
+		const performanceCheck = setTimeoutRef.check = setTimeoutRef.check ||
+			(typeof performance !== '' + undefinedValue && performance) ||
+			{ now: function() { return +new Date; } };
+
+		setTimeoutRef.hold = setTimeoutRef.hold || SET_TIMEOUT_HOLD;
+
+		/**
+		 * Polling function with performance optimization
+		 * @param {Function} func - Function to execute
+		 */
+		setTimeoutRef.poll = setTimeoutRef.poll || function(func) {
+			if ((setTimeoutRef.hold >= (performanceCheck.now() - lastTime)) &&
+				pollCount++ < POLL_COUNT_LIMIT) {
+				func();
+				return;
+			}
+
+			setImmediateShim(function() {
+				lastTime = performanceCheck.now();
+				func();
+			}, pollCount = 0);
+		};
+	}());
+
+	// Threading mechanism to handle multiple polls in turns
+
+	(function() {
+		const setTimeoutRef = setTimeout;
+		const poll = setTimeoutRef.poll;
+		let queue = [];
+		let index = 0;
+		let currentFunc;
+
+		/**
+		 * Turn-based function execution
+		 * @param {Function} func - Function to queue for execution
+		 * @returns {number} Queue position
+		 */
+		setTimeoutRef.turn = setTimeoutRef.turn || function(func) {
+			if (1 === queue.push(func)) {
+				poll(turnFunc);
+			}
+		};
+
+		// Make queue accessible
+		setTimeoutRef.turn.s = queue;
+
+		function turnFunc() {
+			if (currentFunc = queue[index++]) {
+				currentFunc();
+			}
+
+			if (index === queue.length || index === TURN_BATCH_SIZE) {
+				queue = setTimeoutRef.turn.s = queue.slice(index);
+				index = 0;
+			}
+
+			if (queue.length) {
+				poll(turnFunc);
+			}
+		}
+	}());
+
+	// Each utility for processing arrays in chunks
+
+	(function() {
+		let undefinedValue;
+		const setTimeoutRef = setTimeout;
+		const turn = setTimeoutRef.turn;
+
+		/**
+		 * Process array items in chunks to prevent blocking
+		 * @param {Array} list - Array to process
+		 * @param {Function} func - Processing function
+		 * @param {Function} [end] - End callback
+		 * @param {number} [chunkSize=9] - Items per chunk
+		 * @returns {void}
+		 */
+		setTimeoutRef.each = setTimeoutRef.each || function(list, func, end, chunkSize) {
+			chunkSize = chunkSize || CHUNK_SIZE_DEFAULT;
+
+			(function process(subList, length, result) {
+				if (length = (subList = (list || []).splice(0, chunkSize)).length) {
+					for (let i = 0; i < length; i++) {
+						if (undefinedValue !== (result = func(subList[i]))) {
+							break;
+						}
+						}
+
+						if (undefinedValue === result) {
+							turn(process);
+							return;
+						}
+					}
+
+					if (end) {
+						end(result);
+					}
+				}());
+		};
+	}());
+
+})(USE, './shim');
 
 	;USE(function(module){
 		// On event emitter generic JavaScript utility.
