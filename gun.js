@@ -1,3 +1,6 @@
+const { text_rand, match, hash, poll, turn, each } = require('./modules/shim.js');
+
+
 ;(function(){
 
   /* UNBUILD */
@@ -13,370 +16,9 @@
   if(typeof module !== "undefined"){ var MODULE = module }
   /* UNBUILD */
 
-	;USE(function(module) {
-	// Shim for generic JavaScript utilities
-	// Provides polyfills and extensions for String, Object, and setTimeout
+  
 
-	// Constants
-	const DEFAULT_RANDOM_LENGTH = 24;
-	const DEFAULT_CHARSET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz';
-	const UNDEFINED_VALUE = void 0;
-	const SET_TIMEOUT_HOLD = 9;
-	const POLL_COUNT_LIMIT = 3333;
-	const CHUNK_SIZE_DEFAULT = 9;
-	const TURN_BATCH_SIZE = 99;
-
-	// String Utilities
-
-	/**
-	 * Generates a random string of specified length using given charset.
-	 * @param {number} [length=24] - Length of the random string
-	 * @param {string} [charset] - Characters to use for generation
-	 * @returns {string} Random string
-	 */
-	String.random = function(length, charset) {
-		let result = '';
-		length = length || DEFAULT_RANDOM_LENGTH;
-		charset = charset || DEFAULT_CHARSET;
-
-		while (length-- > 0) {
-			result += charset.charAt(Math.floor(Math.random() * charset.length));
-		}
-
-		return result;
-	};
-
-	/**
-	 * Matches a string against patterns defined in options object.
-	 * @param {string} text - Text to match
-	 * @param {Object} options - Matching options
-	 * @returns {boolean} True if matches
-	 */
-	String.match = function(text, options) {
-		if (typeof text !== 'string') {
-			return false;
-		}
-
-		if (typeof options === 'string') {
-			options = { '=': options };
-		}
-
-		options = options || {};
-
-		// Exact match
-		let pattern = options['='] || options['*'] || options['>'] || options['<'];
-		if (text === pattern) {
-			return true;
-		}
-
-		// No exact match
-		if (UNDEFINED_VALUE !== options['=']) {
-			return false;
-		}
-
-		// Prefix match
-		pattern = options['*'] || options['>'];
-		if (text.slice(0, (pattern || '').length) === pattern) {
-			return true;
-		}
-
-		// No prefix match
-		if (UNDEFINED_VALUE !== options['*']) {
-			return false;
-		}
-
-		// Range match
-		if (UNDEFINED_VALUE !== options['>'] && UNDEFINED_VALUE !== options['<']) {
-			return (text >= options['>'] && text <= options['<']) ? true : false;
-		}
-
-		if (UNDEFINED_VALUE !== options['>'] && text >= options['>']) {
-			return true;
-		}
-
-		if (UNDEFINED_VALUE !== options['<'] && text <= options['<']) {
-			return true;
-		}
-
-		return false;
-	};
-
-	/**
-	 * Computes a hash for a string using a simple algorithm.
-	 * @param {string} str - String to hash
-	 * @param {number} [hash=0] - Initial hash value
-	 * @returns {number} Hash value
-	 */
-	String.hash = function(str, hash) {
-		if (typeof str !== 'string') {
-			return;
-		}
-
-		hash = hash || 0;
-
-		if (!str.length) {
-			return hash;
-		}
-
-		let charCode;
-		[...str].forEach(char => {
-			charCode = char.charCodeAt(0);
-			hash = ((hash << 5) - hash) + charCode;
-			hash |= 0;
-		});
-
-		return hash;
-	};
-
-	// Object Utilities
-
-	const hasOwnProperty = Object.prototype.hasOwnProperty;
-
-	/**
-	 * Checks if an object is a plain object (not an instance of a custom class).
-	 * @param {*} obj - Object to check
-	 * @returns {boolean} True if plain object
-	 */
-	Object.plain = function(obj) {
-		if (!obj) {
-			return false;
-		}
-
-		return (obj instanceof Object && obj.constructor === Object) ||
-			Object.prototype.toString.call(obj).match(/^\[object (\w+)\]$/)[1] === 'Object';
-	};
-
-	/**
-	 * Checks if an object is empty, optionally excluding certain keys.
-	 * @param {Object} obj - Object to check
-	 * @param {Array} [exclude] - Keys to exclude from check
-	 * @returns {boolean} True if empty
-	 */
-	Object.empty = function(obj, exclude) {
-		for (let key in obj) {
-			if (hasOwnProperty.call(obj, key) && (!exclude || exclude.indexOf(key) === -1)) {
-				return false;
-			}
-		}
-
-		return true;
-	};
-
-	/**
-	 * Polyfill for Object.keys.
-	 * @param {Object} obj - Object to get keys from
-	 * @returns {Array} Array of keys
-	 */
-	Object.keys = Object.keys || function(obj) {
-		return Object.getOwnPropertyNames(obj).filter(key => obj.propertyIsEnumerable(key));
-	};
-
-	// setTimeout Utilities for Better Async Handling
-
-	(function() {
-		let undefinedValue;
-		const setTimeoutRef = setTimeout;
-		let lastTime = 0;
-		let pollCount = 0;
-
-		// SetImmediate shim
-		const setImmediateShim = (typeof setImmediate !== '' + undefinedValue && setImmediate) ||
-			(function(callback, func) {
-				if (typeof MessageChannel === '' + undefinedValue) {
-					return setTimeoutRef;
-				}
-
-				const channel = new MessageChannel();
-				channel.port1.onmessage = function(event) {
-					if ('' === event.data) {
-						func();
-					}
-				};
-
-				return function(queue) {
-					func = queue;
-					channel.port2.postMessage('');
-				};
-			}());
-
-		// Performance check
-		const performanceCheck = setTimeoutRef.check = setTimeoutRef.check ||
-			(typeof performance !== '' + undefinedValue && performance) ||
-			{ now: function() { return +new Date; } };
-
-		setTimeoutRef.hold = setTimeoutRef.hold || SET_TIMEOUT_HOLD;
-
-		/**
-		 * Polling function with performance optimization
-		 * @param {Function} func - Function to execute
-		 */
-		setTimeoutRef.poll = setTimeoutRef.poll || function(func) {
-			if ((setTimeoutRef.hold >= (performanceCheck.now() - lastTime)) &&
-				pollCount++ < POLL_COUNT_LIMIT) {
-				func();
-				return;
-			}
-
-			setImmediateShim(function() {
-				lastTime = performanceCheck.now();
-				func();
-			}, pollCount = 0);
-		};
-	}());
-
-	// Threading mechanism to handle multiple polls in turns
-
-	(function() {
-		const setTimeoutRef = setTimeout;
-		const poll = setTimeoutRef.poll;
-		let queue = [];
-		let index = 0;
-		let currentFunc;
-
-		/**
-		 * Turn-based function execution
-		 * @param {Function} func - Function to queue for execution
-		 * @returns {number} Queue position
-		 */
-		setTimeoutRef.turn = setTimeoutRef.turn || function(func) {
-			if (1 === queue.push(func)) {
-				poll(turnFunc);
-			}
-		};
-
-		// Make queue accessible
-		setTimeoutRef.turn.s = queue;
-
-		function turnFunc() {
-			if (currentFunc = queue[index++]) {
-				currentFunc();
-			}
-
-			if (index === queue.length || index === TURN_BATCH_SIZE) {
-				queue = setTimeoutRef.turn.s = queue.slice(index);
-				index = 0;
-			}
-
-			if (queue.length) {
-				poll(turnFunc);
-			}
-		}
-	}());
-
-	// Each utility for processing arrays in chunks
-
-	(function() {
-		let undefinedValue;
-		const setTimeoutRef = setTimeout;
-		const turn = setTimeoutRef.turn;
-
-		/**
-		 * Process array items in chunks to prevent blocking
-		 * @param {Array} list - Array to process
-		 * @param {Function} func - Processing function
-		 * @param {Function} [end] - End callback
-		 * @param {number} [chunkSize=9] - Items per chunk
-		 * @returns {void}
-		 */
-		setTimeoutRef.each = setTimeoutRef.each || function(list, func, end, chunkSize) {
-			chunkSize = chunkSize || CHUNK_SIZE_DEFAULT;
-
-			let index = 0;
-			(function process(result) {
-				const subList = (list || []).slice(index, index + chunkSize);
-				index += chunkSize;
-				if (subList.length) {
-					const stopped = subList.some(item => {
-						result = func(item);
-						return undefinedValue !== result;
-					});
-					if (!stopped) {
-						turn(process);
-						return;
-					}
-				}
-		
-				if (end) {
-					end(result);
-				}
-			}());
-		};
-	}());
-
-})(USE, './shim');
-
-	;USE(function(module){
-		// On event emitter generic JavaScript utility.
-		// Provides a simple event system for chaining listeners.
-
-		/**
-		 * Creates or manages event listeners for a given tag.
-		 * @param {string} tag - The event tag to listen to or emit on.
-		 * @param {Function|*} arg - Function to add as listener, or data to emit.
-		 * @param {*} as - Additional context or metadata.
-		 * @returns {Object|undefined} Listener object if adding, or target if emitting.
-		 */
-		module.exports = function onto(tag, arg, as){
-			if(!tag){ return {to: onto} } // Return a chainable object if no tag provided
-
-			var isFunction = typeof arg === 'function';
-			var defaultNext = {
-				next: function(data){
-					var nextTarget = this.to;
-					if(nextTarget){ nextTarget.next(data) }
-				}
-			};
-
-			// Get or create tag object in the context
-			var tagObj = (this.tag || (this.tag = {}))[tag];
-			if(!tagObj && isFunction){
-				tagObj = this.tag[tag] = {
-					tag: tag,
-					to: onto._ = defaultNext // Set default handler
-				};
-			}
-
-			// Handle function case: add listener
-			if(isFunction){
-				var listener = {
-					off: onto.off || function(){
-						if(this.next === defaultNext.next){ return true } // Already off
-
-						if(this === this.the.last){
-							this.the.last = this.back; // Update last pointer
-						}
-
-						this.to.back = this.back; // Link previous to next
-						this.next = defaultNext.next; // Mark as removed
-						this.back.to = this.to; // Link next to previous
-
-						if(this.the.last === this.the){
-							delete this.on.tag[this.the.tag]; // Remove empty tag
-						}
-					},
-					to: defaultNext, // Next in chain
-					next: arg, // The listener function
-					the: tagObj, // Reference to tag object
-					on: this, // Context
-					as: as // Metadata
-				};
-
-				var lastListener = tagObj.last || tagObj;
-				listener.back = lastListener; // Link to previous last
-				lastListener.to = listener; // Previous points to new
-				tagObj.last = listener; // Update last
-
-				return listener;
-			}
-
-			// Handle non-function case: emit data
-			var target = tagObj && tagObj.to;
-			if(target && arg !== undefined){
-				target.next(arg); // Trigger listeners
-			}
-			return target;
-		};
-	})(USE, './onto');
+ 
 
 	;USE(function(module){
 		// TODO: BUG! Unbuild will make these globals... CHANGE unbuild to wrap files in a function.
@@ -734,235 +376,10 @@
 		try{module.exports=Book}catch(e){}
 	})(USE, './book');
 
-	;USE(function(module){
-		// Valid values are a subset of JSON: null, binary, number (!Infinity), text,
-		// or a soul relation. Arrays need special algorithms to handle concurrency,
-		// so they are not supported directly. Use an extension that supports them if
-		// needed but research their problems first.
 
-		/**
-		 * Validates if a value is acceptable for storage.
-		 * @param {*} value - The value to validate.
-		 * @returns {boolean} True if valid.
-		 */
-		module.exports = function(value){
-		  // "deletes", nulling out keys.
-		  return value === null ||
-			"string" === typeof value ||
-			"boolean" === typeof value ||
-			// we want +/- Infinity to be, but JSON does not support it, sad face.
-			// can you guess what value === value checks for? ;)
-			("number" === typeof value && value != Infinity && value != -Infinity && value === value) ||
-			(!!value && "string" == typeof value["#"] && Object.keys(value).length === 1 && value["#"]);
-		}
-	})(USE, './valid');
 
-	;USE(function(module) {
-	    USE('./shim');
 
-	    /**
-	     * @typedef {Object} StateNode
-	     * @property {Object} _ - Metadata container
-	     * @property {string} _['#'] - Soul identifier
-	     * @property {Object} _['>'] - State timestamps
-	     */
-
-	    /**
-	     * Creates a timestamp-based state with drift compensation.
-	     * Generates unique timestamps for conflict resolution.
-	     * @returns {number} Calculated state timestamp.
-	     */
-	    function State() {
-	        const currentTime = +new Date();
-	        const DECIMAL_PRECISION = 999; // Adjustable based on machine processing speed
-
-	        if (State.lastTimestamp < currentTime) {
-	            State.counter = 0;
-	            State.lastTimestamp = currentTime + State.drift;
-	            return State.lastTimestamp;
-	        }
-
-	        State.counter += 1;
-	        State.lastTimestamp = currentTime + (State.counter / DECIMAL_PRECISION) + State.drift;
-	        return State.lastTimestamp;
-	    }
-
-	    // Initialize state properties
-	    State.drift = 0; // Clock drift compensation
-	    State.counter = 0; // Counter for same-millisecond timestamps
-	    State.lastTimestamp = -Infinity; // Last generated timestamp
-
-	    /**
-	     * Retrieves state value for a given key on a node.
-	     * @param {StateNode} node - Target node.
-	     * @param {string} key - Key to check.
-	     * @param {Object} [fallback] - Fallback object if node state unavailable.
-	     * @returns {number|undefined} State value or -Infinity if not found.
-	     */
-	    State.is = function(node, key, fallback) {
-	        const stateContainer = (key && node?._?.['>']) || fallback;
-	        if (!stateContainer) return undefined;
-
-	        const stateValue = stateContainer[key];
-	        return typeof stateValue === 'number' ? stateValue : -Infinity;
-	    };
-
-	    /**
-	     * Sets state for a key on a node.
-	     * @param {StateNode} node - Target node.
-	     * @param {string} key - Key to modify.
-	     * @param {number} state - State value.
-	     * @param {*} value - Associated value.
-	     * @param {string} [soul] - Soul identifier.
-	     * @returns {StateNode} Modified node.
-	     */
-	    State.ify = function(node = {}, key, state, value, soul) {
-	        // Initialize metadata container
-	        node._ = node._ || {};
-
-	        if (soul) {
-	            node._['#'] = soul;
-	        }
-
-	        const stateTimestamps = node._['>'] || (node._['>'] = {});
-
-	        if (key !== undefined && key !== '_') {
-	            if (typeof state === 'number') {
-	                stateTimestamps[key] = state;
-	            }
-	            if (value !== undefined) {
-	                node[key] = value;
-	            }
-	        }
-
-	        return node;
-	    };
-
-	    module.exports = State;
-	})(USE, './state');
-
-USE(function (module) {
-  USE('./shim');
-
-  /**
-   * Duplication tracking utility.
-   * Prevents processing of duplicate messages within a time window.
-   * @param {Object} [options] - Options for the Dup instance.
-   * @param {number} [options.max=999] - Maximum number of entries.
-   * @param {number} [options.age=9000] - Age threshold for entries in milliseconds.
-   * @returns {Object} dup - The Dup instance.
-   */
-  function Dup(options = { max: 999, age: 9000 }) {
-		const dup = { s: {} }; // Storage for tracked items
-		const storage = dup.s;
-
-		/**
-		 * Checks if an ID exists in the tracking system.
-		 * @param {string} id - The ID to check.
-		 * @returns {boolean} True if the ID exists, false otherwise.
-		 */
-		dup.check = function (id) {
-			if (!storage[id]) {
-				return false;
-			}
-			return trackFunction(id); // Update timestamp on check
-		};
-
-		/**
-		 * Tracks an ID, updating its timestamp.
-		 * @param {string} id - The ID to track.
-		 * @returns {Object} The tracked item.
-		 */
-		const trackFunction = (dup.track = function (id) {
-			const item = storage[id] || (storage[id] = {});
-			item.was = dup.now = Date.now();
-			if (!dup.to) {
-				dup.to = setTimeout(dup.drop, options.age + 9); // Schedule cleanup
-			}
-			if (trackFunction.ed) {
-				trackFunction.ed(id);
-			}
-			return item;
-		});
-
-		/**
-		 * Drops old entries from the tracking system.
-		 * @param {number} [age] - The age threshold for dropping entries.
-		 */
-		dup.drop = function (age) {
-			dup.to = null;
-			dup.now = Date.now();
-			const keys = Object.keys(storage);
-			console.STAT && console.STAT(dup.now, Date.now() - dup.now, 'dup drop keys');
-			setTimeout.each(
-				keys,
-				(id) => {
-					const item = storage[id];
-					if (item && (age || options.age) > dup.now - item.was) {
-						return; // Keep if not old enough
-					}
-					delete storage[id];
-				},
-				0,
-				99
-			);
-		};
-
-		return dup;
-	}
-
-	module.exports = Dup;
-})(USE, './dup');
-
-	USE(function (module) {
-	    // Request/response module for asking and acknowledging messages.
-	    USE('./onto'); // Depends upon onto!
-
-	    /**
-	     * Handles request/response messages for acknowledgments.
-	     * @param {Function|string|Object} callback - Callback function or message ID.
-	     * @param {Object} [options] - Additional parameters.
-	     * @returns {string|boolean} Message ID or true if successful.
-	     */
-	    module.exports = function ask(callback, options) {
-	        if (!this.on) return;
-
-	        const timeout = (this.opt || {}).lack || 9000;
-
-	        if (typeof callback !== 'function') {
-	            if (!callback) return;
-	            const messageId = callback['#'] || callback;
-	            let listener = (this.tag || '')[messageId];
-	            if (!listener) return;
-	            if (options) {
-	                listener = this.on(messageId, options);
-	                clearTimeout(listener.err);
-	                listener.err = setTimeout(() => listener.off(), timeout);
-	            }
-	            return true;
-	        }
-
-	        const id = (options && options['#']) || randomString(9);
-	        if (!callback) return id;
-
-	        const listener = this.on(id, callback, options);
-	        listener.err = listener.err || setTimeout(() => {
-	            listener.off();
-	            listener.next({ err: "Error: No ACK yet.", lack: true });
-	        }, timeout);
-
-	        return id;
-	    };
-
-	    /**
-	     * Generates a random string of specified length.
-	     * @param {number} [length=9] - Length of the random string.
-	     * @returns {string} Random string.
-	     */
-			const randomString = String.random || function (length = 9) { return Math.random().toString(36).slice(2, 2 + length) };
-		})(USE, './ask');
-	
-	;USE(function(module){
+;USE(function(module){
 
 		/**
 		 * Main Gun constructor.
@@ -989,13 +406,13 @@ USE(function (module) {
 		Gun.chain.toJSON = function(){};
 
 		USE('./shim');
-		Gun.valid = USE('./valid');
-		Gun.state = USE('./state');
-		Gun.on = USE('./onto');
-		Gun.dup = USE('./dup');
-		Gun.ask = USE('./ask');
+		Gun.valid = require('./modules/valid');
+		Gun.state = require('./modules/state');
+	Gun.on = require('./modules/onto.js');;
+		Gun.dup = require('./modules/dup.js');
+		Gun.ask = require('./modules/ask.js');
 
-		;(function(){
+;(function(){
 			/**
 			 * Creates the internal Gun instance with event handlers.
 			 * @param {Object} context - The Gun context.
@@ -1145,7 +562,7 @@ USE(function (module) {
 				var tmp = ctx.match; tmp.end = 1;
 				if(tmp === root.hatch){ if(!(tmp = ctx.latch) || tmp.end){ delete root.hatch } else { root.hatch = tmp } }
 				ctx.hatch && ctx.hatch(); // TODO: rename/rework how put & this interact.
-				setTimeout.each(ctx.match, function(cb){cb && cb()}); 
+				each(ctx.match, function(cb){cb && cb()}); 
 				if(!(msg = ctx.msg) || ctx.err || msg.err){ return }
 				msg.out = universe;
 				ctx.root.on('out', msg);
@@ -1182,7 +599,8 @@ USE(function (module) {
 
 		}());
 
-		;(function(){
+
+;(function(){
 			Gun.on.get = function(msg, gun){
 				var root = gun._, get = msg.get, soul = get['#'], node = root.graph[soul], has = get['.'];
 				var next = root.next || (root.next = {}), at = next[soul];
@@ -1246,13 +664,13 @@ USE(function (module) {
 					root.on('in', {'@': to, '#': id, put: put, '%': (tmp? (id = text_rand(9)) : u), $: root.$, _: faith, DBG: DBG});
 					console.STAT && console.STAT(S, +new Date - S, 'got in');
 					if(!tmp){ return }
-					setTimeout.turn(go);
+					turn(go);
 				}());
 				if(!node){ root.on('in', {'@': msg['#']}) } // TODO: I don't think I like this, the default lS adapter uses this but "not found" is a sensitive issue, so should probably be handled more carefully/individually.
 			} Gun.on.get.ack = ack;
 		}());
 
-		;(function(){
+;(function(){
 			Gun.chain.opt = function(opt){
 				opt = opt || {};
 				var gun = this, at = gun._, tmp = opt.peers || opt;
@@ -1274,12 +692,12 @@ USE(function (module) {
 				});
 				at.opt.from = opt;
 				Gun.on('opt', at);
-				at.opt.uuid = at.opt.uuid || function uuid(l){ return Gun.state().toString(36).replace('.','') + String.random(l||12) }
+				at.opt.uuid = at.opt.uuid || function uuid(l){ return Gun.state().toString(36).replace('.','') + text_rand(l||12) }
 				return gun;
 			}
 		}());
 
-		var obj_each = function(o,f){ Object.keys(o).forEach(f,o) }, text_rand = String.random, turn = setTimeout.turn, valid = Gun.valid, state_is = Gun.state.is, state_ify = Gun.state.ify, u, empty = {}, C;
+		var obj_each = function(o,f){ Object.keys(o).forEach(f,o) }, valid = Gun.valid, state_is = Gun.state.is, state_ify = Gun.state.ify, u, empty = {}, C;
 
 		Gun.log = function(){ return (!Gun.log.off && C.log.apply(C, arguments)), [].slice.call(arguments).join(' ') };
 		Gun.log.once = function(w,s,o){ return (o = Gun.log.once)[w] = o[w] || 0, o[w]++ || Gun.log(s) };
@@ -1453,7 +871,7 @@ USE(function (module) {
 				if(!valid(tmp)){
 					if(!(soul = ((tmp||'')._||'')['#'])){ console.log("chain not yet supported for", tmp, '...', msg, cat); return; }
 					gun = cat.root.$.get(soul);
-					return setTimeout.each(Object.keys(tmp).sort(), function(k){ // TODO: .keys( is slow // BUG? ?Some re-in logic may depend on this being sync?
+					return each(Object.keys(tmp).sort(), function(k){ // TODO: .keys( is slow // BUG? ?Some re-in logic may depend on this being sync?
 						if('_' == k || u === (state = state_is(tmp, k))){ return }
 						cat.on('in', {$: gun, put: {'#': soul, '.': k, '=': tmp[k], '>': state}, VIA: msg});
 					});
@@ -1489,8 +907,8 @@ USE(function (module) {
 
 			this.to && this.to.next(msg); // 1st API job is to call all chain listeners.
 			// TODO: Make input more reusable by only doing these (some?) calls if we are a chain we recognize? This means each input listener would be responsible for when listeners need to be called, which makes sense, as they might want to filter.
-			cat.any && setTimeout.each(Object.keys(cat.any), function(any){ (any = cat.any[any]) && any(msg) },0,99); // 1st API job is to call all chain listeners. // TODO: .keys( is slow // BUG: Some re-in logic may depend on this being sync.
-			cat.echo && setTimeout.each(Object.keys(cat.echo), function(lat){ (lat = cat.echo[lat]) && lat.on('in', msg) },0,99); // & linked at chains // TODO: .keys( is slow // BUG: Some re-in logic may depend on this being sync.
+			cat.any && each(Object.keys(cat.any), function(any){ (any = cat.any[any]) && any(msg) },0,99); // 1st API job is to call all chain listeners. // TODO: .keys( is slow // BUG: Some re-in logic may depend on this being sync.
+			cat.echo && each(Object.keys(cat.echo), function(lat){ (lat = cat.echo[lat]) && lat.on('in', msg) },0,99); // & linked at chains // TODO: .keys( is slow // BUG: Some re-in logic may depend on this being sync.
 
 			if(((msg.$$||'')._||at).soul){ // comments are linear, but this line of code is non-linear, so if I were to comment what it does, you'd have to read 42 other comments first... but you can't read any of those comments until you first read this comment. What!? // shouldn't this match link's check?
 				// is there cases where it is a $$ that we do NOT want to do the following? 
@@ -1526,7 +944,7 @@ USE(function (module) {
 			if(tmp[''] || cat.lex){ // we might need to load the whole thing // TODO: cat.lex probably has edge case bugs to it, need more test coverage.
 				sat.on('out', {get: {'#': link}});
 			}
-			setTimeout.each(Object.keys(tmp), function(get, sat){ // if sub chains are asking for data. // TODO: .keys( is slow // BUG? ?Some re-in logic may depend on this being sync?
+			each(Object.keys(tmp), function(get, sat){ // if sub chains are asking for data. // TODO: .keys( is slow // BUG? ?Some re-in logic may depend on this being sync?
 				if(!get || !(sat = tmp[get])){ return }
 				sat.on('out', {get: {'#': link, '.': get}}); // go get it.
 			},0,99);
@@ -1550,7 +968,7 @@ USE(function (module) {
 				}
 				cat.put = u; // empty out the cache if, for example, alice's car's color no longer exists (relative to alice) if alice no longer has a car.
 				// TODO: BUG! For maps, proxy this so the individual sub is triggered, not all subs.
-				setTimeout.each(Object.keys(cat.next||''), function(get, sat){ // empty out all sub chains. // TODO: .keys( is slow // BUG? ?Some re-in logic may depend on this being sync? // TODO: BUG? This will trigger deeper put first, does put logic depend on nested order? // TODO: BUG! For map, this needs to be the isolated child, not all of them.
+				each(Object.keys(cat.next||''), function(get, sat){ // empty out all sub chains. // TODO: .keys( is slow // BUG? ?Some re-in logic may depend on this being sync? // TODO: BUG? This will trigger deeper put first, does put logic depend on nested order? // TODO: BUG! For map, this needs to be the isolated child, not all of them.
 					if(!(sat = cat.next[get])){ return }
 					//if(cat.has && u === sat.put && !(root.pass||'')[sat.id]){ return } // if we are already unlinked, do not call again, unless edge case. // TODO: BUG! This line should be deleted for "unlink deeply nested".
 					if(link){ delete (root.$.get(link).get(get)._.echo||'')[sat.id] }
@@ -1587,7 +1005,7 @@ USE(function (module) {
 					$: at.$,
 					'@': msg['@']
 				});
-				/*(tmp = at.Q) && setTimeout.each(Object.keys(tmp), function(id){ // TODO: Temporary testing, not integrated or being used, probably delete.
+				/*(tmp = at.Q) && each(Object.keys(tmp), function(id){ // TODO: Temporary testing, not integrated or being used, probably delete.
 					Object.keys(msg).forEach(function(k){ tmp[k] = msg[k] }, tmp = {}); tmp['@'] = id; // copy message
 					root.on('in', tmp);
 				}); delete at.Q;*/
@@ -1598,7 +1016,7 @@ USE(function (module) {
 			return; // eom
 		}
 
-		var empty = {}, u, text_rand = String.random, valid = Gun.valid, obj_has = function(o, k){ return o && Object.prototype.hasOwnProperty.call(o, k) }, state = Gun.state, state_is = state.is, state_ify = state.ify;
+		var empty = {}, u, valid = Gun.valid, obj_has = function(o, k){ return o && Object.prototype.hasOwnProperty.call(o, k) }, state = Gun.state, state_is = state.is, state_ify = state.ify;
 	})(USE, './chain');
 
 	;USE(function(module){
@@ -1677,8 +1095,8 @@ USE(function (module) {
 					opt.ok.call(opt.as, msg, eve || any); // is this the right
 				};
 				any.at = cat;
-				//(cat.any||(cat.any=function(msg){ setTimeout.each(Object.keys(cat.any||''), function(act){ (act = cat.any[act]) && act(msg) },0,99) }))[id = String.random(7)] = any; // maybe switch to this in future?
-				(cat.any||(cat.any={}))[id = String.random(7)] = any;
+				//(cat.any||(cat.any=function(msg){ each(Object.keys(cat.any||''), function(act){ (act = cat.any[act]) && act(msg) },0,99) }))[id = text_rand(7)] = any; // maybe switch to this in future?
+				(cat.any||(cat.any={}))[id = text_rand(7)] = any;
 				any.off = function(){ any.stun = 1; if(!cat.any){ return } delete cat.any[id] }
 				any.rid = rid; // logic from old version, can we clean it up now?
 				any.id = opt.run || ++root.once; // used in callback to check if we are earlier than a write. // will this ever cause an integer overflow?
@@ -1872,7 +1290,7 @@ USE(function (module) {
                     cat.link['#'] = soul;
                     !g && (((as.graph || (as.graph = {}))[soul] = (cat.node || (cat.node = { _: {} })))._['#'] = soul);
                     delete as.wait[id];
-                    cat.wait && setTimeout.each(cat.wait, function(cb) { cb && cb(); });
+                    cat.wait && each(cat.wait, function(cb) { cb && cb(); });
                     as.ran(as);
                 }
             }
@@ -1946,7 +1364,7 @@ USE(function (module) {
                 return;
             }
             ran.end(stun, root);
-            setTimeout.each(Object.keys(stun = stun.add || ''), function(cb) {
+            each(Object.keys(stun = stun.add || ''), function(cb) {
                 if (cb = stun[cb]) {
                     cb();
                 }
@@ -2009,7 +1427,7 @@ USE(function (module) {
         return ((d && (d.constructor && d.constructor.name)) || typeof d);
     }
 
-    var u, empty = {}, noop = function() {}, turn = setTimeout.turn, valid = Gun.valid, state_ify = Gun.state.ify;
+    var u, empty = {}, noop = function() {}, valid = Gun.valid, state_ify = Gun.state.ify;
 })(USE, './put');
 
 	;USE(function(module){
@@ -2024,7 +1442,7 @@ USE(function (module) {
 	;USE(function(module){
 		var Gun = USE('./root');
 		USE('./shim');
-		USE('./onto');
+		
 		USE('./book');
 		USE('./valid');
 		USE('./state');
@@ -2070,7 +1488,7 @@ USE(function (module) {
 			const gun = this;
 			const cat = gun._;
 			const root = cat.root;
-			const id = String.random(7);
+			const id = text_rand(7);
 
 			gun.get(function(data, key, msg, eve){
 				const $ = this;
@@ -2169,7 +1587,7 @@ USE(function (module) {
 			if(tmp = ((tmp = lex['#'])||'')['='] || tmp){ return gun.get(tmp) }
 			(tmp = gun.chain()._).lex = lex; // LEX!
 			gun.on('in', function(eve){
-				if(String.match(eve.get|| (eve.put||'')['.'], lex['.'] || lex['#'] || lex)){
+				if(match(eve.get|| (eve.put||'')['.'], lex['.'] || lex['#'] || lex)){
 					tmp.on('in', eve);
 				}
 				this.to.next(eve);
@@ -2201,7 +1619,7 @@ USE(function (module) {
 		function map(msg){ this.to.next(msg);
 			var cat = this.as, gun = msg.$, at = gun._, put = msg.put, tmp;
 			if(!at.soul && !msg.$$){ return } // this line took hundreds of tries to figure out. It only works if core checks to filter out above chains during link tho. This says "only bother to map on a node" for this layer of the chain. If something is not a node, map should not work.
-			if((tmp = cat.lex) && !String.match(msg.get|| (put||'')['.'], tmp['.'] || tmp['#'] || tmp)){ return }
+			if((tmp = cat.lex) && !match(msg.get|| (put||'')['.'], tmp['.'] || tmp['#'] || tmp)){ return }
 			Gun.on.link(msg, cat);
 		}
 		var noop = function(){}, event = {stun: noop, off: noop}, u;
@@ -2274,7 +1692,7 @@ USE(function (module) {
 			opt.max = opt.max || (opt.memory? (opt.memory * 999 * 999) : 300000000) * 0.3;
 			opt.pack = opt.pack || (opt.max * 0.01 * 0.01);
 			opt.puff = opt.puff || 9; // IDEA: do a start/end benchmark, divide ops/result.
-			var puff = setTimeout.turn || setTimeout;
+			var puff = turn || setTimeout;
 
 			var dup = root.dup, dup_check = dup.check, dup_track = dup.track;
 
@@ -2288,7 +1706,7 @@ USE(function (module) {
 						var stat = console.STAT || {};
 						//console.log('HEAR:', peer.id, (raw||'').slice(0,250), ((raw||'').length / 1024 / 1024).toFixed(4));
 						
-						//console.log(setTimeout.turn.s.length, 'stacks', parseFloat((-(LT - (LT = +new Date))/1000).toFixed(3)), 'sec', parseFloat(((LT-ST)/1000 / 60).toFixed(1)), 'up', stat.peers||0, 'peers', stat.has||0, 'has', stat.memhused||0, stat.memused||0, stat.memax||0, 'heap mem max');
+						//console.log(turn.s.length, 'stacks', parseFloat((-(LT - (LT = +new Date))/1000).toFixed(3)), 'sec', parseFloat(((LT-ST)/1000 / 60).toFixed(1)), 'up', stat.peers||0, 'peers', stat.has||0, 'has', stat.memhused||0, stat.memused||0, stat.memax||0, 'heap mem max');
 					}catch(e){ console.log('DBG err', e) }}*/
 					hear.d += raw.length||0 ; ++hear.c } // STATS!
 				var S = peer.SH = +new Date;
@@ -2326,7 +1744,7 @@ USE(function (module) {
 				if(msg.DBG){ msg.DBG = DBG = {DBG: msg.DBG} }
 				DBG && (DBG.h = S);
 				DBG && (DBG.hp = +new Date);
-				if(!(id = msg['#'])){ id = msg['#'] = String.random(9) }
+				if(!(id = msg['#'])){ id = msg['#'] = text_rand(9) }
 				if(tmp = dup_check(id)){ return }
 				// DAM logic:
 				if(!(hash = msg['##']) && false && u !== msg.put){ /*hash = msg['##'] = Type.obj.hash(msg.put)*/ } // disable hashing for now // TODO: impose warning/penalty instead (?)
@@ -2361,14 +1779,14 @@ USE(function (module) {
 			var tomap = function(k,i,m){m(k,true)};
 			hear.c = hear.d = 0;
 
-			;(function(){
+;(function(){
 				var SMIA = 0;
 				var loop;
 				mesh.hash = function(msg, peer){ var h, s, t;
 					var S = +new Date;
 					json(msg.put, function hash(err, text){
 						var ss = (s || (s = t = text||'')).slice(0, 32768); // 1024 * 32
-					  h = String.hash(ss, h); s = s.slice(32768);
+					  h = hash(ss, h); s = s.slice(32768);
 					  if(s){ puff(hash, 0); return }
 						console.STAT && console.STAT(S, +new Date - S, 'say json+hash');
 					  msg._.$put = t;
@@ -2390,7 +1808,7 @@ USE(function (module) {
 //if(opt.super && (!ack || !msg.put)){ return } // TODO: MANHATTAN STUB //OBVIOUSLY BUG! But squelch relay. // :( get only is 100%+ CPU usage :(
 					var meta = msg._||(msg._=function(){});
 					var DBG = msg.DBG, S = +new Date; meta.y = meta.y || S; if(!peer){ DBG && (DBG.y = S) }
-					if(!(id = msg['#'])){ id = msg['#'] = String.random(9) }
+					if(!(id = msg['#'])){ id = msg['#'] = text_rand(9) }
 					!loop && dup_track(id);//.it = it(msg); // track for 9 seconds, default. Earth<->Mars would need more! // always track, maybe move this to the 'after' logic if we split function.
 					//if(msg.put && (msg.err || (dup.s[id]||'').err)){ return false } // TODO: in theory we should not be able to stun a message, but for now going to check if it can help network performance preventing invalid data to relay.
 					if(!(hash = msg['##']) && u !== msg.put && !meta.via && ack){ mesh.hash(msg, peer); return } // TODO: Should broadcasts be hashed?
@@ -2528,7 +1946,7 @@ USE(function (module) {
 				if(peer.id){
 					opt.peers[peer.url || peer.id] = peer;
 				} else {
-					tmp = peer.id = peer.id || peer.url || String.random(9);
+					tmp = peer.id = peer.id || peer.url || text_rand(9);
 					mesh.say({dam: '?', pid: root.opt.pid}, opt.peers[tmp] = peer);
 					delete dup.s[peer.last]; // IMPORTANT: see https://gun.eco/docs/DAM#self
 				}
@@ -2539,7 +1957,7 @@ USE(function (module) {
 				}
 				// @rogowski I need this here by default for now to fix go1dfish's bug
 				tmp = peer.queue; peer.queue = [];
-				setTimeout.each(tmp||[],function(msg){
+				each(tmp||[],function(msg){
 					send(msg, peer);
 				},0,9);
 				//Type.obj.native && Type.obj.native(); // dirty place to check if other JS polluted.
@@ -2569,7 +1987,7 @@ USE(function (module) {
 			}
 
 			root.on('create', function(root){
-				root.opt.pid = root.opt.pid || String.random(9);
+				root.opt.pid = root.opt.pid || text_rand(9);
 				this.to.next(root);
 				root.on('out', mesh.say);
 			});
@@ -2593,11 +2011,11 @@ USE(function (module) {
 				if(opt.super){ return } // temporary (?) until we have better fix/solution?
 				var souls = Object.keys(root.next||''); // TODO: .keys( is slow
 				if(souls.length > 9999 && !console.SUBS){ console.log(console.SUBS = "Warning: You have more than 10K live GETs, which might use more bandwidth than your screen can show - consider `.off()`.") }
-				setTimeout.each(souls, function(soul){ var node = root.next[soul];
+				each(souls, function(soul){ var node = root.next[soul];
 					if(opt.super || (node.ask||'')['']){ mesh.say({get: {'#': soul}}, peer); return }
-					setTimeout.each(Object.keys(node.ask||''), function(key){ if(!key){ return }
+					each(Object.keys(node.ask||''), function(key){ if(!key){ return }
 						// is the lack of ## a !onion hint?
-						mesh.say({'##': String.hash((root.graph[soul]||'')[key]), get: {'#': soul, '.': key}}, peer);
+						mesh.say({'##': hash((root.graph[soul]||'')[key]), get: {'#': soul, '.': key}}, peer);
 						// TODO: Switch this so Book could route?
 					})
 				});
@@ -2758,7 +2176,7 @@ USE(function(module) {
         });
 
         function flush() {
-            if (!acks.length && ((setTimeout.turn || '').s || '').length) {
+            if (!acks.length && ((turn || '').s || '').length) {
                 setTimeout(flush, 99);
                 return;
             }
@@ -2777,7 +2195,7 @@ USE(function(module) {
                     root.on('localStorage:error', { err, get: opt.prefix, put: disk });
                 }
                 size = tmp.length;
-                setTimeout.each(ack, function(id) {
+                each(ack, function(id) {
                     root.on('in', { '@': id, err, ok: 0 });
                 }, 0, 99);
             });
@@ -2787,6 +2205,7 @@ USE(function(module) {
 }());
 
 /* BELOW IS TEMPORARY FOR OLD INTERNAL COMPATIBILITY, THEY ARE IMMEDIATELY DEPRECATED AND WILL BE REMOVED IN NEXT VERSION */
+
 ;(function(){
 	var u;
 	if(''+u == typeof Gun){ return }
@@ -2867,7 +2286,7 @@ USE(function(module) {
 		}catch(e){o={}};
 		return o;
 	}
-	;(function(){ var u;
+;(function(){ var u;
 		function map(v,k){
 			if(obj_has(this,k) && u !== this[k]){ return }
 			this[k] = v;
@@ -2881,7 +2300,7 @@ USE(function(module) {
 	Type.obj.copy = Type.obj.copy || function(o){ DEP('obj.copy'); // because http://web.archive.org/web/20140328224025/http://jsperf.com/cloning-an-object/2
 		return !o? o : JSON.parse(JSON.stringify(o)); // is shockingly faster than anything else, and our data has to be a subset of JSON anyways!
 	}
-	;(function(){
+;(function(){
 		function empty(v,i){ var n = this.n, u;
 			if(n && (i === n || (obj_is(n) && obj_has(n, i)))){ return }
 			if(u !== i){ return true }
@@ -2891,7 +2310,7 @@ USE(function(module) {
 			return obj_map(o,empty,{n:n})? false : true;
 		}
 	}());
-	;(function(){
+;(function(){
 		function t(k,v){
 			if(2 === arguments.length){
 				t.r = t.r || {};
@@ -2957,7 +2376,7 @@ USE(function(module) {
 		return Val.link.is(v) || false; // is the value a soul relation? Then it is valid and return it. If not, everything else remaining is an invalid data type. Custom extensions can be built on top of these primitives to support other types.
 	}
 	Val.link = Val.rel = {_: '#'};
-	;(function(){
+;(function(){
 		Val.link.is = function(v){ DEP('val.link.is'); // this defines whether an object is a soul relation or not, they look like this: {'#': 'UUID'}
 			if(v && v[rel_] && !v._ && obj_is(v)){ // must be an object.
 				var o = {};
@@ -2997,7 +2416,7 @@ USE(function(module) {
 		return n;
 	}
 	Node.soul._ = Val.link._;
-	;(function(){
+;(function(){
 		Node.is = function(n, cb, as){ DEP('node.is'); var s; // checks to see if an object is a valid node.
 			if(!obj_is(n)){ return false } // must be an object.
 			if(s = Node.soul(n)){ // must have a soul on it.
@@ -3011,7 +2430,7 @@ USE(function(module) {
 			if(this.cb){ this.cb.call(this.as, v, k, this.n, this.s) } // optionally callback each key/value.
 		}
 	}());
-	;(function(){
+;(function(){
 		Node.ify = function(obj, o, as){ DEP('node.ify'); // returns a node from a shallow object.
 			if(!o){ o = {} }
 			else if(typeof o === 'string'){ o = {soul: o} }
@@ -3051,7 +2470,7 @@ USE(function(module) {
 		}
 		return State.ify(to, k, State.is(from, k), val, Node.soul(from));
 	}
-	;(function(){
+;(function(){
 		State.map = function(cb, s, as){ DEP('state.map'); var u; // for use with Node.ify
 			var o = obj_is(o = cb || s)? o : null;
 			cb = fn_is(cb = cb || s)? cb : null;
@@ -3084,7 +2503,7 @@ USE(function(module) {
 	var N_ = Node._, u;
 
 	var Graph = {};
-	;(function(){
+;(function(){
 		Graph.is = function(g, cb, fn, as){ DEP('graph.is'); // checks to see if an object is a valid graph.
 			if(!g || !obj_is(g) || obj_empty(g)){ return false } // must be an object.
 			return !obj_map(g, map, {cb:cb,fn:fn,as:as}); // makes sure it wasn't an empty object.
@@ -3099,7 +2518,7 @@ USE(function(module) {
 			if(fn){ Node.is(nf.n, fn, nf.as) } // where we then have an optional callback for each key/value.
 		}
 	}());
-	;(function(){
+;(function(){
 		Graph.ify = function(obj, env, as){ DEP('graph.ify'); 
 			var at = {path: [], obj: obj};
 			if(!env){
@@ -3206,7 +2625,7 @@ USE(function(module) {
 		if(!soul){ return }
 		return obj_put({}, soul, node);
 	}
-	;(function(){
+;(function(){
 		Graph.to = function(graph, root, opt){ DEP('graph.to'); 
 			if(!graph){ return }
 			var obj = {};
