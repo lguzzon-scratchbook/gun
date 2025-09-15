@@ -1,6 +1,7 @@
 ;(function(){
 
   /* UNBUILD */
+
   function USE(arg, req){
     return req? require(arg) : arg.slice? USE[R(arg)] : function(mod, path){
       arg(mod = {exports: {}});
@@ -11,6 +12,7 @@
     }
   }
   if(typeof module !== "undefined"){ var MODULE = module }
+  
   /* UNBUILD */
 
 	;USE(function(module){
@@ -41,15 +43,15 @@
 		}
 		String.hash = function(s, c){ // via SO
 			if(typeof s !== 'string'){ return }
-	    c = c || 0; // CPU schedule hashing by
-	    if(!s.length){ return c }
-	    for(var i=0,l=s.length,n; i<l; ++i){
-	      n = s.charCodeAt(i);
-	      c = ((c<<5)-c)+n;
-	      c |= 0;
-	    }
-	    return c;
-	  }
+			    c = c || 0; // CPU schedule hashing by
+			    if(!s.length){ return c }
+			    for(var i=0,l=s.length,n; i<l; ++i){
+			      n = s.charCodeAt(i);
+			      c = ((c<<5)-c)+n;
+			      c |= 0;
+			    }
+			    return c;
+			  }
 		var has = Object.prototype.hasOwnProperty;
 		Object.plain = function(o){ return o? (o instanceof Object && o.constructor === Object) || Object.prototype.toString.call(o).match(/^\[object (\w+)\]$/)[1] === 'Object' : false }
 		Object.empty = function(o, n){
@@ -458,7 +460,6 @@
 	})(USE, './ask');
 
 	;USE(function(module){
-
 		function Gun(o){
 			if(o instanceof Gun){ return (this._ = {$: this}).$ }
 			if(!(this instanceof Gun)){ return new Gun(o) }
@@ -599,9 +600,9 @@
 			}
 			function map(msg){
 				var DBG; if(DBG = (msg._||'').DBG){ DBG.pa = +new Date; DBG.pm = DBG.pm || +new Date}
-      	var eve = this, root = eve.as, graph = root.graph, ctx = msg._, put = msg.put, soul = put['#'], key = put['.'], val = put[':'], state = put['>'], id = msg['#'], tmp;
-      	if((tmp = ctx.msg) && (tmp = tmp.put) && (tmp = tmp[soul])){ state_ify(tmp, key, state, val, soul) } // necessary! or else out messages do not get SEA transforms.
-      	//var bytes = ((graph[soul]||'')[key]||'').length||1;
+		      	var eve = this, root = eve.as, graph = root.graph, ctx = msg._, put = msg.put, soul = put['#'], key = put['.'], val = put[':'], state = put['>'], id = msg['#'], tmp;
+		      	if((tmp = ctx.msg) && (tmp = tmp.put) && (tmp = tmp[soul])){ state_ify(tmp, key, state, val, soul) } // necessary! or else out messages do not get SEA transforms.
+		      	//var bytes = ((graph[soul]||'')[key]||'').length||1;
 				graph[soul] = state_ify(graph[soul], key, state, val, soul);
 				if(tmp = (root.next||'')[soul]){
 					//tmp.bytes = (tmp.bytes||0) + ((val||'').length||1) - bytes;
@@ -761,7 +762,7 @@
 		if(typeof window !== "undefined"){ (window.GUN = window.Gun = Gun).window = window }
 		try{ if(typeof MODULE !== "undefined"){ MODULE.exports = Gun } }catch(e){}
 		module.exports = Gun;
-		
+
 		(Gun.window||{}).console = (Gun.window||{}).console || {log: function(){}};
 		(C = console).only = function(i, s){ return (C.only.i && i === C.only.i && C.only.i++) && (C.log.apply(C, arguments) || s) };
 
@@ -1737,7 +1738,7 @@
 					if((tmp = this) && (tmp = tmp.to) && tmp.next){ tmp.next(msg) } // compatible with middleware adapters.
 					if(!msg){ return false }
 					var id, hash, raw, ack = msg['@'];
-//if(opt.super && (!ack || !msg.put)){ return } // TODO: MANHATTAN STUB //OBVIOUSLY BUG! But squelch relay. // :( get only is 100%+ CPU usage :(
+		//if(opt.super && (!ack || !msg.put)){ return } // TODO: MANHATTAN STUB //OBVIOUSLY BUG! But squelch relay. // :( get only is 100%+ CPU usage :(
 					var meta = msg._||(msg._=function(){});
 					var DBG = msg.DBG, S = +new Date; meta.y = meta.y || S; if(!peer){ DBG && (DBG.y = S) }
 					if(!(id = msg['#'])){ id = msg['#'] = String.random(9) }
@@ -1955,10 +1956,9 @@
 
 			return mesh;
 		}
-	  var empty = {}, ok = true, u;
+			  var empty = {}, ok = true, u;
 
-	  try{ module.exports = Mesh }catch(e){}
-
+			  try{ module.exports = Mesh }catch(e){}
 	})(USE, './mesh');
 
 	;USE(function(module){
@@ -2086,9 +2086,11 @@
 					},0,99);
 				})
 			}
-		
+
 		});
 	})(USE, './localStorage');
+
+
 
 }());
 
@@ -2157,7 +2159,7 @@
 	}
 	Type.list.map = Type.list.map || function(l, c, _){ DEP('list.map'); return obj_map(l, c, _) }
 	Type.list.index = 1; // change this to 0 if you want non-logical, non-mathematical, non-matrix, non-convenient array notation
-	Type.obj = Type.boj || {is: function(o){ DEP('obj'); return o? (o instanceof Object && o.constructor === Object) || Object.prototype.toString.call(o).match(/^\[object (\w+)\]$/)[1] === 'Object' : false }}
+	Type.obj = Type.boj || {is: function(o){ DEP('obj'); return o? (o instanceof Object && o.constructor === Object) || Object.prototype.toString.call(o).match(/^[object (w+)]$/)[1] === 'Object' : false }}
 	Type.obj.put = Type.obj.put || function(o, k, v){ DEP('obj.put'); return (o||{})[k] = v, o }
 	Type.obj.has = Type.obj.has || function(o, k){ DEP('obj.has'); return o && Object.prototype.hasOwnProperty.call(o, k) }
 	Type.obj.del = Type.obj.del || function(o, k){ DEP('obj.del'); 
