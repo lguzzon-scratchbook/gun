@@ -1,4 +1,4 @@
-;(function(){
+;((()=> {
 
 var Gun = require('./root');
 require('./chain');
@@ -7,4 +7,4 @@ require('./put');
 require('./get');
 module.exports = Gun;
 	
-}());
+})());
