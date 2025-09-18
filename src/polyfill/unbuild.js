@@ -3,10 +3,10 @@ function USE(arg, req) {
     ? require(arg)
     : arg.slice
       ? USE[R(arg)]
-      : function (mod, path) {
+      : ((mod, path) => {
           arg((mod = { exports: {} }))
           USE[R(path)] = mod.exports
-        }
+        })
   function R(p) {
     return p.split('/').slice(-1).toString().replace('.js', '')
   }
