@@ -1,14 +1,14 @@
-;(function(){
+;((()=> {
 
 require('./shim');
 
-var noop = function(){}
-var parse = JSON.parseAsync || function(t,cb,r){ var u, d = +new Date; try{ cb(u, JSON.parse(t,r), json.sucks(+new Date - d)) }catch(e){ cb(e) } }
-var json = JSON.stringifyAsync || function(v,cb,r,s){ var u, d = +new Date; try{ cb(u, JSON.stringify(v,r,s), json.sucks(+new Date - d)) }catch(e){ cb(e) } }
-json.sucks = function(d){ if(d > 99){ console.log("Warning: JSON blocking CPU detected. Add `gun/lib/yson.js` to fix."); json.sucks = noop } }
+var noop = ()=> {}
+var parse = JSON.parseAsync || ((t,cb,r)=> { var u, d = +new Date; try{ cb(u, JSON.parse(t,r), json.sucks(+new Date - d)) }catch(e){ cb(e) } })
+var json = JSON.stringifyAsync || ((v,cb,r,s)=> { var u, d = +new Date; try{ cb(u, JSON.stringify(v,r,s), json.sucks(+new Date - d)) }catch(e){ cb(e) } })
+json.sucks = (d)=> { if(d > 99){ console.log("Warning: JSON blocking CPU detected. Add `gun/lib/yson.js` to fix."); json.sucks = noop } }
 
 function Mesh(root){
-	var mesh = function(){};
+	var mesh = ()=> {};
 	var opt = root.opt || {};
 	opt.log = opt.log || console.log;
 	opt.gap = opt.gap || opt.wait || 0;
@@ -36,7 +36,7 @@ function Mesh(root){
 		var tmp = raw[0], msg;
 		//raw && raw.slice && console.log("hear:", ((peer.wire||'').headers||'').origin, raw.length, raw.slice && raw.slice(0,50)); //tc-iamunique-tc-package-ds1
 		if('[' === tmp){
-			parse(raw, function(err, msg){
+			parse(raw, (err, msg)=> {
 				if(err || !msg){ return mesh.say({dam: '!', err: "DAM JSON parse error."}, peer) }
 				console.STAT && console.STAT(+new Date, msg.length, '# on hear batch');
 				var P = opt.puff;
@@ -55,14 +55,14 @@ function Mesh(root){
 		}
 		if('{' === tmp || ((raw['#'] || Object.plain(raw)) && (msg = raw))){
 			if(msg){ return hear.one(msg, peer, S) }
-			parse(raw, function(err, msg){
+			parse(raw, (err, msg)=> {
 				if(err || !msg){ return mesh.say({dam: '!', err: "DAM JSON parse error."}, peer) }
 				hear.one(msg, peer, S);
 			});
 			return;
 		}
 	}
-	hear.one = function(msg, peer, S){ // S here is temporary! Undo.
+	hear.one = (msg, peer, S)=> { // S here is temporary! Undo.
 		var id, hash, tmp, ash, DBG;
 		if(msg.DBG){ msg.DBG = DBG = {DBG: msg.DBG} }
 		DBG && (DBG.h = S);
@@ -72,7 +72,7 @@ function Mesh(root){
 		// DAM logic:
 		if(!(hash = msg['##']) && false && u !== msg.put){ /*hash = msg['##'] = Type.obj.hash(msg.put)*/ } // disable hashing for now // TODO: impose warning/penalty instead (?)
 		if(hash && (tmp = msg['@'] || (msg.get && id)) && dup.check(ash = tmp+hash)){ return } // Imagine A <-> B <=> (C & D), C & D reply with same ACK but have different IDs, B can use hash to dedup. Or if a GET has a hash already, we shouldn't ACK if same.
-		(msg._ = function(){}).via = mesh.leap = peer;
+		(msg._ = ()=> {}).via = mesh.leap = peer;
 		if((tmp = msg['><']) && 'string' == typeof tmp){ tmp.slice(0,99).split(',').forEach(function(k){ this[k] = 1 }, (msg._).yo = {}) } // Peers already sent to, do not resend.
 		// DAM ^
 		if(tmp = msg.dam){
@@ -85,7 +85,7 @@ function Mesh(root){
 		if(tmp = msg.ok){ msg._.near = tmp['/'] }
 		var S = +new Date;
 		DBG && (DBG.is = S); peer.SI = id;
-		dup_track.ed = function(d){
+		dup_track.ed = (d)=> {
 			if(id !== d){ return }
 			dup_track.ed = 0;
 			if(!(d = dup.s[id])){ return }
@@ -99,13 +99,13 @@ function Mesh(root){
 		if(ash){ dup_track(ash) } //dup.track(tmp+hash, true).it = it(msg);
 		mesh.leap = mesh.last = null; // warning! mesh.leap could be buggy.
 	}
-	var tomap = function(k,i,m){m(k,true)};
+	var tomap = (k,i,m)=> {m(k,true)};
 	hear.c = hear.d = 0;
 
-	;(function(){
+	;((()=> {
 		var SMIA = 0;
 		var loop;
-		mesh.hash = function(msg, peer){ var h, s, t;
+		mesh.hash = (msg, peer)=> { var h, s, t;
 			var S = +new Date;
 			json(msg.put, function hash(err, text){
 				var ss = (s || (s = t = text||'')).slice(0, 32768); // 1024 * 32
@@ -129,7 +129,7 @@ function Mesh(root){
 			if(!msg){ return false }
 			var id, hash, raw, ack = msg['@'];
 //if(opt.super && (!ack || !msg.put)){ return } // TODO: MANHATTAN STUB //OBVIOUSLY BUG! But squelch relay. // :( get only is 100%+ CPU usage :(
-			var meta = msg._||(msg._=function(){});
+			var meta = msg._||(msg._=()=> {});
 			var DBG = msg.DBG, S = +new Date; meta.y = meta.y || S; if(!peer){ DBG && (DBG.y = S) }
 			if(!(id = msg['#'])){ id = msg['#'] = String.random(9) }
 			!loop && dup_track(id);//.it = it(msg); // track for 9 seconds, default. Earth<->Mars would need more! // always track, maybe move this to the 'after' logic if we split function.
@@ -185,7 +185,7 @@ function Mesh(root){
 			}
 			peer.batch = '['; // Prevents double JSON!
 			var ST = +new Date;
-			setTimeout(function(){
+			setTimeout(()=> {
 				console.STAT && console.STAT(ST, +new Date - ST, '0ms TO');
 				flush(peer);
 			}, opt.gap); // TODO: queuing/batching might be bad for low-latency video game performance! Allow opt out?
@@ -194,7 +194,7 @@ function Mesh(root){
 		}
 		mesh.say.c = mesh.say.d = 0;
 		// TODO: this caused a out-of-memory crash!
-		mesh.raw = function(msg, peer){ // TODO: Clean this up / delete it / move logic out!
+		mesh.raw = (msg, peer)=> { // TODO: Clean this up / delete it / move logic out!
 			if(!msg){ return '' }
 			var meta = (msg._) || {}, put, tmp;
 			if(tmp = meta.raw){ return tmp }
@@ -217,9 +217,9 @@ function Mesh(root){
 			}
 			if(msg.put && (tmp = msg.ok)){ msg.ok = {'@':(tmp['@']||1)-1, '/': (tmp['/']==msg._.near)? mesh.near : tmp['/']}; }
 			if(put = meta.$put){
-				tmp = {}; Object.keys(msg).forEach(function(k){ tmp[k] = msg[k] });
+				tmp = {}; Object.keys(msg).forEach((k)=> { tmp[k] = msg[k] });
 				tmp.put = ':])([:';
-				json(tmp, function(err, raw){
+				json(tmp, (err, raw)=> {
 					if(err){ return } // TODO: Handle!!
 					var S = +new Date;
 					tmp = raw.indexOf('"put":":])([:"');
@@ -235,7 +235,7 @@ function Mesh(root){
 				mesh.say(msg, peer);
 			}
 		}
-	}());
+	})());
 
 	function flush(peer){
 		var tmp = peer.batch, t = 'string' == typeof tmp, l;
@@ -263,7 +263,7 @@ function Mesh(root){
 	}}
 
 	mesh.near = 0;
-	mesh.hi = function(peer){
+	mesh.hi = (peer)=> {
 		var wire = peer.wire, tmp;
 		if(!wire){ mesh.wire((peer.length && {url: peer, id: peer}) || peer); return }
 		if(peer.id){
@@ -280,20 +280,20 @@ function Mesh(root){
 		}
 		// @rogowski I need this here by default for now to fix go1dfish's bug
 		tmp = peer.queue; peer.queue = [];
-		setTimeout.each(tmp||[],function(msg){
+		setTimeout.each(tmp||[],(msg)=> {
 			send(msg, peer);
 		},0,9);
 		//Type.obj.native && Type.obj.native(); // dirty place to check if other JS polluted.
 	}
-	mesh.bye = function(peer){
+	mesh.bye = (peer)=> {
 		peer.met && --mesh.near;
 		delete peer.met;
 		root.on('bye', peer);
 		var tmp = +(new Date); tmp = (tmp - (peer.met||tmp));
 		mesh.bye.time = ((mesh.bye.time || tmp) + tmp) / 2;
 	}
-	mesh.hear['!'] = function(msg, peer){ opt.log('Error:', msg.err) }
-	mesh.hear['?'] = function(msg, peer){
+	mesh.hear['!'] = (msg, peer)=> { opt.log('Error:', msg.err) }
+	mesh.hear['?'] = (msg, peer)=> {
 		if(msg.pid){
 			if(!peer.pid){ peer.pid = msg.pid }
 			if(msg['@']){ return }
@@ -301,7 +301,7 @@ function Mesh(root){
 		mesh.say({dam: '?', pid: opt.pid, '@': msg['#']}, peer);
 		delete dup.s[peer.last]; // IMPORTANT: see https://gun.eco/docs/DAM#self
 	}
-	mesh.hear['mob'] = function(msg, peer){ // NOTE: AXE will overload this with better logic.
+	mesh.hear['mob'] = (msg, peer)=> { // NOTE: AXE will overload this with better logic.
 		if(!msg.peers){ return }
 		var peers = Object.keys(msg.peers), one = peers[(Math.random()*peers.length) >> 0];
 		if(!one){ return }
@@ -327,16 +327,16 @@ function Mesh(root){
 	root.on('bye', function(peer, tmp){ this.to.next(peer);
 		if(tmp = console.STAT){ tmp.peers = mesh.near; }
 		if(!(tmp = peer.url)){ return } gets[tmp] = true;
-		setTimeout(function(){ delete gets[tmp] },opt.lack || 9000);
+		setTimeout(()=> { delete gets[tmp] },opt.lack || 9000);
 	});
 	root.on('hi', function(peer, tmp){ this.to.next(peer);
 		if(tmp = console.STAT){ tmp.peers = mesh.near }
 		if(opt.super){ return } // temporary (?) until we have better fix/solution?
 		var souls = Object.keys(root.next||''); // TODO: .keys( is slow
 		if(souls.length > 9999 && !console.SUBS){ console.log(console.SUBS = "Warning: You have more than 10K live GETs, which might use more bandwidth than your screen can show - consider `.off()`.") }
-		setTimeout.each(souls, function(soul){ var node = root.next[soul];
+		setTimeout.each(souls, (soul)=> { var node = root.next[soul];
 			if(opt.super || (node.ask||'')['']){ mesh.say({get: {'#': soul}}, peer); return }
-			setTimeout.each(Object.keys(node.ask||''), function(key){ if(!key){ return }
+			setTimeout.each(Object.keys(node.ask||''), (key)=> { if(!key){ return }
 				// is the lack of ## a !onion hint?
 				mesh.say({'##': String.hash((root.graph[soul]||'')[key]), get: {'#': soul, '.': key}}, peer);
 				// TODO: Switch this so Book could route?
@@ -351,4 +351,4 @@ function Mesh(root){
 	  try{ module.exports = Mesh }catch(e){}
 
 	
-}());
+})());
