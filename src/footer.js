@@ -1,10 +1,10 @@
 /* BELOW IS TEMPORARY FOR OLD INTERNAL COMPATIBILITY, THEY ARE IMMEDIATELY DEPRECATED AND WILL BE REMOVED IN NEXT VERSION */
-;(function () {
+;(() => {
   var u
   if ('' + u == typeof Gun) {
     return
   }
-  var DEP = function (n) {
+  var DEP = (n) => {
     console.warn(
       'Warning! Deprecated internal utility will break in next version:',
       n
@@ -14,19 +14,19 @@
   var Type = Gun
   //Type.fns = Type.fn = {is: function(fn){ return (!!fn && fn instanceof Function) }}
   Type.fn = Type.fn || {
-    is: function (fn) {
+    is: (fn) => {
       DEP('fn')
       return !!fn && 'function' == typeof fn
     }
   }
   Type.bi = Type.bi || {
-    is: function (b) {
+    is: (b) => {
       DEP('bi')
       return b instanceof Boolean || typeof b == 'boolean'
     }
   }
   Type.num = Type.num || {
-    is: function (n) {
+    is: (n) => {
       DEP('num')
       return (
         !list_is(n) &&
@@ -35,14 +35,14 @@
     }
   }
   Type.text = Type.text || {
-    is: function (t) {
+    is: (t) => {
       DEP('text')
       return typeof t == 'string'
     }
   }
   Type.text.ify =
     Type.text.ify ||
-    function (t) {
+    ((t) => {
       DEP('text.ify')
       if (Type.text.is(t)) {
         return t
@@ -51,10 +51,10 @@
         return JSON.stringify(t)
       }
       return t && t.toString ? t.toString() : t
-    }
+    })
   Type.text.random =
     Type.text.random ||
-    function (l, c) {
+    ((l, c) => {
       DEP('text.random')
       var s = ''
       l = l || 24 // you are not going to make a 0 length random number, so no need to check type
@@ -64,10 +64,10 @@
         l--
       }
       return s
-    }
+    })
   Type.text.match =
     Type.text.match ||
-    function (t, o) {
+    ((t, o) => {
       var tmp, u
       DEP('text.match')
       if ('string' !== typeof t) {
@@ -101,10 +101,10 @@
         return true
       }
       return false
-    }
+    })
   Type.text.hash =
     Type.text.hash ||
-    function (s, c) {
+    ((s, c) => {
       // via SO
       DEP('text.hash')
       if (typeof s !== 'string') {
@@ -120,9 +120,9 @@
         c |= 0
       }
       return c
-    }
+    })
   Type.list = Type.list || {
-    is: function (l) {
+    is: (l) => {
       DEP('list')
       return l instanceof Array
     }
@@ -130,10 +130,10 @@
   Type.list.slit = Type.list.slit || Array.prototype.slice
   Type.list.sort =
     Type.list.sort ||
-    function (k) {
+    ((k) => {
       // creates a new sort function based off some key
       DEP('list.sort')
-      return function (A, B) {
+      return (A, B) => {
         if (!A || !B) {
           return 0
         }
@@ -147,16 +147,16 @@
           return 0
         }
       }
-    }
+    })
   Type.list.map =
     Type.list.map ||
-    function (l, c, _) {
+    ((l, c, _) => {
       DEP('list.map')
       return obj_map(l, c, _)
-    }
+    })
   Type.list.index = 1 // change this to 0 if you want non-logical, non-mathematical, non-matrix, non-convenient array notation
   Type.obj = Type.boj || {
-    is: function (o) {
+    is: (o) => {
       DEP('obj')
       return o
         ? (o instanceof Object && o.constructor === Object) ||
@@ -167,19 +167,19 @@
   }
   Type.obj.put =
     Type.obj.put ||
-    function (o, k, v) {
+    ((o, k, v) => {
       DEP('obj.put')
       return ((o || {})[k] = v), o
-    }
+    })
   Type.obj.has =
     Type.obj.has ||
-    function (o, k) {
+    ((o, k) => {
       DEP('obj.has')
-      return o && Object.prototype.hasOwnProperty.call(o, k)
-    }
+      return o && Object.hasOwn(o, k)
+    })
   Type.obj.del =
     Type.obj.del ||
-    function (o, k) {
+    ((o, k) => {
       DEP('obj.del')
       if (!o) {
         return
@@ -187,16 +187,16 @@
       o[k] = null
       delete o[k]
       return o
-    }
+    })
   Type.obj.as =
     Type.obj.as ||
-    function (o, k, v, u) {
+    ((o, k, v, u) => {
       DEP('obj.as')
       return (o[k] = o[k] || (u === v ? {} : v))
-    }
+    })
   Type.obj.ify =
     Type.obj.ify ||
-    function (o) {
+    ((o) => {
       DEP('obj.ify')
       if (obj_is(o)) {
         return o
@@ -207,8 +207,8 @@
         o = {}
       }
       return o
-    }
-  ;(function () {
+    })
+  ;(() => {
     var u
     function map(v, k) {
       if (obj_has(this, k) && u !== this[k]) {
@@ -218,20 +218,20 @@
     }
     Type.obj.to =
       Type.obj.to ||
-      function (from, to) {
+      ((from, to) => {
         DEP('obj.to')
         to = to || {}
         obj_map(from, map, to)
         return to
-      }
+      })
   })()
   Type.obj.copy =
     Type.obj.copy ||
-    function (o) {
+    ((o) => {
       DEP('obj.copy') // because http://web.archive.org/web/20140328224025/http://jsperf.com/cloning-an-object/2
       return !o ? o : JSON.parse(JSON.stringify(o)) // is shockingly faster than anything else, and our data has to be a subset of JSON anyways!
-    }
-  ;(function () {
+    })
+  ;(() => {
     function empty(v, i) {
       var n = this.n,
         u
@@ -244,15 +244,15 @@
     }
     Type.obj.empty =
       Type.obj.empty ||
-      function (o, n) {
+      ((o, n) => {
         DEP('obj.empty')
         if (!o) {
           return true
         }
         return obj_map(o, empty, { n: n }) ? false : true
-      }
+      })
   })()
-  ;(function () {
+  ;(() => {
     function t(k, v) {
       if (2 === arguments.length) {
         t.r = t.r || {}
@@ -267,14 +267,12 @@
       u
     Object.keys =
       Object.keys ||
-      function (o) {
-        return map(o, function (v, k, t) {
+      ((o) => map(o, (v, k, t) => {
           t(k)
-        })
-      }
+        }))
     Type.obj.map = map =
       Type.obj.map ||
-      function (l, c, _) {
+      ((l, c, _) => {
         DEP('obj.map')
         var u,
           i = 0,
@@ -323,15 +321,15 @@
           }
         }
         return f ? t.r : Type.list.index ? 0 : -1
-      }
+      })
   })()
   Type.time = Type.time || {}
   Type.time.is =
     Type.time.is ||
-    function (t) {
+    ((t) => {
       DEP('time')
       return t ? t instanceof Date : +new Date().getTime()
-    }
+    })
 
   var fn_is = Type.fn.is
   var list_is = Type.list.is
@@ -341,7 +339,7 @@
     obj_map = obj.map
 
   var Val = {}
-  Val.is = function (v) {
+  Val.is = (v) => {
     DEP('val.is') // Valid values are a subset of JSON: null, binary, number (!Infinity), text, or a soul relation. Arrays need special algorithms to handle concurrency, so they are not supported directly. Use an extension that supports them if needed but research their problems first.
     if (v === u) {
       return false
@@ -363,8 +361,8 @@
     return Val.link.is(v) || false // is the value a soul relation? Then it is valid and return it. If not, everything else remaining is an invalid data type. Custom extensions can be built on top of these primitives to support other types.
   }
   Val.link = Val.rel = { _: '#' }
-  ;(function () {
-    Val.link.is = function (v) {
+  ;(() => {
+    Val.link.is = (v) => {
       DEP('val.link.is') // this defines whether an object is a soul relation or not, they look like this: {'#': 'UUID'}
       if (v && v[rel_] && !v._ && obj_is(v)) {
         // must be an object.
@@ -378,19 +376,18 @@
       return false // the value was not a valid soul relation.
     }
     function map(s, k) {
-      var o = this // map over the object...
-      if (o.id) {
-        return (o.id = false)
+      if (this.id) {
+        return (this.id = false)
       } // if ID is already defined AND we're still looping through the object, it is considered invalid.
       if (k == rel_ && text_is(s)) {
         // the key should be '#' and have a text value.
-        o.id = s // we found the soul!
+        this.id = s // we found the soul!
       } else {
-        return (o.id = false) // if there exists anything else on the object that isn't the soul, then it is considered invalid.
+        return (this.id = false) // if there exists anything else on the object that isn't the soul, then it is considered invalid.
       }
     }
   })()
-  Val.link.ify = function (t) {
+  Val.link.ify = (t) => {
     DEP('val.link.ify')
     return obj_put({}, rel_, t)
   } // convert a soul into a relation and return it.
@@ -408,11 +405,11 @@
   Type.val = Type.val || Val
 
   var Node = { _: '_' }
-  Node.soul = function (n, o) {
+  Node.soul = (n, o) => {
     DEP('node.soul')
     return n && n._ && n._[o || soul_]
   } // convenience function to check to see if there is a soul on a node and return it.
-  Node.soul.ify = function (n, o) {
+  Node.soul.ify = (n, o) => {
     DEP('node.soul.ify') // put a soul on an object.
     o = typeof o === 'string' ? { soul: o } : o || {}
     n = n || {} // make sure it exists.
@@ -421,8 +418,8 @@
     return n
   }
   Node.soul._ = Val.link._
-  ;(function () {
-    Node.is = function (n, cb, as) {
+  ;(() => {
+    Node.is = (n, cb, as) => {
       DEP('node.is')
       var s // checks to see if an object is a valid node.
       if (!obj_is(n)) {
@@ -447,8 +444,8 @@
       } // optionally callback each key/value.
     }
   })()
-  ;(function () {
-    Node.ify = function (obj, o, as) {
+  ;(() => {
+    Node.ify = (obj, o, as) => {
       DEP('node.ify') // returns a node from a shallow object.
       if (!o) {
         o = {}
@@ -494,11 +491,11 @@
   Type.node = Type.node || Node
 
   var State = Type.state
-  State.lex = function () {
+  State.lex = () => {
     DEP('state.lex')
     return State().toString(36).replace('.', '')
   }
-  State.to = function (from, k, to) {
+  State.to = (from, k, to) => {
     DEP('state.to')
     var val = (from || {})[k]
     if (obj_is(val)) {
@@ -506,8 +503,8 @@
     }
     return State.ify(to, k, State.is(from, k), val, Node.soul(from))
   }
-  ;(function () {
-    State.map = function (cb, s, as) {
+  ;(() => {
+    State.map = (cb, s, as) => {
       DEP('state.map')
       var u // for use with Node.ify
       var o = obj_is((o = cb || s)) ? o : null
@@ -553,8 +550,8 @@
     u
 
   var Graph = {}
-  ;(function () {
-    Graph.is = function (g, cb, fn, as) {
+  ;(() => {
+    Graph.is = (g, cb, fn, as) => {
       DEP('graph.is') // checks to see if an object is a valid graph.
       if (!g || !obj_is(g) || obj_empty(g)) {
         return false
@@ -580,8 +577,8 @@
       } // where we then have an optional callback for each key/value.
     }
   })()
-  ;(function () {
-    Graph.ify = function (obj, env, as) {
+  ;(() => {
+    Graph.ify = (obj, env, as) => {
       DEP('graph.ify')
       var at = { path: [], obj: obj }
       if (!env) {
@@ -622,58 +619,57 @@
       return at
     }
     function map(v, k, n) {
-      var at = this,
-        env = at.env,
+      var 
+        env = this.env,
         is,
         tmp
       if (Node._ === k && obj_has(v, Val.link._)) {
         return n._ // TODO: Bug?
       }
-      if (!(is = valid(v, k, n, at, env))) {
+      if (!(is = valid(v, k, n, this, env))) {
         return
       }
       if (!k) {
-        at.node = at.node || n || {}
+        this.node = this.node || n || {}
         if (obj_has(v, Node._) && Node.soul(v)) {
           // ? for safety ?
-          at.node._ = obj_copy(v._)
+          this.node._ = obj_copy(v._)
         }
-        at.node = Node.soul.ify(at.node, Val.link.is(at.link))
-        at.link = at.link || Val.link.ify(Node.soul(at.node))
+        this.node = Node.soul.ify(this.node, Val.link.is(this.link))
+        this.link = this.link || Val.link.ify(Node.soul(this.node))
       }
       if ((tmp = env.map)) {
-        tmp.call(env.as || {}, v, k, n, at)
+        tmp.call(env.as || {}, v, k, n, this)
         if (obj_has(n, k)) {
           v = n[k]
           if (u === v) {
             obj_del(n, k)
             return
           }
-          if (!(is = valid(v, k, n, at, env))) {
+          if (!(is = valid(v, k, n, this, env))) {
             return
           }
         }
       }
       if (!k) {
-        return at.node
+        return this.node
       }
       if (true === is) {
         return v
       }
-      tmp = node(env, { obj: v, path: at.path.concat(k) })
+      tmp = node(env, { obj: v, path: this.path.concat(k) })
       if (!tmp.node) {
         return
       }
       return tmp.link //{'#': Node.soul(tmp.node)};
     }
     function soul(id) {
-      var at = this
-      var prev = Val.link.is(at.link),
-        graph = at.env.graph
-      at.link = at.link || Val.link.ify(id)
-      at.link[Val.link._] = id
-      if (at.node && at.node[Node._]) {
-        at.node[Node._][Val.link._] = id
+      var prev = Val.link.is(this.link),
+        graph = this.env.graph
+      this.link = this.link || Val.link.ify(id)
+      this.link[Val.link._] = id
+      if (this.node && this.node[Node._]) {
+        this.node[Node._][Val.link._] = id
       }
       if (obj_has(graph, prev)) {
         graph[id] = graph[prev]
@@ -694,7 +690,7 @@
       }
       env.err = "Invalid value at '" + at.path.concat(k).join('.') + "'!"
       if (Type.list.is(v)) {
-        env.err += ' Use \`.set(item)\` instead of an Array.'
+        env.err += ' Use `.set(item)` instead of an Array.'
       }
     }
     function seen(env, at) {
@@ -710,7 +706,7 @@
       arr.push(at)
     }
   })()
-  Graph.node = function (node) {
+  Graph.node = (node) => {
     DEP('graph.node')
     var soul = Node.soul(node)
     if (!soul) {
@@ -718,8 +714,8 @@
     }
     return obj_put({}, soul, node)
   }
-  ;(function () {
-    Graph.to = function (graph, root, opt) {
+  ;(() => {
+    Graph.to = (graph, root, opt) => {
       DEP('graph.to')
       if (!graph) {
         return
