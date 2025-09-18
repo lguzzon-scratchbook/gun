@@ -1,7 +1,7 @@
 ;(function(){
 
-var Gun = require('./root');
-Gun.chain.back = function(n, opt){ var tmp;
+const Gun = require('./root');
+Gun.chain.back = function(n, opt){
 	n = n || 1;
 	if(-1 === n || Infinity === n){
 		return this._.root.$;
@@ -9,7 +9,8 @@ Gun.chain.back = function(n, opt){ var tmp;
 	if(1 === n){
 		return (this._.back || this._).$;
 	}
-	var gun = this, at = gun._;
+	const gun = this
+	const at = gun._
 	if(typeof n === 'string'){
 		n = n.split('.');
 	}
@@ -27,7 +28,8 @@ Gun.chain.back = function(n, opt){ var tmp;
 		return;
 	}
 	if('function' == typeof n){
-		var yes, tmp = {back: at};
+		let yes
+		let tmp = {back: at}
 		while((tmp = tmp.back)
 		&& u === (yes = n(tmp, opt))){}
 		return yes;
@@ -37,6 +39,6 @@ Gun.chain.back = function(n, opt){ var tmp;
 	}
 	return this;
 }
-var empty = {}, u;
+var empty = {}, u
 	
 }());

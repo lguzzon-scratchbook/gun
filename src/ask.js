@@ -5,13 +5,13 @@
     if (!this.on) {
       return
     }
-    var lack = (this.opt || {}).lack || 9000
+    const lack = (this.opt || {}).lack || 9000
     if (!('function' == typeof cb)) {
       if (!cb) {
         return
       }
-      var id = cb['#'] || cb,
-        tmp = (this.tag || '')[id]
+      let id = cb['#'] || cb
+      let tmp = (this.tag || '')[id]
       if (!tmp) {
         return
       }
@@ -24,11 +24,11 @@
       }
       return true
     }
-    var id = (as && as['#']) || random(9)
+    let id = (as && as['#']) || random(9)
     if (!cb) {
       return id
     }
-    var to = this.on(id, cb, as)
+    const to = this.on(id, cb, as)
     to.err =
       to.err ||
       setTimeout(() => {
@@ -37,7 +37,7 @@
       }, lack)
     return id
   }
-  var random =
+  const random =
     String.random ||
     (() => Math.random().toString(36).slice(2))
 })()

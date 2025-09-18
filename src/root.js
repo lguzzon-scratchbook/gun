@@ -18,7 +18,7 @@ require('./shim');
 Gun.valid = require('./valid');
 Gun.state = require('./state');
 Gun.on = require('./onto');
-Gun.dup = require('./dup');
+	Gun.dup = require('./dup')
 Gun.ask = require('./ask');
 
 ;(function(){

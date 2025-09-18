@@ -2,9 +2,11 @@
 
 // TODO: BUG! Unbuild will make these globals... CHANGE unbuild to wrap files in a function.
 // Book is a replacement for JS objects, maps, dictionaries.
-var sT = setTimeout, B = sT.Book || (sT.Book = (text)=> {
-	var b = function book(word, is){
-		var has = b.all[word], p;
+const sT = setTimeout
+let B = sT.Book || (sT.Book = (text)=> {
+	const b = function book(word, is){
+		let has = b.all[word]
+		let p
 		if(is === undefined){ return (has && has.is) || b.get(has || word) }
 		if(has){
 			if(p = has.page){
@@ -28,41 +30,57 @@ var sT = setTimeout, B = sT.Book || (sT.Book = (text)=> {
 }), PAGE = 2**12;
 
 function page(word){
-	var l = this.list, i = spot(word, l, this.parse), p = l[i];
+const l = this.list
+let i = spot(word, l, this.parse)
+let p = l[i]
 	if('string' == typeof p){ l[i] = p = {size: -1, first: this.parse? this.parse(p) : p, substring: sub, toString: to, book: this, get: this, read: list} } // TODO: test, how do we arrive at this condition again?
 	//p.i = i;
 	return p;
 	// TODO: BUG! What if we get the page, it turns out to be too big & split, we must then RE get the page!
 }
 function get(word){
-	if(!word){ return }
-	if(undefined !== word.is){ return word.is } // JS falsey values!
-	var has = this.all[word];
-	if(has){ return has.is }
+if(!word){ return }
+if(undefined !== word.is){ return word.is } // JS falsey values!
+let hasGet = this.all[word]
+	if(hasGet){ return hasGet.is }
 	// get does an exact match, so we would have found it already, unless parseless page:
-	var page = this.page(word), l, has, a, i;
+	let page = this.page(word)
+	let l
+	let has
+	let a
+	let i
 	if(!page || !page.from){ return } // no parseless data
 	return got(word, page);
 }
 function got(word, page){
-	var b = page.book, l, has, a, i;
-	if(l = from(page)){ has = l[got.i = i = spot(word, l, B.decode)]; } // TODO: POTENTIAL BUG! This assumes that each word on a page uses the same serializer/formatter/structure. // TOOD: BUG!!! Not actually, but if we want to do non-exact radix-like closest-word lookups on a page, we need to check limbo & potentially sort first.
+	const b = page.book
+	let l
+	let hasGot
+	let a
+	let i
+	if(l = from(page)){ hasGot = l[got.i = i = spot(word, l, B.decode)]; } // TODO: POTENTIAL BUG! This assumes that each word on a page uses the same serializer/formatter/structure. // TOOD: BUG!!! Not actually, but if we want to do non-exact radix-like closest-word lookups on a page, we need to check limbo & potentially sort first.
 	// parseless may return -1 from actual value, so we may need to test both. // TODO: Double check? I think this is correct.
-	if(has && word == has.word){ return (b.all[word] = has).is }
-	if('string' != typeof has){ has = l[got.i = i+=1] }
-	if(has && word == has.word){ return (b.all[word] = has).is }
-	a = slot(has) // Escape!
+	if(hasGot && word == hasGot.word){ return (b.all[word] = hasGot).is }
+	if('string' != typeof hasGot){ hasGot = l[got.i = i+=1] }
+	if(hasGot && word == hasGot.word){ return (b.all[word] = hasGot).is }
+	a = slot(hasGot) // Escape!
 	if(word != B.decode(a[0])){
-		has = l[got.i = i+=1]; // edge case bug?
-		a = slot(has); // edge case bug?
+		hasGot = l[got.i = i+=1]; // edge case bug?
+		a = slot(hasGot); // edge case bug?
 		if(word != B.decode(a[0])){ return }
 	}
-	has = l[i] = b.all[word] = {word: ''+word, is: B.decode(a[1]), page: page, substring: subt, toString: tot}; // TODO: convert to a JS value!!! Maybe index! TODO: BUG word needs a page!!!! TODO: Check for other types!!!
-	return has.is;
+	hasGot = l[i] = b.all[word] = {word: ''+word, is: B.decode(a[1]), page: page, substring: subt, toString: tot}; // TODO: convert to a JS value!!! Maybe index! TODO: BUG word needs a page!!!! TODO: Check for other types!!!
+	return hasGot.is;
 }
 
 function spot(word, sorted, parse){ parse = parse || spot.no || (spot.no = (t)=> t); // TODO: BUG???? Why is there substring()||0 ? // TODO: PERF!!! .toString() is +33% faster, can we combine it with the export?
-	var L = sorted, min = 0, page, found, l = (word=''+word).length, max = L.length, i = max/2;
+	const L = sorted
+	let min = 0
+	let page
+	let found
+	let l = (word=''+word).length
+	let max = L.length
+	let i = max/2
 	while(((word < (page = (parse(L[i=i>>0])||'').substring())) || ((parse(L[i+1])||'').substring() <= word)) && i != min){ // L[i] <= word < L[i+1]
 		i += (page <= word)? (max - (min = i))/2 : -((max = i) - min)/2;
 	}
@@ -75,8 +93,12 @@ function from(a, t, l){
 	(l = a.from = slot(t = t||a.from||''));
 	return l;
 }
-function list(each){ each = each || ((x)=> x) 
-	var i = 0, l = sort(this), w, r = [], p = this.book.parse || (()=> {});
+function list(each){ each = each || ((x)=> x)
+	let i = 0
+	let l = sort(this)
+	let w
+	let r = []
+	let p = this.book.parse || (()=> {})
 	//while(w = l[i++]){ r.push(each(slot(w)[1], p(w)||w, this)) }
 	while(w = l[i++]){ r.push(each(this.get(w = w.word||p(w)||w), w, this)) } // TODO: BUG! PERF?
 	return r;
@@ -84,18 +106,19 @@ function list(each){ each = each || ((x)=> x)
 
 function set(word, is){
 	// TODO: Perf on random write is decent, but short keys or seq seems significantly slower.
-	var has = this.all[word];
-	if(has){ return this(word, is) } // updates to in-memory items will always match exactly.
-	var page = this.page(word=''+word), tmp; // before we assume this is an insert tho, we need to check
+	let hasSet = this.all[word]
+	if(hasSet){ return this(word, is) } // updates to in-memory items will always match exactly.
+	let page = this.page(word=''+word)
+	let tmp
 	if(page && page.from){ // if it could be an update to an existing word from parseless.
 		this.get(word);
 		if(this.all[word]){ return this(word, is) }
 	}
 	// MUST be an insert:
-	has = this.all[word] = {word: word, is: is, page: page, substring: subt, toString: tot};
+	hasSet = this.all[word] = {word: word, is: is, page: page, substring: subt, toString: tot};
 	page.first = (page.first < word)? page.first : word;
 	if(!page.limbo){ (page.limbo = []) }
-	page.limbo.push(has);
+	page.limbo.push(hasSet);
 	this(word, is);
 	page.size += size(word) + size(is);
 	if((this.PAGE || PAGE) < page.size){ split(page, this) }
@@ -105,9 +128,15 @@ function set(word, is){
 function split(p, b){ // TODO: use closest hash instead of half.
 	//console.time();
 	//var S = performance.now();
-	var L = sort(p), l = L.length, i = l/2 >> 0, j = i, half = L[j], tmp;
+	let L = sort(p)
+	let l = L.length
+	let i = l/2 >> 0
+	let j = i
+	let half = L[j]
+	let tmp
 	//console.timeEnd();
-	var next = {first: half.substring(), size: 0, substring: sub, toString: to, book: b, get: b, read: list}, f = next.from = [];
+	let next = {first: half.substring(), size: 0, substring: sub, toString: to, book: b, get: b, read: list}
+	let f = next.from = []
 	while(tmp = L[i++]){
 		f.push(tmp);
 		next.size += (tmp.is||'').length||1;
@@ -123,7 +152,8 @@ function split(p, b){ // TODO: use closest hash instead of half.
 }
 
 function slot(t){ return heal((t=t||'').substring(1, t.length-1).split(t[0]), t[0]) } B.slot = slot; // TODO: check first=last & pass `s`.
-function heal(l, s){ var i, e;
+function heal(l, s){ let i
+let e
 	if(0 > (i = l.indexOf(''))){ return l } // ~700M ops/sec on 4KB of Math.random()s, even faster if escape does exist.
 	if('' == l[0] && 1 == l.length){ return [] } // annoying edge cases! how much does this slow us down?
 	//if((c=i+2+parseInt(l[i+1])) != c){ return [] } // maybe still faster than below?
@@ -135,7 +165,7 @@ function heal(l, s){ var i, e;
 function size(t){ return (t||'').length||1 } // bits/numbers less size? Bug or feature?
 function subt(i,j){ return this.word }
 //function tot(){ return this.text = this.text || "'"+(this.word)+"'"+(this.is)+"'" }
-function tot(){ var tmp = {};
+function tot(){ let tmp = {}
 	//if((tmp = this.page) && tmp.saving){ delete tmp.book.all[this.word]; } // TODO: BUG! Book can't know about RAD, this was from RAD, so this MIGHT be correct but we need to refactor. Make sure to add tests that will re-trigger this.
 	return this.text = this.text || ":"+B.encode(this.word)+":"+B.encode(this.is)+":";
 	tmp[this.word] = this.is;
@@ -150,13 +180,15 @@ function text(p){ // PERF: read->[*] : text->"*" no edit waste 1 time perf.
 }
 
 function sort(p, l){
-	var f = p.from = ('string' == typeof p.from)? slot(p.from) : p.from||[];
+	let f = p.from = ('string' == typeof p.from)? slot(p.from) : p.from||[]
 	if(!(l = l || p.limbo)){ return f }
 	return mix(p).sort((a,b)=> (a.word||B.decode(''+a)) < (b.word||B.decode(''+b))? -1:1);
 }
 function mix(p, l){ // TODO: IMPROVE PERFORMANCE!!!! l[j] = i is 5X+ faster than .push(
 	l = l || p.limbo || []; p.limbo = null;
-	var j = 0, i, f = p.from;
+	let j = 0
+	let i
+	let f = p.from
 	while(i = l[j++]){
 		if(got(i.word, p)){
 			f[got.i] = i; // TODO: Trick: allow for a GUN'S HAM CRDT hook here.
@@ -170,7 +202,8 @@ function mix(p, l){ // TODO: IMPROVE PERFORMANCE!!!! l[j] = i is 5X+ faster than
 B.encode = (d, s, u)=> { s = s || "|"; u = u || String.fromCharCode(32);
 	switch(typeof d){
 		case 'string': { // text
-			var i = d.indexOf(s), c = 0;
+			let i = d.indexOf(s)
+			let c = 0
 			while(i != -1){ c++; i = d.indexOf(s, i+1) }
 			return (c?s+c:'')+ '"' + d;
 		}
@@ -197,7 +230,7 @@ B.hash = (s, c)=> { // via SO
 	if(typeof s !== 'string'){ return }
   c = c || 0; // CPU schedule hashing by
   if(!s.length){ return c }
-  for(var i=0,l=s.length,n; i<l; ++i){
+  for(let i=0,l=s.length,n; i<l; ++i){
     n = s.charCodeAt(i);
     c = ((c<<5)-c)+n;
     c |= 0;

@@ -1,10 +1,9 @@
 /* BELOW IS TEMPORARY FOR OLD INTERNAL COMPATIBILITY, THEY ARE IMMEDIATELY DEPRECATED AND WILL BE REMOVED IN NEXT VERSION */
 ;(() => {
-  var u
-  if ('' + u == typeof Gun) {
+    if ('' + undefined == typeof Gun) {
     return
   }
-  var DEP = (n) => {
+  const DEP = (n) => {
     console.warn(
       'Warning! Deprecated internal utility will break in next version:',
       n
@@ -68,7 +67,7 @@
   Type.text.match =
     Type.text.match ||
     ((t, o) => {
-      var tmp, u
+      var tmp
       DEP('text.match')
       if ('string' !== typeof t) {
         return false
@@ -81,23 +80,23 @@
       if (t === tmp) {
         return true
       }
-      if (u !== o['=']) {
+      if (undefined !== o['=']) {
         return false
       }
       tmp = o['*'] || o['>'] || o['<']
       if (t.slice(0, (tmp || '').length) === tmp) {
         return true
       }
-      if (u !== o['*']) {
+      if (undefined !== o['*']) {
         return false
       }
-      if (u !== o['>'] && u !== o['<']) {
+      if (undefined !== o['>'] && undefined !== o['<']) {
         return t >= o['>'] && t <= o['<'] ? true : false
       }
-      if (u !== o['>'] && t >= o['>']) {
+      if (undefined !== o['>'] && t >= o['>']) {
         return true
       }
-      if (u !== o['<'] && t <= o['<']) {
+      if (undefined !== o['<'] && t <= o['<']) {
         return true
       }
       return false
@@ -209,9 +208,8 @@
       return o
     })
   ;(() => {
-    var u
     function map(v, k) {
-      if (obj_has(this, k) && u !== this[k]) {
+      if (obj_has(this, k) && undefined !== this[k]) {
         return
       }
       this[k] = v
@@ -233,12 +231,11 @@
     })
   ;(() => {
     function empty(v, i) {
-      var n = this.n,
-        u
+      var n = this.n
       if (n && (i === n || (obj_is(n) && obj_has(n, i)))) {
         return
       }
-      if (u !== i) {
+      if (undefined !== i) {
         return true
       }
     }
@@ -263,8 +260,7 @@
       t.r.push(k)
     }
     var keys = Object.keys,
-      map,
-      u
+      map
     Object.keys =
       Object.keys ||
       ((o) => map(o, (v, k, t) => {
@@ -274,14 +270,14 @@
       Type.obj.map ||
       ((l, c, _) => {
         DEP('obj.map')
-        var u,
+        var 
           i = 0,
           x,
           r,
           ll,
           lle,
           f = 'function' == typeof c
-        t.r = u
+        t.r = undefined
         if (keys && obj_is(l)) {
           ll = keys(l)
           lle = true
@@ -293,7 +289,7 @@
             var ii = i + Type.list.index
             if (f) {
               r = lle ? c.call(_, l[ll[i]], ll[i], t) : c.call(_, l[i], ii, t)
-              if (r !== u) {
+              if (r !== undefined) {
                 return r
               }
             } else {
@@ -308,7 +304,7 @@
             if (f) {
               if (obj_has(l, i)) {
                 r = _ ? c.call(_, l[i], i, t) : c(l[i], i, t)
-                if (r !== u) {
+                if (r !== undefined) {
                   return r
                 }
               }
@@ -341,7 +337,7 @@
   var Val = {}
   Val.is = (v) => {
     DEP('val.is') // Valid values are a subset of JSON: null, binary, number (!Infinity), text, or a soul relation. Arrays need special algorithms to handle concurrency, so they are not supported directly. Use an extension that supports them if needed but research their problems first.
-    if (v === u) {
+    if (v === undefined) {
       return false
     }
     if (v === null) {
@@ -392,8 +388,7 @@
     return obj_put({}, rel_, t)
   } // convert a soul into a relation and return it.
   Type.obj.has._ = '.'
-  var rel_ = Val.link._,
-    u
+  var rel_ = Val.link._
   var bi_is = Type.bi.is
   var num_is = Type.num.is
   var text_is = Type.text.is
@@ -455,7 +450,7 @@
         o = { map: o }
       }
       if (o.map) {
-        o.node = o.map.call(as, obj, u, o.node || {})
+        o.node = o.map.call(as, obj, undefined, o.node || {})
       }
       if ((o.node = Node.soul.ify(o.node || {}, o))) {
         obj_map(obj, map, { o: o, as: as })
@@ -464,11 +459,10 @@
     }
     function map(v, k) {
       var o = this.o,
-        tmp,
-        u // iterate over each key/value.
+        tmp
       if (o.map) {
         tmp = o.map.call(this.as, v, '' + k, o.node)
-        if (u === tmp) {
+        if (undefined === tmp) {
           obj_del(o.node, k)
         } else if (o.node) {
           o.node[k] = tmp
@@ -487,7 +481,6 @@
   var text = Type.text,
     text_random = text.random
   var soul_ = Node.soul._
-  var u
   Type.node = Type.node || Node
 
   var State = Type.state
@@ -506,7 +499,7 @@
   ;(() => {
     State.map = (cb, s, as) => {
       DEP('state.map')
-      var u // for use with Node.ify
+      
       var o = obj_is((o = cb || s)) ? o : null
       cb = fn_is((cb = cb || s)) ? cb : null
       if (o && !cb) {
@@ -515,7 +508,7 @@
         obj_map(o, map, { o: o, s: s })
         return o
       }
-      as = as || obj_is(s) ? s : u
+      as = as || obj_is(s) ? s : undefined
       s = num_is(s) ? s : State()
       return function (v, k, o, opt) {
         if (!cb) {
@@ -523,7 +516,7 @@
           return v
         }
         cb.call(as || this || {}, v, k, o, opt)
-        if (obj_has(o, k) && u === o[k]) {
+        if (obj_has(o, k) && undefined === o[k]) {
           return
         }
         map.call({ o: o, s: s }, v, k)
@@ -546,8 +539,7 @@
     num_is = num.is
   var fn = Type.fn,
     fn_is = fn.is
-  var N_ = Node._,
-    u
+  var N_ = Node._
 
   var Graph = {}
   ;(() => {
@@ -590,7 +582,7 @@
       }
       if (typeof as === 'string') {
         env.soul = env.soul || as
-        as = u
+        as = undefined
       }
       if (env.soul) {
         at.link = Val.link.ify(env.soul)
@@ -642,7 +634,7 @@
         tmp.call(env.as || {}, v, k, n, this)
         if (obj_has(n, k)) {
           v = n[k]
-          if (u === v) {
+          if (undefined === v) {
             obj_del(n, k)
             return
           }
@@ -754,6 +746,5 @@
     obj_put = obj.put,
     obj_map = obj.map,
     obj_copy = obj.copy
-  var u
-  Type.graph = Type.graph || Graph
+    Type.graph = Type.graph || Graph
 })()
