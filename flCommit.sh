@@ -109,7 +109,7 @@ process_file() {
     if ! original_hash=$(git hash-object "$file" 2>/dev/null); then
         log "ERROR" "Failed to get original hash for: $relative_file"
         error_files+=("$relative_file")
-        ((errors++))
+        ((errors=errors+1))
         return 1
     fi
 
@@ -118,7 +118,7 @@ process_file() {
     if ! npm run format:file -- "$file" >>"$LOG_FILE" 2>&1; then
         log "ERROR" "Formatting failed for: $relative_file"
         error_files+=("$relative_file")
-        ((errors++))
+        ((errors=errors+1))
         return 1
     fi
 
@@ -127,7 +127,7 @@ process_file() {
     if ! formatted_hash=$(git hash-object "$file" 2>/dev/null); then
         log "ERROR" "Failed to get formatted hash for: $relative_file"
         error_files+=("$relative_file")
-        ((errors++))
+        ((errors=errors+1))
         return 1
     fi
 
@@ -145,13 +145,13 @@ process_file() {
         if git add "$file" && git commit -m "feat: format $relative_file"; then
             log "INFO" "Successfully committed formatted file: $relative_file"
             committed_files+=("$relative_file")
-            ((committed++))
+            ((committed=committed+1))
         else
             log "ERROR" "Failed to commit formatted file: $relative_file"
             git reset HEAD -- "$file" 2>/dev/null || true
             git checkout -- "$file" 2>/dev/null || true
             error_files+=("$relative_file")
-            ((errors++))
+            ((errors=errors+1))
             return 1
         fi
     else
@@ -160,11 +160,11 @@ process_file() {
         if git checkout -- "$file" 2>/dev/null; then
             log "INFO" "Successfully reset: $relative_file"
             reset_files+=("$relative_file")
-            ((reset++))
+            ((reset=reset+1))
         else
             log "ERROR" "Failed to reset: $relative_file"
             error_files+=("$relative_file")
-            ((errors++))
+            ((errors=errors+1))
         fi
     fi
 
@@ -300,7 +300,7 @@ main() {
     # Process each file
     for i in "${!js_files[@]}"; do
         local file="${js_files[$i]}"
-        ((processed++))
+        ((processed=processed+1))
 
         show_progress $((i + 1)) "$total_files" "$file"
         echo # New line after progress
