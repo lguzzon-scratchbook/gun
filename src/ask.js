@@ -1,18 +1,18 @@
 ;(() => {
-  // request / response module, for asking and acking messages.
+  // request / response module, for asking and acknowledging messages.
   require('./onto') // depends upon onto!
   module.exports = function ask(cb, as) {
     const random = String.random || (() => Math.random().toString(36).slice(2))
     if (!this.on) {
       return
     }
-    const lack = (this.opt || {}).lack || 9000
-    if (!('function' == typeof cb)) {
+    const lack = this.opt?.lack || 9000
+    if (!('function' === typeof cb)) {
       if (!cb) {
         return
       }
-      let id = cb['#'] || cb
-      let tmp = (this.tag || '')[id]
+      const id = cb?.['#'] || cb
+      let tmp = this.tag?.[id]
       if (!tmp) {
         return
       }
@@ -25,7 +25,7 @@
       }
       return true
     }
-    let id = (as && as['#']) || random(9)
+    const id = as?.['#'] || random().slice(0, 9)
     if (!cb) {
       return id
     }
