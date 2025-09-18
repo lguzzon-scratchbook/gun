@@ -170,6 +170,7 @@ function input(msg, cat){ cat = cat || this.as; // TODO: V8 may not be able to o
 }; Gun.on.in = input;
 
 function link(msg, cat){ cat = cat || this.as || msg.$._;
+	let sat;
 	if(msg.$$ && this !== Gun.on){ return } // $$ means we came from a link, so we are at the wrong level, thus ignore it unless overruled manually by being called directly.
 	if(!msg.put || cat.soul){ return } // But you cannot overrule being linked to nothing, or trying to link a soul chain - that must never happen.
 	const put = msg.put||'';
@@ -182,13 +183,13 @@ function link(msg, cat){ cat = cat || this.as || msg.$._;
 		return; // by default do not link to data that is not a link.
 	}
 	if((tat.echo || (tat.echo = {}))[cat.id] // we've already linked ourselves so we do not need to do it again. Except... (annoying implementation details)
-		&& !(root.pass||'')[cat.id]){ return } // if a new event listener was added, we need to make a pass through for it. The pass will be on the chain, not always the chain passed down. 
+		&& !(root.pass||'')[cat.id]){ return } // if a new event listener was added, we need to make a pass through for it. The pass will be on the chain, not always the chain passed down.
 	if(tmp = root.pass){ if(tmp[link+cat.id]){ return } tmp[link+cat.id] = 1 } // But the above edge case may "pass through" on a circular graph causing infinite passes, so we hackily add a temporary check for that.
 
 	(tat.echo||(tat.echo={}))[cat.id] = cat; // set ourself up for the echo! // TODO: BUG? Echo to self no longer causes problems? Confirm.
 
 	if(cat.has){ cat.link = link }
-	var sat = root.$.get(tat.link = link)._; // grab what we're linking to.
+	sat = root.$.get(tat.link = link)._; // grab what we're linking to.
 	(sat.echo || (sat.echo = {}))[tat.id] = tat; // link it.
 	tmp = cat.ask||''; // ask the chain for what needs to be loaded next!
 	if(tmp[''] || cat.lex){ // we might need to load the whole thing // TODO: cat.lex probably has edge case bugs to it, need more test coverage.

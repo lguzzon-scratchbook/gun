@@ -1,8 +1,9 @@
 ;((()=> {
 
-var Gun = require('./root');
+const Gun = require('./root');
 Gun.chain.get = function(key, cb, as){
-	var gun, tmp;
+	let gun;
+	let tmp;
 	if(typeof key === 'string'){
 		if(key.length == 0) {	
 			(gun = this.chain())._.err = {err: Gun.log('0 length key!', key)};

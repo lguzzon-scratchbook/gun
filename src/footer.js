@@ -10,7 +10,7 @@
     )
   }
   // Generic javascript utilities.
-  var Type = Gun
+  const Type = Gun
   //Type.fns = Type.fn = {is: function(fn){ return (!!fn && fn instanceof Function) }}
   Type.fn = Type.fn || {
     is: (fn) => {

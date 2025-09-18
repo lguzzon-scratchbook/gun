@@ -2,6 +2,11 @@
 
 const Gun = require('./root');
 Gun.chain.back = function(n, opt){
+	let i;
+	let l;
+	let tmp;
+	const empty = {};
+	let u;
 	n = n || 1;
 	if(-1 === n || Infinity === n){
 		return this._.root.$;
@@ -15,7 +20,9 @@ Gun.chain.back = function(n, opt){
 		n = n.split('.');
 	}
 	if(n instanceof Array){
-		var i = 0, l = n.length, tmp = at;
+		i = 0;
+		l = n.length;
+		tmp = at;
 		for(i; i < l; i++){
 			tmp = (tmp||empty)[n[i]];
 		}
@@ -39,6 +46,5 @@ Gun.chain.back = function(n, opt){
 	}
 	return this;
 }
-var empty = {}, u
-	
+
 }());

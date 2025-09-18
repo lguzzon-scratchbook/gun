@@ -17,12 +17,13 @@
 			return it
 		}
 		dup.drop = (age) => {
+			let it;
 			dup.to = null
 			dup.now = +new Date
 			let l = Object.keys(s)
 			console.STAT && console.STAT(dup.now, +new Date - dup.now, 'dup drop keys') // prev ~20% CPU 7% RAM 300MB // now ~25% CPU 7% RAM 500MB
 			setTimeout.each(l, (id) => {
-				var it = s[id] // TODO: .keys( is slow?
+				it = s[id] // TODO: .keys( is slow?
 				if (it && (age || opt.age) > (dup.now - it.was)) { return }
 				delete s[id]
 			}, 0, 99)

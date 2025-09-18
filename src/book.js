@@ -30,9 +30,9 @@ let B = sT.Book || (sT.Book = (text)=> {
 }), PAGE = 2**12;
 
 function page(word){
-const l = this.list
-let i = spot(word, l, this.parse)
-let p = l[i]
+ const l = this.list
+ let i = spot(word, l, this.parse)
+ let p = l[i]
 	if('string' == typeof p){ l[i] = p = {size: -1, first: this.parse? this.parse(p) : p, substring: sub, toString: to, book: this, get: this, read: list} } // TODO: test, how do we arrive at this condition again?
 	//p.i = i;
 	return p;
@@ -200,6 +200,11 @@ function mix(p, l){ // TODO: IMPROVE PERFORMANCE!!!! l[j] = i is 5X+ faster than
 }
 
 B.encode = (d, s, u)=> { s = s || "|"; u = u || String.fromCharCode(32);
+	let l;
+	let i;
+	let t;
+	let k;
+	let v;
 	switch(typeof d){
 		case 'string': { // text
 			let i = d.indexOf(s)
@@ -210,7 +215,9 @@ B.encode = (d, s, u)=> { s = s || "|"; u = u || String.fromCharCode(32);
 		case 'number': return (d < 0)? ''+d : '+'+d;
 		case 'boolean': return d? '+' : '-';
 		case 'object': { if(!d){ return ' ' } // TODO: BUG!!! Nested objects don't slot correctly
-			var l = Object.keys(d).sort(), i = 0, t = s, k, v;
+			l = Object.keys(d).sort();
+			i = 0;
+			t = s;
 			while(k = l[i++]){ t += u+B.encode(k,s,u)+u+B.encode(d[k],s,u)+u+s }
 			return t;
 		}
@@ -240,7 +247,9 @@ B.hash = (s, c)=> { // via SO
 
 function record(key, val){ return key+B.encode(val)+"%"+key.length }
 function decord(t){
-	var o = {}, i = t.lastIndexOf("%"), c = parseFloat(t.slice(i+1));
+	const o = {};
+	let i = t.lastIndexOf("%");
+	const c = parseFloat(t.slice(i+1));
 	o[t.slice(0,c)] = B.decode(t.slice(c,i));
 	return o;
 }
