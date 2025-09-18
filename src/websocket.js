@@ -1,4 +1,4 @@
-;(function(){
+;((()=> {
 
 var Gun = require('./root');
 Gun.Mesh = require('./mesh');
@@ -25,24 +25,24 @@ Gun.on('opt', function(root){
 		if(!peer || !peer.url){ return wired && wired(peer) }
 		var url = peer.url.replace(/^http/, 'ws');
 		var wire = peer.wire = new opt.WebSocket(url);
-		wire.onclose = function(){
+		wire.onclose = ()=> {
 			reconnect(peer);
 			opt.mesh.bye(peer);
 		};
-		wire.onerror = function(err){
+		wire.onerror = (err)=> {
 			reconnect(peer);
 		};
-		wire.onopen = function(){
+		wire.onopen = ()=> {
 			opt.mesh.hi(peer);
 		}
-		wire.onmessage = function(msg){
+		wire.onmessage = (msg)=> {
 			if(!msg){ return }
 			opt.mesh.hear(msg.data || msg, peer);
 		};
 		return wire;
 	}catch(e){ opt.mesh.bye(peer) }}
 
-	setTimeout(function(){ !opt.super && root.on('out', {dam:'hi'}) },1); // it can take a while to open a socket, so maybe no longer lazy load for perf reasons?
+	setTimeout(()=> { !opt.super && root.on('out', {dam:'hi'}) },1); // it can take a while to open a socket, so maybe no longer lazy load for perf reasons?
 
 	var wait = 2 * 999;
 	function reconnect(peer){
@@ -57,6 +57,6 @@ Gun.on('opt', function(root){
 	}
 	var doc = (''+u !== typeof document) && document;
 });
-var noop = function(){}, u;
+var noop = ()=> {}, u;
 	
-}());
+})());
