@@ -200,13 +200,13 @@ process_file() {
         else
             log "ERROR" "Failed to commit linted file: $relative_file"
             # Reset to the previously committed formatted version
-            git reset HEAD~1 --hard 2>/dev/null || true
+            git reset HEAD --hard 2>/dev/null || true
             return 1
         fi
     else
         # Tests failed after linting - reset to the formatted version
         log "WARN" "Tests failed after linting for: $relative_file - keeping formatted version"
-        git reset HEAD~1 --hard 2>/dev/null || true
+        git reset HEAD --hard 2>/dev/null || true
     fi
 
     return 0
