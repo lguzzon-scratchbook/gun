@@ -3,9 +3,12 @@
 // WARNING: GUN is very simple, but the JavaScript chaining API around GUN
 // is complicated and was extremely hard to build. If you port GUN to another
 // language, consider implementing an easier API to build.
-var Gun = require('./root');
+const Gun = require('./root');
 Gun.chain.chain = function(sub){
-	var at = this._, chain = new (sub || this).constructor(this), cat = chain._, root;
+	const at = this._;
+	const chain = new (sub || this).constructor(this);
+	const cat = chain._;
+	let root;
 	cat.root = root = at.root;
 	cat.id = ++root.once;
 	cat.back = this._;
@@ -16,7 +19,11 @@ Gun.chain.chain = function(sub){
 }
 
 function output(msg){
-	var put, get, at = this.as, back = at.back, root = at.root, tmp;
+	let get;
+	const at = this.as;
+	let back = at.back;
+	const root = at.root;
+	let tmp;
 	if(!msg.$){ msg.$ = at.$ }
 	this.to.next(msg);
 	if(at.err){ at.on('in', {put: at.put = u, $: at.$}); return }
@@ -57,7 +64,7 @@ function output(msg){
 				if(tmp){ return }
 			} else
 			if('string' != typeof get){
-				var put = {}, meta = (back.put||{})._;
+				let put = {}, meta = (back.put||{})._;
 				Gun.obj.map(back.put, function(v,k){
 					if(!Gun.text.match(k, get)){ return }
 					put[k] = v;
@@ -98,7 +105,15 @@ function output(msg){
 }; Gun.on.out = output;
 
 function input(msg, cat){ cat = cat || this.as; // TODO: V8 may not be able to optimize functions with different parameter calls, so try to do benchmark to see if there is any actual difference.
-	var root = cat.root, gun = msg.$ || (msg.$ = cat.$), at = (gun||'')._ || empty, tmp = msg.put||'', soul = tmp['#'], key = tmp['.'], change = (u !== tmp['='])? tmp['='] : tmp[':'], state = tmp['>'] || -Infinity, sat; // eve = event, at = data at, cat = chain at, sat = sub at (children chains).
+	const root = cat.root;
+	let gun = msg.$ || (msg.$ = cat.$);
+	const at = (gun||'')._ || empty;
+	let tmp = msg.put||'';
+	let soul = tmp['#'];
+	let key = tmp['.'];
+	const change = (u !== tmp['='])? tmp['='] : tmp[':'];
+	let state = tmp['>'] || -Infinity;
+	let sat; // eve = event, at = data at, cat = chain at, sat = sub at (children chains).
 	if(u !== msg.put && (u === tmp['#'] || u === tmp['.'] || (u === tmp[':'] && u === tmp['=']) || u === tmp['>'])){ // convert from old format
 		if(!valid(tmp)){
 			if(!(soul = ((tmp||'')._||'')['#'])){ console.log("chain not yet supported for", tmp, '...', msg, cat); return; }
@@ -157,8 +172,11 @@ function input(msg, cat){ cat = cat || this.as; // TODO: V8 may not be able to o
 function link(msg, cat){ cat = cat || this.as || msg.$._;
 	if(msg.$$ && this !== Gun.on){ return } // $$ means we came from a link, so we are at the wrong level, thus ignore it unless overruled manually by being called directly.
 	if(!msg.put || cat.soul){ return } // But you cannot overrule being linked to nothing, or trying to link a soul chain - that must never happen.
-	var put = msg.put||'', link = put['=']||put[':'], tmp;
-	var root = cat.root, tat = root.$.get(put['#']).get(put['.'])._;
+	const put = msg.put||'';
+	let link = put['=']||put[':'];
+	let tmp;
+	const root = cat.root;
+	const tat = root.$.get(put['#']).get(put['.'])._;
 	if('string' != typeof (link = valid(link))){
 		if(this === Gun.on){ (tat.echo || (tat.echo = {}))[cat.id] = cat } // allow some chain to explicitly force linking to simple data.
 		return; // by default do not link to data that is not a link.
@@ -172,7 +190,7 @@ function link(msg, cat){ cat = cat || this.as || msg.$._;
 	if(cat.has){ cat.link = link }
 	var sat = root.$.get(tat.link = link)._; // grab what we're linking to.
 	(sat.echo || (sat.echo = {}))[tat.id] = tat; // link it.
-	var tmp = cat.ask||''; // ask the chain for what needs to be loaded next!
+	tmp = cat.ask||''; // ask the chain for what needs to be loaded next!
 	if(tmp[''] || cat.lex){ // we might need to load the whole thing // TODO: cat.lex probably has edge case bugs to it, need more test coverage.
 		sat.on('out', {get: {'#': link}});
 	}
@@ -183,7 +201,11 @@ function link(msg, cat){ cat = cat || this.as || msg.$._;
 }; Gun.on.link = link;
 
 function unlink(msg, cat){ // ugh, so much code for seemingly edge case behavior.
-	var put = msg.put||'', change = (u !== put['='])? put['='] : put[':'], root = cat.root, link, tmp;
+	const put = msg.put||'';
+	const change = (u !== put['='])? put['='] : put[':'];
+	const root = cat.root;
+	let link;
+	let tmp;
 	if(u === change){ // 1st edge case: If we have a brand new database, no data will be found.
 		// TODO: BUG! because emptying cache could be async from below, make sure we are not emptying a newer cache. So maybe pass an Async ID to check against?
 		// TODO: BUG! What if this is a map? // Warning! Clearing things out needs to be robust against sync/async ops, or else you'll see `map val get put` test catastrophically fail because map attempts to link when parent graph is streamed before child value gets set. Need to differentiate between lack acks and force clearing.
@@ -226,7 +248,11 @@ function unlink(msg, cat){ // ugh, so much code for seemingly edge case behavior
 function ack(msg, ev){
 	//if(!msg['%'] && (this||'').off){ this.off() } // do NOT memory leak, turn off listeners! Now handled by .ask itself
 	// manhattan:
-	var as = this.as, at = as.$._, root = at.root, get = as.get||'', tmp = (msg.put||'')[get['#']]||'';
+	const as = this.as;
+	const at = as.$._;
+	const root = at.root;
+	const get = as.get||'';
+	const tmp = (msg.put||'')[get['#']]||'';
 	if(!msg.put || ('string' == typeof get['.'] && u === tmp[get['.']])){
 		if(u !== at.put){ return }
 		if(!at.soul && !at.has){ return } // TODO: BUG? For now, only core-chains will handle not-founds, because bugs creep in if non-core chains are used as $ but we can revisit this later for more powerful extensions.
@@ -248,6 +274,13 @@ function ack(msg, ev){
 	return; // eom
 }
 
-var empty = {}, u, text_rand = String.random, valid = Gun.valid, obj_has = (o, k)=> o && Object.hasOwn(o, k), state = Gun.state, state_is = state.is, state_ify = state.ify;
+const empty = {};
+const u = undefined;
+const text_rand = String.random;
+const valid = Gun.valid;
+const obj_has = (o, k)=> o && Object.hasOwn(o, k);
+const state = Gun.state;
+const state_is = state.is;
+const state_ify = state.ify;
 	
 })());
