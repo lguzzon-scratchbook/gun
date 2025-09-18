@@ -1,4 +1,4 @@
-;(function(){
+;((()=> {
 
 var Gun = require('./root');
 Gun.chain.get = function(key, cb, as){
@@ -9,10 +9,10 @@ Gun.chain.get = function(key, cb, as){
 			if(cb){ cb.call(gun, gun._.err) }
 			return gun;
 		}
-		var back = this, cat = back._;
+		var cat = this._;
 		var next = cat.next || empty;
 		if(!(gun = next[key])){
-			gun = key && cache(key, back);
+			gun = key && cache(key, this);
 		}
 		gun = gun && gun.$;
 	} else
@@ -37,7 +37,7 @@ Gun.chain.get = function(key, cb, as){
 			if(opt.not && u === data){ return }
 			if(u === opt.stun){
 				if((tmp = root.stun) && tmp.on){
-					cat.$.back(function(a){ // our chain stunned?
+					cat.$.back((a)=> { // our chain stunned?
 						tmp.on(''+a.id, test = {});
 						if((test.run || 0) < any.id){ return test } // if there is an earlier stun on gapless parents/self.
 					});
@@ -51,7 +51,7 @@ Gun.chain.get = function(key, cb, as){
 						if(test.stun && !test.stun.end){
 							//if(odd && u === data){ return }
 							//if(u === msg.put){ return } // "not found" acks will be found if there is stun, so ignore these.
-							(test.stun.add || (test.stun.add = {}))[id] = function(){ any(msg,eve,1) } // add ourself to the stun callback list that is called at end of the write.
+							(test.stun.add || (test.stun.add = {}))[id] = ()=> { any(msg,eve,1) } // add ourself to the stun callback list that is called at end of the write.
 							return;
 						}
 					}
@@ -63,7 +63,7 @@ Gun.chain.get = function(key, cb, as){
 				}*/
 				if((tmp = root.hatch) && !tmp.end && u === opt.hatch && !f){ // quick hack! // What's going on here? Because data is streamed, we get things one by one, but a lot of developers would rather get a callback after each batch instead, so this does that by creating a wait list per chain id that is then called at the end of the batch by the hatch code in the root put listener.
 					if(wait[at.$._.id]){ return } wait[at.$._.id] = 1;
-					tmp.push(function(){any(msg,eve,1)});
+					tmp.push(()=> {any(msg,eve,1)});
 					return;
 				}; wait = {}; // end quick hack.
 			}
@@ -71,13 +71,13 @@ Gun.chain.get = function(key, cb, as){
 			if(root.pass){ if(root.pass[id+at.id]){ return } root.pass[id+at.id] = 1 }
 			if(opt.on){ opt.ok.call(at.$, data, at.get, msg, eve || any); return } // TODO: Also consider breaking `this` since a lot of people do `=>` these days and `.call(` has slower performance.
 			if(opt.v2020){ opt.ok(msg, eve || any); return }
-			Object.keys(msg).forEach(function(k){ tmp[k] = msg[k] }, tmp = {}); msg = tmp; msg.put = data; // 2019 COMPATIBILITY! TODO: GET RID OF THIS!
+			Object.keys(msg).forEach((k)=> { tmp[k] = msg[k] }, tmp = {}); msg = tmp; msg.put = data; // 2019 COMPATIBILITY! TODO: GET RID OF THIS!
 			opt.ok.call(opt.as, msg, eve || any); // is this the right
 		};
 		any.at = cat;
 		//(cat.any||(cat.any=function(msg){ setTimeout.each(Object.keys(cat.any||''), function(act){ (act = cat.any[act]) && act(msg) },0,99) }))[id = String.random(7)] = any; // maybe switch to this in future?
 		(cat.any||(cat.any={}))[id = String.random(7)] = any;
-		any.off = function(){ any.stun = 1; if(!cat.any){ return } delete cat.any[id] }
+		any.off = ()=> { any.stun = 1; if(!cat.any){ return } delete cat.any[id] }
 		any.rid = rid; // logic from old version, can we clean it up now?
 		any.id = opt.run || ++root.once; // used in callback to check if we are earlier than a write. // will this ever cause an integer overflow?
 		tmp = root.pass; (root.pass = {})[id] = 1; // Explanation: test trade-offs want to prevent recursion so we add/remove pass flag as it gets fulfilled to not repeat, however map map needs many pass flags - how do we reconcile?
@@ -155,4 +155,4 @@ function rid(at){
 }
 var empty = {}, valid = Gun.valid, u;
 	
-}());
+})());
