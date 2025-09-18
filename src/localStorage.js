@@ -1,16 +1,16 @@
-;(function(){
+;((()=> {
 
 if(typeof Gun === 'undefined'){ return }
 
-var noop = function(){}, store, u;
+var noop = ()=> {}, store, u;
 try{store = (Gun.window||noop).localStorage}catch(e){}
 if(!store){
 	Gun.log("Warning: No localStorage exists to persist data to!");
 	store = {setItem: function(k,v){this[k]=v}, removeItem: function(k){delete this[k]}, getItem: function(k){return this[k]}};
 }
 
-var parse = JSON.parseAsync || function(t,cb,r){ var u; try{ cb(u, JSON.parse(t,r)) }catch(e){ cb(e) } }
-var json = JSON.stringifyAsync || function(v,cb,r,s){ var u; try{ cb(u, JSON.stringify(v,r,s)) }catch(e){ cb(e) } }
+var parse = JSON.parseAsync || ((t,cb,r)=> { var u; try{ cb(u, JSON.parse(t,r)) }catch(e){ cb(e) } })
+var json = JSON.stringifyAsync || ((v,cb,r,s)=> { var u; try{ cb(u, JSON.stringify(v,r,s)) }catch(e){ cb(e) } })
 
 Gun.on('create', function lg(root){
 	this.to.next(root);
@@ -48,7 +48,7 @@ Gun.on('create', function lg(root){
 	function flush(){
 		if(!acks.length && ((setTimeout.turn||'').s||'').length){ setTimeout(flush,99); return; } // defer if "busy" && no saves.
 		var err, ack = acks; clearTimeout(to); to = false; acks = [];
-		json(disk, function(err, tmp){
+		json(disk, (err, tmp)=> {
 			try{!err && store.setItem(opt.prefix, tmp);
 			}catch(e){ err = stop = e || "localStorage failure" }
 			if(err){
@@ -58,7 +58,7 @@ Gun.on('create', function lg(root){
 			size = tmp.length;
 
 			//if(!err && !Object.empty(opt.peers)){ return } // only ack if there are no peers. // Switch this to probabilistic mode
-			setTimeout.each(ack, function(id){
+			setTimeout.each(ack, (id)=> {
 				root.on('in', {'@': id, err: err, ok: 0}); // localStorage isn't reliable, so make its `ok` code be a low number.
 			},0,99);
 		})
@@ -66,4 +66,4 @@ Gun.on('create', function lg(root){
 
 });
 	
-}());
+})());
