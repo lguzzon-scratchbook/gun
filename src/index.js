@@ -1,6 +1,6 @@
 ;(function(){
 
-var Gun = require('./root');
+const Gun = require('./root');
 require('./shim');
 require('./onto');
 require('./book');
@@ -16,5 +16,5 @@ require('./mesh');
 require('./websocket');
 require('./localStorage');
 module.exports = Gun;
-	
+
 }());

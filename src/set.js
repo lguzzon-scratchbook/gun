@@ -1,8 +1,10 @@
 ;((()=> {
 
-var Gun = require('./root');
+const Gun = require('./root');
 Gun.chain.set = function(item, cb, opt){
-	var root = this.back(-1), soul, tmp;
+	const root = this.back(-1);
+	let soul;
+	let tmp;
 	cb = cb || (()=> {});
 	opt = opt || {}; opt.item = opt.item || item;
 	if(soul = ((item||'')._||'')['#']){ (item = {})['#'] = soul } // check if node, make link.
@@ -21,5 +23,5 @@ Gun.chain.set = function(item, cb, opt){
 	})
 	return item;
 }
-	
+
 })());
