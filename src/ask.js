@@ -37,7 +37,5 @@
       }, lack)
     return id
   }
-  const random =
-    String.random ||
-    (() => Math.random().toString(36).slice(2))
+  const random = String.random || (() => Math.random().toString(36).slice(2))
 })()
