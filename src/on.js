@@ -1,15 +1,15 @@
-;(function(){
+;((()=> {
 
 var Gun = require('./root');
 Gun.chain.on = function(tag, arg, eas, as){ // don't rewrite!
-	var gun = this, cat = gun._, root = cat.root, act, off, id, tmp;
+	var cat = this._, root = cat.root, act, off, id, tmp;
 	if(typeof tag === 'string'){
 		if(!arg){ return cat.on(tag) }
 		act = cat.on(tag, arg, eas || cat, as);
 		if(eas && eas.$){
 			(eas.subs || (eas.subs = [])).push(act);
 		}
-		return gun;
+		return this;
 	}
 	var opt = arg;
 	(opt = (true === opt)? {change: true} : opt || {}).not = 1; opt.on = 1;
@@ -17,7 +17,7 @@ Gun.chain.on = function(tag, arg, eas, as){ // don't rewrite!
 	//opt.ok = tag;
 	//opt.last = {};
 	var wait = {}; // can we assign this to the at instead, like in once?
-	gun.get(tag, opt);
+	this.get(tag, opt);
 	/*gun.get(function on(data,key,msg,eve){ var $ = this;
 		if(tmp = root.hatch){ // quick hack!
 			if(wait[$._.id]){ return } wait[$._.id] = 1;
@@ -48,7 +48,7 @@ Gun.chain.on = function(tag, arg, eas, as){ // don't rewrite!
 	(cat.act||(cat.act={}))[id = String.random(7)] = one;
 	one.off = function(){ one.stun = 1; if(!cat.act){ return } delete cat.act[id] }
 	cat.on('out', {get: {}});*/
-	return gun;
+	return this;
 }
 // Rules:
 // 1. If cached, should be fast, but not read while write.
@@ -56,8 +56,8 @@ Gun.chain.on = function(tag, arg, eas, as){ // don't rewrite!
 // 3. If the same callback passed to many different once chains, each should resolve - an unsubscribe from the same callback should not effect the state of the other resolving chains, if you do want to cancel them all early you should mutate the callback itself with a flag & check for it at top of callback
 Gun.chain.once = function(cb, opt){ opt = opt || {}; // avoid rewriting
 	if(!cb){ return none(this,opt) }
-	var gun = this, cat = gun._, root = cat.root, data = cat.put, id = String.random(7), one, tmp;
-	gun.get(function(data,key,msg,eve){
+	var cat = this._, root = cat.root, data = cat.put, id = String.random(7), one, tmp;
+	this.get(function(data,key,msg,eve){
 		var $ = this, at = $._, one = (at.one||(at.one={}));
 		if(eve.stun){ return } if('' === one[id]){ return }
 		if(true === (tmp = Gun.valid(data))){ once(); return }
@@ -70,7 +70,7 @@ Gun.chain.once = function(cb, opt){ opt = opt || {}; // avoid rewriting
 			if('string' == typeof Gun.valid(tmp)){
 				tmp = root.$.get(tmp)._.put;
 				if(tmp === u && !f){
-					one[id] = setTimeout(function(){ once(1) }, opt.wait||99); // TODO: Quick fix. Maybe use ack count for more predictable control?
+					one[id] = setTimeout(()=> { once(1) }, opt.wait||99); // TODO: Quick fix. Maybe use ack count for more predictable control?
 					return
 				}
 			}
@@ -81,7 +81,7 @@ Gun.chain.once = function(cb, opt){ opt = opt || {}; // avoid rewriting
 			clearTimeout(one[id]); // clear "not found" since they only get set on cat. // TODO: This was hackily added, is it necessary or important? Probably not, in future try removing this. Was added just as a safety for the `&& !f` check.
 		};
 	}, {on: 1});
-	return gun;
+	return this;
 }
 function none(gun,opt,chain){
 	Gun.log.once("valonce", "Chainable val is experimental, its behavior and API may change moving forward. Please play with it and report bugs and ideas on how to improve it.");
@@ -92,7 +92,7 @@ function none(gun,opt,chain){
 
 Gun.chain.off = function(){
 	// make off more aggressive. Warning, it might backfire!
-	var gun = this, at = gun._, tmp;
+	var at = this._, tmp;
 	var cat = at.back;
 	if(!cat){ return }
 	at.ack = 0; // so can resubscribe.
@@ -118,20 +118,20 @@ Gun.chain.off = function(){
 		delete cat.root.graph[tmp];
 	}
 	if(tmp = at.map){
-		Object.keys(tmp).forEach(function(i,at){ at = tmp[i]; //obj_map(tmp, function(at){
+		Object.keys(tmp).forEach((i,at)=> { at = tmp[i]; //obj_map(tmp, function(at){
 			if(at.link){
 				cat.root.$.get(at.link).off();
 			}
 		});
 	}
 	if(tmp = at.next){
-		Object.keys(tmp).forEach(function(i,neat){ neat = tmp[i]; //obj_map(tmp, function(neat){
+		Object.keys(tmp).forEach((i,neat)=> { neat = tmp[i]; //obj_map(tmp, function(neat){
 			neat.$.off();
 		});
 	}
 	at.on('off', {});
-	return gun;
+	return this;
 }
-var empty = {}, noop = function(){}, u;
+var empty = {}, noop = ()=> {}, u;
 	
-}());
+})());
