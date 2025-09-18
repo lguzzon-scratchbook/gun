@@ -1,8 +1,8 @@
-;(function(){
+;((()=> {
 
 // TODO: BUG! Unbuild will make these globals... CHANGE unbuild to wrap files in a function.
 // Book is a replacement for JS objects, maps, dictionaries.
-var sT = setTimeout, B = sT.Book || (sT.Book = function(text){
+var sT = setTimeout, B = sT.Book || (sT.Book = (text)=> {
 	var b = function book(word, is){
 		var has = b.all[word], p;
 		if(is === undefined){ return (has && has.is) || b.get(has || word) }
@@ -28,8 +28,8 @@ var sT = setTimeout, B = sT.Book || (sT.Book = function(text){
 }), PAGE = 2**12;
 
 function page(word){
-	var b = this, l = b.list, i = spot(word, l, b.parse), p = l[i];
-	if('string' == typeof p){ l[i] = p = {size: -1, first: b.parse? b.parse(p) : p, substring: sub, toString: to, book: b, get: b, read: list} } // TODO: test, how do we arrive at this condition again?
+	var l = this.list, i = spot(word, l, this.parse), p = l[i];
+	if('string' == typeof p){ l[i] = p = {size: -1, first: this.parse? this.parse(p) : p, substring: sub, toString: to, book: this, get: this, read: list} } // TODO: test, how do we arrive at this condition again?
 	//p.i = i;
 	return p;
 	// TODO: BUG! What if we get the page, it turns out to be too big & split, we must then RE get the page!
@@ -37,10 +37,10 @@ function page(word){
 function get(word){
 	if(!word){ return }
 	if(undefined !== word.is){ return word.is } // JS falsey values!
-	var b = this, has = b.all[word];
+	var has = this.all[word];
 	if(has){ return has.is }
 	// get does an exact match, so we would have found it already, unless parseless page:
-	var page = b.page(word), l, has, a, i;
+	var page = this.page(word), l, has, a, i;
 	if(!page || !page.from){ return } // no parseless data
 	return got(word, page);
 }
@@ -61,7 +61,7 @@ function got(word, page){
 	return has.is;
 }
 
-function spot(word, sorted, parse){ parse = parse || spot.no || (spot.no = function(t){ return t }); // TODO: BUG???? Why is there substring()||0 ? // TODO: PERF!!! .toString() is +33% faster, can we combine it with the export?
+function spot(word, sorted, parse){ parse = parse || spot.no || (spot.no = (t)=> t); // TODO: BUG???? Why is there substring()||0 ? // TODO: PERF!!! .toString() is +33% faster, can we combine it with the export?
 	var L = sorted, min = 0, page, found, l = (word=''+word).length, max = L.length, i = max/2;
 	while(((word < (page = (parse(L[i=i>>0])||'').substring())) || ((parse(L[i+1])||'').substring() <= word)) && i != min){ // L[i] <= word < L[i+1]
 		i += (page <= word)? (max - (min = i))/2 : -((max = i) - min)/2;
@@ -75,8 +75,8 @@ function from(a, t, l){
 	(l = a.from = slot(t = t||a.from||''));
 	return l;
 }
-function list(each){ each = each || function(x){return x} 
-	var i = 0, l = sort(this), w, r = [], p = this.book.parse || function(){};
+function list(each){ each = each || ((x)=> x) 
+	var i = 0, l = sort(this), w, r = [], p = this.book.parse || (()=> {});
 	//while(w = l[i++]){ r.push(each(slot(w)[1], p(w)||w, this)) }
 	while(w = l[i++]){ r.push(each(this.get(w = w.word||p(w)||w), w, this)) } // TODO: BUG! PERF?
 	return r;
@@ -84,22 +84,22 @@ function list(each){ each = each || function(x){return x}
 
 function set(word, is){
 	// TODO: Perf on random write is decent, but short keys or seq seems significantly slower.
-	var b = this, has = b.all[word];
-	if(has){ return b(word, is) } // updates to in-memory items will always match exactly.
-	var page = b.page(word=''+word), tmp; // before we assume this is an insert tho, we need to check
+	var has = this.all[word];
+	if(has){ return this(word, is) } // updates to in-memory items will always match exactly.
+	var page = this.page(word=''+word), tmp; // before we assume this is an insert tho, we need to check
 	if(page && page.from){ // if it could be an update to an existing word from parseless.
-		b.get(word);
-		if(b.all[word]){ return b(word, is) }
+		this.get(word);
+		if(this.all[word]){ return this(word, is) }
 	}
 	// MUST be an insert:
-	has = b.all[word] = {word: word, is: is, page: page, substring: subt, toString: tot};
+	has = this.all[word] = {word: word, is: is, page: page, substring: subt, toString: tot};
 	page.first = (page.first < word)? page.first : word;
 	if(!page.limbo){ (page.limbo = []) }
 	page.limbo.push(has);
-	b(word, is);
+	this(word, is);
 	page.size += size(word) + size(is);
-	if((b.PAGE || PAGE) < page.size){ split(page, b) }
-	return b;
+	if((this.PAGE || PAGE) < page.size){ split(page, this) }
+	return this;
 }
 
 function split(p, b){ // TODO: use closest hash instead of half.
@@ -152,9 +152,7 @@ function text(p){ // PERF: read->[*] : text->"*" no edit waste 1 time perf.
 function sort(p, l){
 	var f = p.from = ('string' == typeof p.from)? slot(p.from) : p.from||[];
 	if(!(l = l || p.limbo)){ return f }
-	return mix(p).sort(function(a,b){
-		return (a.word||B.decode(''+a)) < (b.word||B.decode(''+b))? -1:1;
-	});
+	return mix(p).sort((a,b)=> (a.word||B.decode(''+a)) < (b.word||B.decode(''+b))? -1:1);
 }
 function mix(p, l){ // TODO: IMPROVE PERFORMANCE!!!! l[j] = i is 5X+ faster than .push(
 	l = l || p.limbo || []; p.limbo = null;
@@ -169,21 +167,23 @@ function mix(p, l){ // TODO: IMPROVE PERFORMANCE!!!! l[j] = i is 5X+ faster than
 	return f;
 }
 
-B.encode = function(d, s, u){ s = s || "|"; u = u || String.fromCharCode(32);
+B.encode = (d, s, u)=> { s = s || "|"; u = u || String.fromCharCode(32);
 	switch(typeof d){
-		case 'string': // text
+		case 'string': { // text
 			var i = d.indexOf(s), c = 0;
 			while(i != -1){ c++; i = d.indexOf(s, i+1) }
 			return (c?s+c:'')+ '"' + d;
+		}
 		case 'number': return (d < 0)? ''+d : '+'+d;
 		case 'boolean': return d? '+' : '-';
-		case 'object': if(!d){ return ' ' } // TODO: BUG!!! Nested objects don't slot correctly
+		case 'object': { if(!d){ return ' ' } // TODO: BUG!!! Nested objects don't slot correctly
 			var l = Object.keys(d).sort(), i = 0, t = s, k, v;
 			while(k = l[i++]){ t += u+B.encode(k,s,u)+u+B.encode(d[k],s,u)+u+s }
 			return t;
+		}
 	}
 }
-B.decode = function(t, s){ s = s || "|";
+B.decode = (t, s)=> { s = s || "|";
 	if('string' != typeof t){ return }
 	switch(t){ case ' ': return null; case '-': return false; case '+': return true; }
 	switch(t[0]){
@@ -193,7 +193,7 @@ B.decode = function(t, s){ s = s || "|";
 	return t.slice(t.indexOf('"')+1);
 }
 
-B.hash = function(s, c){ // via SO
+B.hash = (s, c)=> { // via SO
 	if(typeof s !== 'string'){ return }
   c = c || 0; // CPU schedule hashing by
   if(!s.length){ return c }
@@ -214,4 +214,4 @@ function decord(t){
 
 try{module.exports=B}catch(e){}
 	
-}());
+})());
