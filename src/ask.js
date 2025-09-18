@@ -2,6 +2,7 @@
   // request / response module, for asking and acking messages.
   require('./onto') // depends upon onto!
   module.exports = function ask(cb, as) {
+    const random = String.random || (() => Math.random().toString(36).slice(2))
     if (!this.on) {
       return
     }
@@ -37,5 +38,4 @@
       }, lack)
     return id
   }
-  const random = String.random || (() => Math.random().toString(36).slice(2))
 })()
