@@ -1,4 +1,4 @@
-;(function(){
+;(()=> {
 
 const Gun = require('./root');
 Gun.chain.back = function(n, opt){
@@ -14,12 +14,11 @@ Gun.chain.back = function(n, opt){
 	if(1 === n){
 		return (this._.back || this._).$;
 	}
-	const gun = this
-	const at = gun._
+	const at = this._
 	if(typeof n === 'string'){
 		n = n.split('.');
 	}
-	if(n instanceof Array){
+	if(Array.isArray(n)){
 		i = 0;
 		l = n.length;
 		tmp = at;
@@ -27,24 +26,29 @@ Gun.chain.back = function(n, opt){
 			tmp = (tmp||empty)[n[i]];
 		}
 		if(u !== tmp){
-			return opt? gun : tmp;
-		} else
-		if((tmp = at.back)){
-			return tmp.$.back(n, opt);
+			return opt? this : tmp;
+		} else {
+			tmp = at.back;
+			if(tmp){
+				return tmp.$.back(n, opt);
+			}
 		}
 		return;
 	}
-	if('function' == typeof n){
-		let yes
-		let tmp = {back: at}
-		while((tmp = tmp.back)
-		&& u === (yes = n(tmp, opt))){}
+	if('function' === typeof n){
+		let yes;
+		let tmp = {back: at};
+		while(tmp.back){
+			tmp = tmp.back;
+			yes = n(tmp, opt);
+			if(u !== yes) break;
+		}
 		return yes;
 	}
-	if('number' == typeof n){
+	if('number' === typeof n){
 		return (at.back || at).$.back(n - 1);
 	}
 	return this;
 }
 
-}());
+})();
