@@ -28,12 +28,12 @@
     }
     this.to.next(msg)
     if (at.err) {
-      at.put = u;
+      at.put = u
       at.on('in', { $: at.$, put: at.put })
       return
     }
     if (msg.get) {
-      get = msg.get;
+      get = msg.get
       /*if(u !== at.put){
 			at.on('in', at);
 			return;
@@ -43,11 +43,9 @@
       } // will this make for buggy behavior elsewhere?
       if (at.lex) {
         tmp = msg.get = msg.get || {}
-        Object.keys(at.lex).forEach(
-          (k) => {
-            tmp[k] = at.lex[k]
-          }
-        )
+        Object.keys(at.lex).forEach((k) => {
+          tmp[k] = at.lex[k]
+        })
       }
       if (get['#'] || at.soul) {
         get['#'] = get['#'] || at.soul
@@ -289,32 +287,41 @@
     let tmp
     const root = cat.root
     const tat = root.$.get(put['#']).get(put['.'])._
-    if ('string' != typeof (link = valid(link))) {
+    link = valid(link)
+    if (typeof link !== 'string') {
       if (this === Gun.on) {
-        ;(tat.echo || (tat.echo = {}))[cat.id] = cat
+        tat.echo = tat.echo || {}
+        tat.echo[cat.id] = cat
       } // allow some chain to explicitly force linking to simple data.
       return // by default do not link to data that is not a link.
     }
+    tat.echo = tat.echo || {}
     if (
-      (tat.echo || (tat.echo = {}))[cat.id] && // we've already linked ourselves so we do not need to do it again. Except... (annoying implementation details)
+      tat.echo[cat.id] && // we've already linked ourselves so we do not need to do it again. Except... (annoying implementation details)
       !(root.pass || '')[cat.id]
     ) {
       return
     } // if a new event listener was added, we need to make a pass through for it. The pass will be on the chain, not always the chain passed down.
-    if ((tmp = root.pass)) {
+    tmp = root.pass
+    if (tmp) {
       if (tmp[link + cat.id]) {
         return
       }
       tmp[link + cat.id] = 1
     } // But the above edge case may "pass through" on a circular graph causing infinite passes, so we hackily add a temporary check for that.
 
-    ;(tat.echo || (tat.echo = {}))[cat.id] = cat // set ourself up for the echo! // TODO: BUG? Echo to self no longer causes problems? Confirm.
+    tat.echo = tat.echo || {}
+    tat.echo[cat.id] = cat // set ourself up for the echo! // TODO: BUG? Echo to self no longer causes problems? Confirm.
 
     if (cat.has) {
       cat.link = link
     }
-    sat = root.$.get((tat.link = link))._ // grab what we're linking to.
-    ;(sat.echo || (sat.echo = {}))[tat.id] = tat // link it.
+    tat.link = link
+    sat = root.$.get(link)._ // grab what we're linking to.
+    if (!sat.echo) {
+      sat.echo = {}
+    }
+    sat.echo[tat.id] = tat // link it.
     tmp = cat.ask || '' // ask the chain for what needs to be loaded next!
     if (tmp[''] || cat.lex) {
       // we might need to load the whole thing // TODO: cat.lex probably has edge case bugs to it, need more test coverage.
@@ -322,9 +329,10 @@
     }
     setTimeout.each(
       Object.keys(tmp),
-      (get, sat) => {
+      (get) => {
         // if sub chains are asking for data. // TODO: .keys( is slow // BUG? ?Some re-in logic may depend on this being sync?
-        if (!get || !(sat = tmp[get])) {
+        const sat = tmp[get]
+        if (!get || !sat) {
           return
         }
         sat.on('out', { get: { '#': link, '.': get } }) // go get it.
@@ -355,7 +363,8 @@
         return
       } // a "not found" from other peers should not clear out data if we have already found it.
       //if(cat.has && u === cat.put && !(root.pass||'')[cat.id]){ return } // if we are already unlinked, do not call again, unless edge case. // TODO: BUG! This line should be deleted for "unlink deeply nested".
-      if ((link = cat.link || msg.linked)) {
+      link = cat.link || msg.linked
+      if (link) {
         delete (root.$.get(link)._.echo || '')[cat.id]
       }
       if (cat.has) {
@@ -368,7 +377,8 @@
         Object.keys(cat.next || ''),
         (get, sat) => {
           // empty out all sub chains. // TODO: .keys( is slow // BUG? ?Some re-in logic may depend on this being sync? // TODO: BUG? This will trigger deeper put first, does put logic depend on nested order? // TODO: BUG! For map, this needs to be the isolated child, not all of them.
-          if (!(sat = cat.next[get])) {
+          sat = cat.next[get]
+          if (!sat) {
             return
           }
           //if(cat.has && u === sat.put && !(root.pass||'')[sat.id]){ return } // if we are already unlinked, do not call again, unless edge case. // TODO: BUG! This line should be deleted for "unlink deeply nested".
@@ -426,7 +436,7 @@
         return
       } // TODO: BUG? For now, only core-chains will handle not-founds, because bugs creep in if non-core chains are used as $ but we can revisit this later for more powerful extensions.
       at.ack = (at.ack || 0) + 1
-      at.put = u;
+      at.put = u
       at.on('in', {
         '@': msg['@'],
         $: at.$,
