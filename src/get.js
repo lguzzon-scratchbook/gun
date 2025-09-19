@@ -4,26 +4,29 @@ const Gun = require('./root');
 Gun.chain.get = function(key, cb, as){
 	let gun;
 	let tmp;
+	var cat, next, opt, root, id, wait;
 	if(typeof key === 'string'){
-		if(key.length == 0) {	
-			(gun = this.chain())._.err = {err: Gun.log('0 length key!', key)};
+		if(key.length === 0) {
+			gun = this.chain();
+			gun._.err = {err: Gun.log('0 length key!', key)};
 			if(cb){ cb.call(gun, gun._.err) }
 			return gun;
 		}
-		var cat = this._;
-		var next = cat.next || empty;
-		if(!(gun = next[key])){
+		cat = this._;
+		next = cat.next || empty;
+		gun = next[key];
+		if(!gun){
 			gun = key && cache(key, this);
 		}
 		gun = gun && gun.$;
 	} else
-	if('function' == typeof key){
+	if('function' === typeof key){
 		if(true === cb){ return soul(this, key, cb, as), this }
 		gun = this;
-		var cat = gun._, opt = cb || {}, root = cat.root, id;
+		cat = gun._, opt = cb || {}, root = cat.root, id;
 		opt.at = cat;
 		opt.ok = key;
-		var wait = {}; // can we assign this to the at instead, like in once?
+		wait = {}; // can we assign this to the at instead, like in once?
 		//var path = []; cat.$.back(at => { at.get && path.push(at.get.slice(0,9))}); path = path.reverse().join('.');
 		function any(msg, eve, f){
 			if(any.stun){ return }

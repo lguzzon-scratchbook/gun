@@ -50,12 +50,16 @@
       if (get['#'] || at.soul) {
         get['#'] = get['#'] || at.soul
         //root.graph[get['#']] = root.graph[get['#']] || {_:{'#':get['#'],'>':{}}};
-        msg['#'] || (msg['#'] = text_rand(9)) // A3120 ?
+        if (!msg['#']) { msg['#'] = text_rand(9) } // A3120 ?
         back = root.$.get(get['#'])._
-        if (!(get = get['.'])) {
+        get = get['.']
+        if (!get) {
           // soul
-          tmp = back.ask && back.ask[''] // check if we have already asked for the full node
-          ;(back.ask || (back.ask = {}))[''] = back // add a flag that we are now.
+          tmp = back.ask?.[''] // check if we have already asked for the full node
+          if (!back.ask) {
+            back.ask = {}
+          }
+          back.ask[''] = back // add a flag that we are now.
           if (u !== back.put) {
             // if we already have data,
             back.on('in', back) // send what is cached down the chain
@@ -66,8 +70,11 @@
           msg.$ = back.$
         } else if (obj_has(back.put, get)) {
           // TODO: support #LEX !
-          tmp = back.ask && back.ask[get]
-          ;(back.ask || (back.ask = {}))[get] = back.$.get(get)._
+          tmp = back.ask?.[get]
+          if (!back.ask) {
+            back.ask = {}
+          }
+          back.ask[get] = back.$.get(get)._
           back.on('in', {
             get: get,
             put: {
@@ -115,16 +122,25 @@
       if (get['.']) {
         if (at.get) {
           msg = { get: { '.': at.get }, $: at.$ }
-          ;(back.ask || (back.ask = {}))[at.get] = msg.$._ // TODO: PERFORMANCE? More elegant way?
+          if (!back.ask) {
+            back.ask = {}
+          }
+          back.ask[at.get] = msg.$._ // TODO: PERFORMANCE? More elegant way?
           return back.on('out', msg)
         }
         msg = { get: at.lex ? msg.get : {}, $: at.$ }
         return back.on('out', msg)
       }
-      ;(at.ask || (at.ask = {}))[''] = at //at.ack = at.ack || -1;
+      if (!at.ask) {
+        at.ask = {}
+      }
+      at.ask[''] = at //at.ack = at.ack || -1;
       if (at.get) {
         get['.'] = at.get
-        ;(back.ask || (back.ask = {}))[at.get] = msg.$._ // TODO: PERFORMANCE? More elegant way?
+        if (!back.ask) {
+          back.ask = {}
+        }
+        back.ask[at.get] = msg.$._ // TODO: PERFORMANCE? More elegant way?
         return back.on('out', msg)
       }
     }
@@ -135,7 +151,10 @@
   function input(msg, cat) {
     cat = cat || this.as // TODO: V8 may not be able to optimize functions with different parameter calls, so try to do benchmark to see if there is any actual difference.
     const root = cat.root
-    let gun = msg.$ || (msg.$ = cat.$)
+    if (!msg.$) {
+      msg.$ = cat.$
+    }
+    let gun = msg.$
     const at = (gun || '')._ || empty
     let tmp = msg.put || ''
     let soul = tmp['#']
@@ -152,14 +171,16 @@
     ) {
       // convert from old format
       if (!valid(tmp)) {
-        if (!(soul = ((tmp || '')._ || '')['#'])) {
+        soul = ((tmp || '')._ || '')['#']
+        if (!soul) {
           console.log('chain not yet supported for', tmp, '...', msg, cat)
           return
         }
         gun = cat.root.$.get(soul)
         return setTimeout.each(Object.keys(tmp).sort(), (k) => {
           // TODO: .keys( is slow // BUG? ?Some re-in logic may depend on this being sync?
-          if ('_' == k || u === (state = state_is(tmp, k))) {
+          const state = state_is(tmp, k);
+          if ('_' === k || u === state) {
             return
           }
           cat.on('in', {
@@ -232,7 +253,7 @@
       }
     }
 
-    this.to && this.to.next(msg) // 1st API job is to call all chain listeners.
+    this.to?.next(msg) // 1st API job is to call all chain listeners.
     // TODO: Make input more reusable by only doing these (some?) calls if we are a chain we recognize? This means each input listener would be responsible for when listeners need to be called, which makes sense, as they might want to filter.
     cat.any &&
       setTimeout.each(
