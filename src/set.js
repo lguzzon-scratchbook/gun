@@ -1,4 +1,4 @@
-;((()=> {
+;(()=> {
 
 const Gun = require('./root');
 Gun.chain.set = function(item, cb, opt){
@@ -24,4 +24,4 @@ Gun.chain.set = function(item, cb, opt){
 	return item;
 }
 
-})());
+})();

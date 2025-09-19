@@ -1,4 +1,4 @@
-;((()=> {
+;(()=> {
 
 var Gun = require('./root');
 Gun.chain.on = function(tag, arg, eas, as){ // don't rewrite!
@@ -134,4 +134,4 @@ Gun.chain.off = function(){
 }
 var empty = {}, noop = ()=> {}, u;
 	
-})());
+})();

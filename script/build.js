@@ -27,8 +27,9 @@ var modules = ['shim', 'onto', 'book', 'valid', 'state', 'dup', 'ask', 'root', '
 var processModule = function(name){
 	var code = read('src/' + name + '.js');
 	// Remove outer IIFE
-	code = code.replace(/^;?\s*\(function\s*\(\s*\){\s*/, '').replace(/\s*\}\s*\(\s*\)\s*\);?$/, '');
+	code = code.replace(/^;?\s*\(\s*\(\s*\(\s*\)\s*=>\s*{s*/, '').replace(/\s*\}\s*\)\s*\(\s*\)\s*\)\s*;?$/, '');
 	code = code.replace(/^;?\s*\(\s*\(\s*\)\s*=>\s*{s*/, '').replace(/\s*\}\s*\)\s*\(\s*\)\s*;?$/, '');
+	code = code.replace(/^;?\s*\(function\s*\(\s*\){\s*/, '').replace(/\s*\}\s*\(\s*\)\s*\);?$/, '');
 	// Replace require with USE
 	code = code.replace(/\brequire\(/g, 'USE(');
 	// Indent with two spaces

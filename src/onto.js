@@ -1,4 +1,4 @@
-;((()=> {
+;(()=> {
 
 // On event emitter generic javascript utility.
 module.exports = function onto(tag, arg, as){
@@ -35,4 +35,4 @@ module.exports = function onto(tag, arg, as){
 	return tag;
 };
 	
-})());
+})();

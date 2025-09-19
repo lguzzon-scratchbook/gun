@@ -1,4 +1,4 @@
-;((()=> {
+;(()=> {
 
 var Gun = require('./root'), next = Gun.chain.get.next;
 Gun.chain.get.next = (gun, lex)=> { var tmp;
@@ -43,4 +43,4 @@ function map(msg){ this.to.next(msg);
 }
 var noop = ()=> {}, event = {stun: noop, off: noop}, u;
 	
-})());
+})();

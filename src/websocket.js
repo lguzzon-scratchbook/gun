@@ -1,4 +1,4 @@
-;((()=> {
+;(()=> {
 
 var Gun = require('./root');
 Gun.Mesh = require('./mesh');
@@ -59,4 +59,4 @@ Gun.on('opt', function(root){
 });
 var noop = ()=> {}, u;
 	
-})());
+})();

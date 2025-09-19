@@ -1,4 +1,4 @@
-;((()=> {
+;(()=> {
 
 if(typeof Gun === 'undefined'){ return }
 
@@ -66,4 +66,4 @@ Gun.on('create', function lg(root){
 
 });
 	
-})());
+})();

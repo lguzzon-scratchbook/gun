@@ -1,4 +1,4 @@
-;((()=> {
+;(()=> {
 
 	require('./shim')
 
@@ -436,4 +436,4 @@
 
 	try { module.exports = Mesh } catch (e) { }
 	
-})());
+})();

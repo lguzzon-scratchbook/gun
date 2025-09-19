@@ -1,4 +1,4 @@
-;((()=> {
+;(()=> {
 
 // Shim for generic javascript utilities.
 String.random = (l, c)=> {
@@ -84,4 +84,4 @@ Object.keys = Object.keys || ((o)=> {
 	}())}))();
 })());
 	
-})());
+})();

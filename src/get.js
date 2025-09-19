@@ -1,4 +1,4 @@
-;((()=> {
+;(()=> {
 
 const Gun = require('./root');
 Gun.chain.get = function(key, cb, as){
@@ -156,4 +156,4 @@ function rid(at){
 }
 var empty = {}, valid = Gun.valid, u;
 	
-})());
+})();
