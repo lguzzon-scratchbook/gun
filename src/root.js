@@ -177,11 +177,10 @@ Gun.ask = require('./ask');
 	} Gun.on.put = put;
 	// TODO: MARK!!! clock below, reconnect sync, SEA certify wire merge, User.auth taking multiple times, // msg put, put, say ack, hear loop...
 	// WASIS BUG! local peer not ack. .off other people: .open
-	function ham(val, key, soul, state, msg){
+	const ham = (val, key, soul, state, msg) => {
 		const ctx = msg._ || {};
 		const root = ctx.root;
 		const graph = root?.graph;
-		let tmp;
 		const vertex = graph?.[soul] || empty;
 		const was = state_is(vertex, key, 1);
 		const known = vertex[key];
@@ -195,7 +194,7 @@ Gun.ask = require('./ask');
 
 		const now = State();
 		if(state > now){
-			tmp = state - now;
+			const tmp = state - now;
 			const delay = tmp > MD ? MD : tmp;
 			setTimeout(() => ham(val, key, soul, state, msg), delay);
 			if(console.STAT){
@@ -219,10 +218,10 @@ Gun.ask = require('./ask');
 		if(DBG){
 			DBG.ph = DBG.ph || +new Date;
 		}
-		root.on('put', {'#': id, '@': msg['@'], _: ctx, ok: msg.ok, put: {'#': soul, '.': key, ':': val, '>': state}});
-	}
+		root.on('put', {'#': id, '@': msg['@'], _: ctx, ok: msg.ok, put: {'.': key, '#': soul, ':': val, '>': state}});
+	};
 	function map(msg){
-		let DBG = (msg._||'').DBG; if(DBG){ DBG.pa = +new Date; DBG.pm = DBG.pm || +new Date}
+		const DBG = (msg._||'').DBG; if(DBG){ DBG.pa = +new Date; DBG.pm = DBG.pm || +new Date}
 	     	const root = this.as, graph = root.graph, ctx = msg._, put = msg.put, soul = put['#'], key = put['.'], val = put[':'], state = put['>'];
 	     	let tmp = ctx.msg;
 	     	if(tmp){
@@ -236,7 +235,7 @@ Gun.ask = require('./ask');
 	     	} // necessary! or else out messages do not get SEA transforms.
 	     	//var bytes = ((graph[soul]||'')[key]||'').length||1;
 		graph[soul] = state_ify(graph[soul], key, state, val, soul);
-		let tmp_next = (root.next||'')[soul];
+		const tmp_next = (root.next||'')[soul];
 		if(tmp_next){
 			//tmp.bytes = (tmp.bytes||0) + ((val||'').length||1) - bytes;
 			//if(tmp.bytes > 2**13){ Gun.log.once('byte-limit', "Note: In the future, GUN peers will enforce a ~4KB query limit. Please see https://gun.eco/docs/Page") }
@@ -245,54 +244,67 @@ Gun.ask = require('./ask');
 		fire(ctx);
 		this.to.next(msg);
 	}
-	function fire(ctx, msg){ let root;
+	const fire = (ctx, msg) => {
 		if(ctx.stop){ return }
-		if(!ctx.err && 0 < --ctx.stun){ return } // TODO: 'forget' feature in SEA tied to this, bad approach, but hacked in for now. Any changes here must update there.
+		ctx.stun--;
+		if(!ctx.err && 0 < ctx.stun){ return } // TODO: 'forget' feature in SEA tied to this, bad approach, but hacked in for now. Any changes here must update there.
 		ctx.stop = 1;
-		if(!(root = ctx.root)){ return }
+		const root = ctx.root;
+		if(!root){ return }
 		let tmp = ctx.match;
 		tmp.end = 1;
-		if(tmp === root.hatch){ if(!(tmp = ctx.latch) || tmp.end){ delete root.hatch } else { root.hatch = tmp } }
+		if(tmp === root.hatch){
+			tmp = ctx.latch;
+			if(!tmp || tmp.end){ delete root.hatch } else { root.hatch = tmp }
+		}
 		ctx.hatch && ctx.hatch(); // TODO: rename/rework how put & this interact.
 		setTimeout.each(ctx.match, (cb) => { cb && cb() });
-		if(!(msg = ctx.msg) || ctx.err || msg.err){ return }
+		msg = ctx.msg;
+		if(!msg || ctx.err || msg.err){ return }
 		msg.out = universe;
 		ctx.root.on('out', msg);
 
 		CF(); // courtesy check;
-	}
-	function ack(msg){ // aggregate ACKs.
+	};
+	const ack = (msg) => { // aggregate ACKs.
 		const id = msg['@'] || '';
-		let ctx;
-		let ok;
-		let tmp;
-		if(!(ctx = id._)){
-			let dup = msg.$ && msg.$._ && msg.$._.root && msg.$._.root.dup;
-			if(!(dup = dup.check(id))){ return }
-			msg['@'] = dup['#'] || msg['@']; // This doesn't do anything anymore, backtrack it to something else?
+		let ctx = id._;
+		if(!ctx){
+			let dup = msg.$?._?.root?.dup;
+			dup = dup?.check(id);
+			if(!dup){ return }
+			msg['@'] = dup?.['#'] || msg['@']; // This doesn't do anything anymore, backtrack it to something else?
 			return;
 		}
 		ctx.acks = (ctx.acks||0) + 1;
-		if(ctx.err = msg.err){
+		ctx.err = msg.err;
+		if(ctx.err){
 			msg['@'] = ctx['#'];
 			fire(ctx); // TODO: BUG? How it skips/stops propagation of msg if any 1 item is error, this would assume a whole batch/resync has same malicious intent.
 		}
 		ctx.ok = msg.ok || ctx.ok;
 		if(!ctx.stop && !ctx.crack){ ctx.crack = ctx.match && ctx.match.push(function(){back(ctx)}) } // handle synchronous acks. NOTE: If a storage peer ACKs synchronously then the PUT loop has not even counted up how many items need to be processed, so ctx.STOP flags this and adds only 1 callback to the end of the PUT loop.
 		back(ctx);
-	}
-	function back(ctx){
-		if(!ctx || !ctx.root){ return }
+	};
+	const back = (ctx) => {
+		if(!ctx?.root){ return }
 		if(ctx.stun || ctx.acks !== ctx.all){ return }
 		ctx.root.on('in', {'@': ctx['#'], err: ctx.err, ok: ctx.err? u : ctx.ok || {'':1}});
-	}
+	};
 
 	const ERR = "Error: Invalid graph!";
 	const cut = (s) => " '"+(s + '').slice(0,9) + "...' "
 	const L = JSON.stringify, MD = 2147483647, State = Gun.state;
 	let C = 0;
 	let CT;
-	let CF = function(){if(C>999 && (C/-(CT - (CT = +new Date))>1)){Gun.window && console.log("Warning: You're syncing 1K+ records a second, faster than DOM can update - consider limiting query.");CF=function(){C=0}}};
+	let CF = () => {
+		const oldCT = CT;
+		CT = +new Date;
+		if(C > 999 && (C / -(oldCT - CT) > 1)){
+			Gun.window && console.log("Warning: You're syncing 1K+ records a second, faster than DOM can update - consider limiting query.");
+			CF = () => { C = 0 };
+		}
+	};
 
 }());
 
@@ -332,7 +344,7 @@ Gun.ask = require('./ask');
 		//if(has && node){ // replace 2 below lines to continue dev?
 		if(!node){ return root.on('get', msg) }
 		if(has){
-			if('string' != typeof has || u === node[has]){
+			if('string' !== typeof has || u === node[has]){
 				if(!((at||'').next||'')[has]){ root.on('get', msg); return }
 			}
 			node = state_ify({}, has, state_is(node, has), node[has], soul);
@@ -374,7 +386,10 @@ Gun.ask = require('./ask');
 			tmp = keys.length;
 			console.STAT && console.STAT(S, -(S - (S = +new Date)), 'got copied some');
 			DBG && (DBG.ga = +new Date);
-			root.on('in', {'@': to, '#': id, put: put, '%': (tmp? (id = text_rand(9)) : u), $: root.$, _: faith, DBG: DBG});
+			if (tmp) {
+				id = text_rand(9);
+			}
+			root.on('in', {'#': id, '%': tmp ? id : u, '@': to, $: root.$, _: faith, DBG: DBG, put: put});
 			console.STAT && console.STAT(S, +new Date - S, 'got in');
 			if(!tmp){ return }
 			setTimeout.turn(go);
@@ -390,7 +405,7 @@ Gun.ask = require('./ask');
 		let tmp = opt.peers || opt;
 		if(!Object.plain(opt)){ opt = {} }
 		if(!Object.plain(at.opt)){ at.opt = opt }
-		if('string' == typeof tmp){ tmp = [tmp] }
+		if('string' === typeof tmp){ tmp = [tmp] }
 		if(!Object.plain(at.opt.peers)){ at.opt.peers = {}}
 		if(tmp instanceof Array){
 			opt.peers = {};
@@ -400,7 +415,7 @@ Gun.ask = require('./ask');
 			})
 		}
 		obj_each(opt, function each(k){ const v = this[k];
-			if((this && this.hasOwnProperty(k)) || 'string' == typeof v || Object.empty(v)){ this[k] = v; return }
+			if((this && this.hasOwnProperty(k)) || 'string' === typeof v || Object.empty(v)){ this[k] = v; return }
 			if(v && v.constructor !== Object && !(v instanceof Array)){ return }
 			obj_each(v, each);
 		});
