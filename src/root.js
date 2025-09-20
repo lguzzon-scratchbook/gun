@@ -44,33 +44,48 @@ Gun.ask = require('./ask');
 		return gun;
 	}
 	function universe(msg){
-		// TODO: BUG! msg.out = null being set!
 		//if(!F){ var eve = this; setTimeout(function(){ universe.call(eve, msg,1) },Math.random() * 100);return; } // ADD F TO PARAMS!
 		if(!msg){ return }
 		if(msg.out === universe){ this.to.next(msg); return }
 		const eve = this, as = eve.as, at = as.at || as, gun = at.$, dup = at.dup, DBG = msg.DBG;
 		let tmp;
-		(tmp = msg['#']) || (tmp = msg['#'] = text_rand(9));
+		tmp = msg['#'];
+		if (!tmp) {
+			tmp = msg['#'] = text_rand(9);
+		}
 		if(dup.check(tmp)){ return } dup.track(tmp);
 		tmp = msg._; msg._ = ('function' === typeof tmp)? tmp : () => {};
-		(msg.$ && (msg.$ === (msg.$._||'').$)) || (msg.$ = gun);
+		const tmp$ = msg.$ && (msg.$ === (msg.$._ || '').$);
+		if (!tmp$) {
+			msg.$ = gun;
+		}
 		if(msg['@'] && !msg.put){ ack(msg) }
 		if(!at.ask(msg['@'], msg)){ // is this machine listening for an ack?
-			DBG && (DBG.u = +new Date);
+			if (DBG) {
+				DBG.u = +new Date;
+			}
 			if(msg.put){ put(msg); return } else
 			if(msg.get){ Gun.on.get(msg, gun) }
 		}
-		DBG && (DBG.uc = +new Date);
+		if (DBG) {
+			DBG.uc = +new Date;
+		}
 		eve.to.next(msg);
-		DBG && (DBG.ua = +new Date);
+		if (DBG) {
+			DBG.ua = +new Date;
+		}
 		if(msg.nts || msg.NTS){ return } // TODO: This shouldn't be in core, but fast way to prevent NTS spread. Delete this line after all peers have upgraded to newer versions.
 		msg.out = universe; at.on('out', msg);
-		DBG && (DBG.ue = +new Date);
+		if (DBG) {
+			DBG.ue = +new Date;
+		}
 	}
 	function put(msg){
 		if(!msg){ return }
 		const ctx = msg._||'';
-		const root = ctx.root = ((ctx.$ = msg.$||'')._||'').root;
+		ctx.$ = msg.$ || '';
+		ctx.root = (ctx.$._ || '').root;
+		const root = ctx.root;
 		if(msg['@'] && ctx.faith && !ctx.miss){ // TODO: AXE may split/route based on 'put' what should we do here? Detect @ in AXE? I think we don't have to worry, as DAM will route it on @.
 			msg.out = universe;
 			root.on('out', msg);
@@ -78,15 +93,23 @@ Gun.ask = require('./ask');
 		}
 		ctx.latch = root.hatch; ctx.match = root.hatch = [];
 		const put = msg.put;
-		const DBG = ctx.DBG = msg.DBG, S = +new Date; CT = CT || S;
+		ctx.DBG = msg.DBG;
+		const DBG = ctx.DBG;
+		const S = +new Date;
+		CT = CT || S;
 		if(put['#'] && put['.']){ /*root && root.on('put', msg);*/ return } // TODO: BUG! This needs to call HAM instead.
-		DBG && (DBG.p = S);
+		if (DBG) {
+			DBG.p = S;
+		}
 		ctx['#'] = msg['#'];
 		ctx.msg = msg;
 		ctx.all = 0;
 		ctx.stun = 1;
 		const nl = Object.keys(put);//.sort(); // TODO: This is unbounded operation, large graphs will be slower. Write our own CPU scheduled sort? Or somehow do it in below? Keys itself is not O(1) either, create ES5 shim over ?weak map? or custom which is constant.
-		console.STAT && console.STAT(S, ((DBG||ctx).pk = +new Date) - S, 'put sort');
+		if (console.STAT) {
+			(DBG || ctx).pk = +new Date;
+			console.STAT(S, (DBG || ctx).pk - S, 'put sort');
+		}
 		let ni = 0;
 		let nj;
 		let kl;
@@ -96,16 +119,30 @@ Gun.ask = require('./ask');
 		let err;
 		let tmp;
 		(function pop(o){
-			if(nj !== ni){ nj = ni;
-				if(!(soul = nl[ni])){
-					console.STAT && console.STAT(S, ((DBG||ctx).pd = +new Date) - S, 'put');
+			if (nj !== ni) {
+				nj = ni;
+				soul = nl[ni];
+				if (!soul) {
+					if (console.STAT) {
+						(DBG || ctx).pd = +new Date;
+						console.STAT(S, (DBG || ctx).pd - S, 'put');
+					}
 					fire(ctx);
 					return;
 				}
-				if(!(node = put[soul])){ err = ERR+cut(soul)+"no node." } else
-				if(!(tmp = node._)){ err = ERR+cut(soul)+"no meta." } else
+				node = put[soul];
+				if (!node) {
+					err = ERR + cut(soul) + "no node.";
+				} else
+				tmp = node._;
+				if (!tmp) {
+					err = ERR + cut(soul) + "no meta.";
+				} else
 				if(soul !== tmp['#']){ err = ERR+cut(soul)+"soul not same." } else
-				if(!(states = tmp['>'])){ err = ERR+cut(soul)+"no state." }
+				states = tmp['>'];
+				if (!states) {
+					err = ERR + cut(soul) + "no state.";
+				}
 				kl = Object.keys(node||{}); // TODO: .keys( is slow
 			}
 			if(err){
@@ -117,7 +154,11 @@ Gun.ask = require('./ask');
 			let i = 0;
 			let key;
 			o = o || 0;
-			while(o++ < 9 && (key = kl[i++])){
+			while (o++ < 9) {
+				key = kl[i++];
+				if (!key) {
+					break;
+				}
 				if('_' === key){ continue }
 				const val = node[key], state = states[key];
 				if(u === state){ err = ERR+cut(key)+"on"+cut(soul)+"no state."; break }
@@ -126,52 +167,83 @@ Gun.ask = require('./ask');
 				ham(val, key, soul, state, msg);
 				++C; // courtesy count;
 			}
-			if((kl = kl.slice(i)).length){ turn(pop); return }
+			kl = kl.slice(i);
+			if (kl.length) {
+				turn(pop);
+				return;
+			}
 			++ni; kl = null; pop(o);
 		}());
 	} Gun.on.put = put;
 	// TODO: MARK!!! clock below, reconnect sync, SEA certify wire merge, User.auth taking multiple times, // msg put, put, say ack, hear loop...
 	// WASIS BUG! local peer not ack. .off other people: .open
 	function ham(val, key, soul, state, msg){
-		const ctx = msg._||'', root = ctx.root, graph = root.graph, lot = undefined;
+		const ctx = msg._ || {};
+		const root = ctx.root;
+		const graph = root?.graph;
 		let tmp;
-		const vertex = graph[soul] || empty, was = state_is(vertex, key, 1), known = vertex[key];
-		
-		const DBG = ctx.DBG; if(tmp = console.STAT){ if(!graph[soul] || !known){ tmp.has = (tmp.has || 0) + 1 } }
+		const vertex = graph?.[soul] || empty;
+		const was = state_is(vertex, key, 1);
+		const known = vertex[key];
+
+		const DBG = ctx.DBG;
+		if(console.STAT){
+			if(!graph?.[soul] || !known){
+				console.STAT.has = (console.STAT.has || 0) + 1;
+			}
+		}
 
 		const now = State();
-		let u;
 		if(state > now){
-			setTimeout(function(){ ham(val, key, soul, state, msg) }, (tmp = state - now) > MD? MD : tmp); // Max Defer 32bit. :(
-			console.STAT && console.STAT(((DBG||ctx).Hf = +new Date), tmp, 'future');
+			tmp = state - now;
+			const delay = tmp > MD ? MD : tmp;
+			setTimeout(() => ham(val, key, soul, state, msg), delay);
+			if(console.STAT){
+				const hf = +new Date;
+				if(DBG) DBG.Hf = hf;
+				console.STAT(hf, delay, 'future');
+			}
 			return;
 		}
-		if(state < was){ return } // old; but some chains have a cache miss that need to re-fire. // TODO: Improve in future. // for AXE this would reduce rebroadcast, but GUN does it on message forwarding. // TURNS OUT CACHE MISS WAS NOT NEEDED FOR NEW CHAINS ANYMORE!!! DANGER DANGER DANGER, ALWAYS RETURN! (or am I missing something?)
-		if(!ctx.faith){ // TODO: BUG? Can this be used for cache miss as well? // Yes this was a bug, need to check cache miss for RAD tests, but should we care about the faith check now? Probably not.
-			if(state === was && (val === known || L(val) <= L(known))){ /*console.log("same");*/ /*same;*/ if(!ctx.miss){ return } } // same
+		if(state < was){ return; }
+		if(!ctx.faith){
+			if(state === was && (val === known || L(val) <= L(known))){
+				if(!ctx.miss){ return; }
+			}
 		}
-		ctx.stun++; // TODO: 'forget' feature in SEA tied to this, bad approach, but hacked in for now. Any changes here must update there.
-		const aid = msg['#']+ctx.all++;
-		const id = {toString: function(){ return aid }, _: ctx};
-		id.toJSON = id.toString; // this *trick* makes it compatible between old & new versions.
-		root.dup.track(id)['#'] = msg['#']; // fixes new OK acks for RPC like RTC.
-		DBG && (DBG.ph = DBG.ph || +new Date);
-		root.on('put', {'#': id, '@': msg['@'], put: {'#': soul, '.': key, ':': val, '>': state}, ok: msg.ok, _: ctx});
+		ctx.stun++;
+		const aid = msg['#'] + ctx.all++;
+		const id = {toString: () => aid, _: ctx};
+		id.toJSON = id.toString;
+		root.dup.track(id)['#'] = msg['#'];
+		if(DBG){
+			DBG.ph = DBG.ph || +new Date;
+		}
+		root.on('put', {'#': id, '@': msg['@'], _: ctx, ok: msg.ok, put: {'#': soul, '.': key, ':': val, '>': state}});
 	}
 	function map(msg){
-		let DBG; if(DBG = (msg._||'').DBG){ DBG.pa = +new Date; DBG.pm = DBG.pm || +new Date}
-      	const eve = this, root = eve.as, graph = root.graph, ctx = msg._, put = msg.put, soul = put['#'], key = put['.'], val = put[':'], state = put['>'], id = msg['#'];
-      	let tmp;
-      	if((tmp = ctx.msg) && (tmp = tmp.put) && (tmp = tmp[soul])){ state_ify(tmp, key, state, val, soul) } // necessary! or else out messages do not get SEA transforms.
-      	//var bytes = ((graph[soul]||'')[key]||'').length||1;
+		let DBG = (msg._||'').DBG; if(DBG){ DBG.pa = +new Date; DBG.pm = DBG.pm || +new Date}
+	     	const root = this.as, graph = root.graph, ctx = msg._, put = msg.put, soul = put['#'], key = put['.'], val = put[':'], state = put['>'];
+	     	let tmp = ctx.msg;
+	     	if(tmp){
+	     	  tmp = tmp.put;
+	     	  if(tmp){
+	     	    tmp = tmp[soul];
+	     	    if(tmp){
+	     	      state_ify(tmp, key, state, val, soul);
+	     	    }
+	     	  }
+	     	} // necessary! or else out messages do not get SEA transforms.
+	     	//var bytes = ((graph[soul]||'')[key]||'').length||1;
 		graph[soul] = state_ify(graph[soul], key, state, val, soul);
-		if(tmp = (root.next||'')[soul]){
+		let tmp_next = (root.next||'')[soul];
+		if(tmp_next){
 			//tmp.bytes = (tmp.bytes||0) + ((val||'').length||1) - bytes;
 			//if(tmp.bytes > 2**13){ Gun.log.once('byte-limit', "Note: In the future, GUN peers will enforce a ~4KB query limit. Please see https://gun.eco/docs/Page") }
-			tmp.on('in', msg)
+			tmp_next.on('in', msg)
 		}
 		fire(ctx);
-		eve.to.next(msg);
+		this.to.next(msg);
 	}
 	function fire(ctx, msg){ let root;
 		if(ctx.stop){ return }
@@ -216,7 +288,7 @@ Gun.ask = require('./ask');
 	}
 
 	const ERR = "Error: Invalid graph!";
-	const cut = function(s){ return " '"+(''+s).slice(0,9)+"...' " }
+	const cut = (s) => " '"+(s + '').slice(0,9) + "...' "
 	const L = JSON.stringify, MD = 2147483647, State = Gun.state;
 	let C = 0;
 	let CT;
@@ -252,7 +324,8 @@ Gun.ask = require('./ask');
 			at.Q = {};
 		}*/
 		const ctx = msg._||{};
-		const DBG = ctx.DBG = msg.DBG;
+		ctx.DBG = msg.DBG;
+		const DBG = ctx.DBG;
 		DBG && (DBG.g = +new Date);
 		//console.log("GET:", get, node, has, at);
 		//if(!node && !at){ return root.on('get', msg) }
@@ -321,7 +394,7 @@ Gun.ask = require('./ask');
 		if(!Object.plain(at.opt.peers)){ at.opt.peers = {}}
 		if(tmp instanceof Array){
 			opt.peers = {};
-			tmp.forEach(function(url){
+			tmp.forEach((url) => {
 				const p = {}; p.id = p.url = url;
 				opt.peers[url] = at.opt.peers[url] = at.opt.peers[url] || p;
 			})
@@ -350,12 +423,23 @@ const empty = {};
 Gun.log = function(){ return (!Gun.log.off && C.log.apply(C, arguments)), [].slice.call(arguments).join(' ') };
 Gun.log.once = function(w,s,o){ return (o = Gun.log.once)[w] = o[w] || 0, o[w]++ || Gun.log(s) };
 
-if(typeof window !== "undefined"){ (window.GUN = window.Gun = Gun).window = window }
+if (typeof window !== 'undefined') {
+	window.GUN = Gun;
+	window.Gun = Gun;
+	window.Gun.window = window;
+}
 try{ if(typeof MODULE !== "undefined"){ MODULE.exports = Gun } }catch(e){}
 module.exports = Gun;
 
 (Gun.window||{}).console = (Gun.window||{}).console || {log: function(){}};
-(C = console).only = function(i, s){ return (C.only.i && i === C.only.i && C.only.i++) && (C.log.apply(C, arguments) || s) };
+const C = console;
+C.only = function(i, s) {
+	if (C.only.i && i === C.only.i) {
+		C.only.i++;
+		C.log.apply(C, arguments);
+		return s;
+	}
+};
 
 ;"Please do not remove welcome log unless you are paying for a monthly sponsorship, thanks!";
 Gun.log.once("welcome", "Hello wonderful person! :) Thanks for using GUN, please ask for help on http://chat.gun.eco if anything takes you longer than 5min to figure out!");
