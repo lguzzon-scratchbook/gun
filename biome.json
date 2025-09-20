@@ -1,6 +1,5 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.2.4/schema.json",
-  "root":true,
   "assist": {
     "actions": {
       "source": {
@@ -9,11 +8,20 @@
       }
     }
   },
+  "files": {
+    "experimentalScannerIgnores": [
+      "gun.js",
+      "gun.min.js",
+      "get.js"
+    ]
+  },
   "formatter": {
     "attributePosition": "auto",
     "enabled": true,
     "formatWithErrors": false,
-    "includes": ["**"],
+    "includes": [
+      "**"
+    ],
     "indentStyle": "space",
     "indentWidth": 2,
     "lineEnding": "lf",
