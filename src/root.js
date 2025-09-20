@@ -309,10 +309,11 @@ Gun.ask = require('./ask');
 }());
 
 ;(function(){
-	Gun.on.get = function(msg, gun){
+	Gun.on.get = (msg, gun) => {
 		const root = gun._, get = msg.get, soul = get['#'], has = get['.'];
 		let node = root.graph[soul];
-		const next = root.next || (root.next = {});
+		if (!root.next) root.next = {};
+		const next = root.next;
 		const at = next[soul];
 
 		// TODO: Azarattum bug, what is in graph is not same as what is in next. Fix!
@@ -338,14 +339,14 @@ Gun.ask = require('./ask');
 		const ctx = msg._||{};
 		ctx.DBG = msg.DBG;
 		const DBG = ctx.DBG;
-		DBG && (DBG.g = +new Date);
+		if (DBG) DBG.g = +new Date();
 		//console.log("GET:", get, node, has, at);
 		//if(!node && !at){ return root.on('get', msg) }
 		//if(has && node){ // replace 2 below lines to continue dev?
 		if(!node){ return root.on('get', msg) }
 		if(has){
 			if('string' !== typeof has || u === node[has]){
-				if(!((at||'').next||'')[has]){ root.on('get', msg); return }
+				if(!(at?.next?.[has])){ root.on('get', msg); return }
 			}
 			node = state_ify({}, has, state_is(node, has), node[has], soul);
 			// If we have a key in-memory, do we really need to fetch?
@@ -356,46 +357,58 @@ Gun.ask = require('./ask');
 		node && ack(msg, node);
 		root.on('get', msg); // send GET to storage adapters.
 	}
-	function ack(msg, node){
-		let S = +new Date;
-		const ctx = msg._||{};
-		const DBG = ctx.DBG = msg.DBG;
-		let keys = Object.keys(node||'').sort();
-		const to = msg['#'];
-		let id = text_rand(9);
-		const soul = ((node||'')._||'')['#'];
-		const kl = keys.length;
-		let j = 0;
-		const root = msg.$._.root;
-		const F = (node === root.graph[soul]);
-		console.STAT && console.STAT(S, ((DBG||ctx).gk = +new Date) - S, 'got keys');
+	const ack = (msg, node) => {
+	let S = +new Date();
+	const ctx = msg._||{};
+	ctx.DBG = msg.DBG;
+	const DBG = ctx.DBG;
+	let keys = Object.keys(node||'').sort();
+	const to = msg['#'];
+	let id = text_rand(9);
+	const soul = ((node||'')._||'')['#'];
+	const root = msg.$._.root;
+	const F = (node === root.graph[soul]);
+	const gk = +new Date();
+	if (DBG) DBG.gk = gk;
+	else ctx.gk = gk;
+	console.STAT && console.STAT(S, gk - S, 'got keys');
 		// PERF: Consider commenting this out to force disk-only reads for perf testing? // TODO: .keys( is slow
-		node && (function go(){
-			S = +new Date;
-			let i = 0;
-			let k;
-			let tmp;
-			let put = {};
-			while(i < 9 && (k = keys[i++])){
-				state_ify(put, k, state_is(node, k), node[k], soul);
-			}
-			keys = keys.slice(i);
-			(tmp = {})[soul] = put; put = tmp;
-			let faith;
-			if(F){ faith = function(){}; faith.ram = faith.faith = true; } // HNPERF: We're testing performance improvement by skipping going through security again, but this should be audited.
-			tmp = keys.length;
-			console.STAT && console.STAT(S, -(S - (S = +new Date)), 'got copied some');
-			DBG && (DBG.ga = +new Date);
-			if (tmp) {
-				id = text_rand(9);
-			}
-			root.on('in', {'#': id, '%': tmp ? id : u, '@': to, $: root.$, _: faith, DBG: DBG, put: put});
-			console.STAT && console.STAT(S, +new Date - S, 'got in');
-			if(!tmp){ return }
-			setTimeout.turn(go);
-		}());
+		node && (() => {
+			const go = () => {
+				S = +new Date();
+				let i = 0;
+				let k;
+				let tmp;
+				let put = {};
+				while(i < 9){
+					k = keys[i];
+					i++;
+					state_ify(put, k, state_is(node, k), node[k], soul);
+				}
+				keys = keys.slice(i);
+				const tmpObj = {};
+				tmpObj[soul] = put;
+				put = tmpObj;
+				const faith = F ? (() => {}) : undefined;
+				if (faith) { faith.ram = faith.faith = true; } // HNPERF: We're testing performance improvement by skipping going through security again, but this should be audited.
+				tmp = keys.length;
+				const newS = +new Date();
+				console.STAT && console.STAT(S, -(S - newS), 'got copied some');
+				S = newS;
+				if (DBG) DBG.ga = +new Date();
+				if (tmp) {
+					id = text_rand(9);
+				}
+				root.on('in', {'#': id, '%': tmp ? id : u, '@': to, $: root.$, _: faith, DBG: DBG, put: put});
+				console.STAT && console.STAT(S, +new Date() - S, 'got in');
+				if(!tmp){ return }
+				setTimeout.turn(go);
+			};
+			go();
+		})();
 		if(!node){ root.on('in', {'@': msg['#']}) } // TODO: I don't think I like this, the default lS adapter uses this but "not found" is a sensitive issue, so should probably be handled more carefully/individually.
-	} Gun.on.get.ack = ack;
+	};
+	Gun.on.get.ack = ack;
 }());
 
 ;(function(){
@@ -436,22 +449,30 @@ const u = undefined;
 const empty = {};
 
 Gun.log = function(){ return (!Gun.log.off && C.log.apply(C, arguments)), [].slice.call(arguments).join(' ') };
-Gun.log.once = function(w,s,o){ return (o = Gun.log.once)[w] = o[w] || 0, o[w]++ || Gun.log(s) };
+Gun.log.once = function (w, s, o) {
+	o = Gun.log.once
+	o[w] = o[w] || 0
+	const count = o[w]++
+	if (count === 0) {
+		Gun.log(s)
+	}
+	return count
+};
 
 if (typeof window !== 'undefined') {
 	window.GUN = Gun;
 	window.Gun = Gun;
 	window.Gun.window = window;
 }
-try{ if(typeof MODULE !== "undefined"){ MODULE.exports = Gun } }catch(e){}
+try{ if(typeof MODULE !== "undefined"){ MODULE.exports = Gun } }catch{}
 module.exports = Gun;
 
-(Gun.window||{}).console = (Gun.window||{}).console || {log: function(){}};
+(Gun.window||{}).console = Gun.window?.console || {log: () => {}};
 const C = console;
-C.only = function(i, s) {
+C.only = (i, s, ...args) => {
 	if (C.only.i && i === C.only.i) {
 		C.only.i++;
-		C.log.apply(C, arguments);
+		C.log(i, s, ...args);
 		return s;
 	}
 };
