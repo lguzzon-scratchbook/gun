@@ -47,7 +47,7 @@
 		const dup_track = dup.track
 
 		const ST = +new Date
-		let LT = ST
+		const LT = ST
 
 		const hear = mesh.hear = function (raw, peer) {
 			if (!raw) return

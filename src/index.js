@@ -1,4 +1,4 @@
-;(function(){
+;((()=> {
 
 const Gun = require('./root');
 require('./shim');
@@ -17,4 +17,4 @@ require('./websocket');
 require('./localStorage');
 module.exports = Gun;
 
-}());
+})());

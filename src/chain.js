@@ -3,6 +3,16 @@
   // is complicated and was extremely hard to build. If you port GUN to another
   // language, consider implementing an easier API to build.
   const Gun = require('./root')
+
+  const empty = {}
+  const u = undefined
+  const text_rand = String.random
+  const valid = Gun.valid
+  const obj_has = (o, k) => o && Object.hasOwn(o, k)
+  const state = Gun.state
+  const state_is = state.is
+  const state_ify = state.ify
+
   Gun.chain.chain = function (sub) {
     const at = this._
     const chain = new (sub || this).constructor(this)
@@ -50,7 +60,9 @@
       if (get['#'] || at.soul) {
         get['#'] = get['#'] || at.soul
         //root.graph[get['#']] = root.graph[get['#']] || {_:{'#':get['#'],'>':{}}};
-        if (!msg['#']) { msg['#'] = text_rand(9) } // A3120 ?
+        if (!msg['#']) {
+          msg['#'] = text_rand(9)
+        } // A3120 ?
         back = root.$.get(get['#'])._
         get = get['.']
         if (!get) {
@@ -179,7 +191,7 @@
         gun = cat.root.$.get(soul)
         return setTimeout.each(Object.keys(tmp).sort(), (k) => {
           // TODO: .keys( is slow // BUG? ?Some re-in logic may depend on this being sync?
-          const state = state_is(tmp, k);
+          const state = state_is(tmp, k)
           if ('_' === k || u === state) {
             return
           }
@@ -215,11 +227,9 @@
     if (cat !== at) {
       // don't worry about this when first understanding the code, it handles changing contexts on a message. A soul chain will never have a different context.
       tmp = {}
-      Object.keys(msg).forEach(
-        (k) => {
-          tmp[k] = msg[k]
-        }
-      ) // make copy of message
+      Object.keys(msg).forEach((k) => {
+        tmp[k] = msg[k]
+      }) // make copy of message
       tmp.get = cat.get || tmp.get
       if (!cat.soul && !cat.has) {
         // if we do not recognize the chain type
@@ -239,13 +249,7 @@
     ) {
       // The root has an in-memory cache of the graph, but if our peer has asked for the data then we want a per deduplicated chain copy of the data that might have local edits on it.
       tmp = root.$.get(soul)._
-      tmp.put = state_ify(
-        tmp.put,
-        key,
-        state,
-        change,
-        soul
-      )
+      tmp.put = state_ify(tmp.put, key, state, change, soul)
     }
     if (
       !at.soul /*&& (at.ask||'')['']*/ &&
@@ -296,7 +300,7 @@
         tmp = {}
         Object.assign(tmp, msg)
         tmp.get = key
-        tmp.$ = (msg.$$?.get(tmp.get) || msg.$?.get(tmp.get))
+        tmp.$ = msg.$$?.get(tmp.get) || msg.$?.get(tmp.get)
         delete tmp.$$
         delete tmp.$$$
         sat.on('in', tmp)
@@ -357,7 +361,7 @@
     }
     if (sat?.echo) sat.echo[tat.id] = tat // link it.
     tmp = cat.ask || '' // ask the chain for what needs to be loaded next!
-    if ( cat.ask?.[''] || cat.lex ) {
+    if (cat.ask?.[''] || cat.lex) {
       // we might need to load the whole thing // TODO: cat.lex probably has edge case bugs to it, need more test coverage.
       sat?.on('out', { get: { '#': link } })
     }
@@ -365,7 +369,7 @@
       Object.keys(tmp),
       (get) => {
         // if sub chains are asking for data. // TODO: .keys( is slow // BUG? ?Some re-in logic may depend on this being sync?
-        const sat = (cat.ask || {})?.[get]
+        const sat = cat?.ask?.[get]
         if (!get || !sat) {
           return
         }
@@ -435,7 +439,7 @@
     link = valid(change) // need to unlink anytime we are not the same link, though only do this once per unlink (and not on init).
     tmp = msg.$?._ || ''
     if (link === tmp?.link || (cat.has && !tmp?.link)) {
-      if ((root.pass || {})?.[cat.id] && 'string' !== typeof link) {
+      if (root.pass?.[cat.id] && 'string' !== typeof link) {
       } else {
         return
       }
@@ -462,7 +466,10 @@
     const at = as.$._
     const get = as.get || ''
     const tmp = (msg.put || '')[get['#']] || ''
-    if (!msg.put || (typeof get?.['.'] === 'string' && u === tmp?.[get?.['.']])) {
+    if (
+      !msg.put ||
+      (typeof get?.['.'] === 'string' && u === tmp?.[get?.['.']])
+    ) {
       if (u !== at.put) {
         return
       }
@@ -487,13 +494,4 @@
     Gun.on.put(msg)
     return // eom
   }
-
-  const empty = {}
-  const u = undefined
-  const text_rand = String.random
-  const valid = Gun.valid
-  const obj_has = (o, k) => o && Object.hasOwn(o, k)
-  const state = Gun.state
-  const state_is = state.is
-  const state_ify = state.ify
 })()
