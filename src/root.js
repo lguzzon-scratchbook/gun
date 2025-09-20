@@ -96,7 +96,7 @@ Gun.ask = require('./ask');
 		let err;
 		let tmp;
 		(function pop(o){
-			if(nj != ni){ nj = ni;
+			if(nj !== ni){ nj = ni;
 				if(!(soul = nl[ni])){
 					console.STAT && console.STAT(S, ((DBG||ctx).pd = +new Date) - S, 'put');
 					fire(ctx);
@@ -146,7 +146,7 @@ Gun.ask = require('./ask');
 			console.STAT && console.STAT(((DBG||ctx).Hf = +new Date), tmp, 'future');
 			return;
 		}
-		if(state < was){ /*old;*/ if(true || !ctx.miss){ return } } // but some chains have a cache miss that need to re-fire. // TODO: Improve in future. // for AXE this would reduce rebroadcast, but GUN does it on message forwarding. // TURNS OUT CACHE MISS WAS NOT NEEDED FOR NEW CHAINS ANYMORE!!! DANGER DANGER DANGER, ALWAYS RETURN! (or am I missing something?)
+		if(state < was){ return } // old; but some chains have a cache miss that need to re-fire. // TODO: Improve in future. // for AXE this would reduce rebroadcast, but GUN does it on message forwarding. // TURNS OUT CACHE MISS WAS NOT NEEDED FOR NEW CHAINS ANYMORE!!! DANGER DANGER DANGER, ALWAYS RETURN! (or am I missing something?)
 		if(!ctx.faith){ // TODO: BUG? Can this be used for cache miss as well? // Yes this was a bug, need to check cache miss for RAD tests, but should we care about the faith check now? Probably not.
 			if(state === was && (val === known || L(val) <= L(known))){ /*console.log("same");*/ /*same;*/ if(!ctx.miss){ return } } // same
 		}
@@ -182,7 +182,7 @@ Gun.ask = require('./ask');
 		tmp.end = 1;
 		if(tmp === root.hatch){ if(!(tmp = ctx.latch) || tmp.end){ delete root.hatch } else { root.hatch = tmp } }
 		ctx.hatch && ctx.hatch(); // TODO: rename/rework how put & this interact.
-		setTimeout.each(ctx.match, function(cb){cb && cb()}); 
+		setTimeout.each(ctx.match, (cb) => { cb && cb() });
 		if(!(msg = ctx.msg) || ctx.err || msg.err){ return }
 		msg.out = universe;
 		ctx.root.on('out', msg);
