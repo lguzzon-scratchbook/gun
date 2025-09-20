@@ -7,8 +7,8 @@
     const at = this._
     const chain = new (sub || this).constructor(this)
     const cat = chain._
-    let root
-    cat.root = root = at.root
+    const root = at.root
+    cat.root = root
     cat.id = ++root.once
     cat.back = this._
     cat.on = Gun.on
@@ -121,14 +121,14 @@
       //if(root.now){ root.now[at.id] = root.now[at.id] || true; at.pass = {} }
       if (get['.']) {
         if (at.get) {
-          msg = { get: { '.': at.get }, $: at.$ }
+          msg = { $: at.$, get: { '.': at.get } }
           if (!back.ask) {
             back.ask = {}
           }
           back.ask[at.get] = msg.$._ // TODO: PERFORMANCE? More elegant way?
           return back.on('out', msg)
         }
-        msg = { get: at.lex ? msg.get : {}, $: at.$ }
+        msg = { $: at.$, get: at.lex ? msg.get : {} }
         return back.on('out', msg)
       }
       if (!at.ask) {
@@ -160,7 +160,7 @@
     let soul = tmp['#']
     let key = tmp['.']
     const change = u !== tmp['='] ? tmp['='] : tmp[':']
-    let state = tmp['>'] || -Infinity
+    const state = tmp['>'] || -Infinity
     let sat // eve = event, at = data at, cat = chain at, sat = sub at (children chains).
     if (
       u !== msg.put &&
@@ -185,35 +185,40 @@
           }
           cat.on('in', {
             $: gun,
-            put: { '#': soul, '.': k, '=': tmp[k], '>': state },
-            VIA: msg
+            VIA: msg,
+            put: { '#': soul, '.': k, '=': tmp[k], '>': state }
           })
         })
       }
+      soul = at.back.soul
+      key = at.has || at.get
       cat.on('in', {
         $: at.back.$,
         put: {
-          '#': (soul = at.back.soul),
-          '.': (key = at.has || at.get),
+          '#': soul,
+          '.': key,
           '=': tmp,
           '>': state_is(at.back.put, key)
         },
         via: msg
-      }) // TODO: This could be buggy! It assumes/approxes data, other stuff could have corrupted it.
+      }) // TODO: This could be buggy! It assumes/approximates data, other stuff could have corrupted it.
       return
     }
     if ((msg.seen || '')[cat.id]) {
       return
     }
-    ;(msg.seen || (msg.seen = () => {}))[cat.id] = cat // help stop some infinite loops
+    if (!msg.seen) {
+      msg.seen = {}
+    }
+    msg.seen[cat.id] = cat // help stop some infinite loops
 
     if (cat !== at) {
       // don't worry about this when first understanding the code, it handles changing contexts on a message. A soul chain will never have a different context.
+      tmp = {}
       Object.keys(msg).forEach(
         (k) => {
           tmp[k] = msg[k]
-        },
-        (tmp = {})
+        }
       ) // make copy of message
       tmp.get = cat.get || tmp.get
       if (!cat.soul && !cat.has) {
@@ -233,7 +238,8 @@
       state >= state_is(root.graph[soul], key)
     ) {
       // The root has an in-memory cache of the graph, but if our peer has asked for the data then we want a per deduplicated chain copy of the data that might have local edits on it.
-      ;(tmp = root.$.get(soul)._).put = state_ify(
+      tmp = root.$.get(soul)._
+      tmp.put = state_ify(
         tmp.put,
         key,
         state,
@@ -243,47 +249,54 @@
     }
     if (
       !at.soul /*&& (at.ask||'')['']*/ &&
-      state >= state_is(root.graph[soul], key) &&
-      (sat = (root.$.get(soul)._.next || '')[key])
+      state >= state_is(root.graph[soul], key)
     ) {
-      // Same as above here, but for other types of chains. // TODO: Improve perf by preventing echoes recaching.
-      sat.put = change // update cache
-      if ('string' == typeof (tmp = valid(change))) {
-        sat.put = root.$.get(tmp)._.put || change // share same cache as what we're linked to.
+      sat = (root.$.get(soul)._.next || '')[key]
+      if (sat) {
+        // Same as above here, but for other types of chains. // TODO: Improve perf by preventing echoes re-caching.
+        sat.put = change // update cache
+        const tmp = valid(change)
+        if (typeof tmp === 'string') {
+          sat.put = root.$.get(tmp)._.put || change // share same cache as what we're linked to.
+        }
       }
     }
 
     this.to?.next(msg) // 1st API job is to call all chain listeners.
     // TODO: Make input more reusable by only doing these (some?) calls if we are a chain we recognize? This means each input listener would be responsible for when listeners need to be called, which makes sense, as they might want to filter.
-    cat.any &&
+    if (cat.any) {
       setTimeout.each(
         Object.keys(cat.any),
         (any) => {
-          ;(any = cat.any[any]) && any(msg)
+          const anyValue = cat.any[any]
+          anyValue?.(msg)
         },
         0,
         99
       ) // 1st API job is to call all chain listeners. // TODO: .keys( is slow // BUG: Some re-in logic may depend on this being sync.
-    cat.echo &&
+    }
+    if (cat.echo) {
       setTimeout.each(
         Object.keys(cat.echo),
         (lat) => {
-          ;(lat = cat.echo[lat]) && lat.on('in', msg)
+          const latValue = cat.echo[lat]
+          latValue?.on('in', msg)
         },
         0,
         99
       ) // & linked at chains // TODO: .keys( is slow // BUG: Some re-in logic may depend on this being sync.
+    }
 
     if (((msg.$$ || '')._ || at).soul) {
       // comments are linear, but this line of code is non-linear, so if I were to comment what it does, you'd have to read 42 other comments first... but you can't read any of those comments until you first read this comment. What!? // shouldn't this match link's check?
       // is there cases where it is a $$ that we do NOT want to do the following?
-      if ((sat = cat.next) && (sat = sat[key])) {
-        // TODO: possible trick? Maybe have `ionmap` code set a sat? // TODO: Maybe we should do `cat.ask` instead? I guess does not matter.
+      sat = cat.next?.[key]
+      if (sat) {
+        // TODO: possible trick? Maybe have `ion map` code set a sat? // TODO: Maybe we should do `cat.ask` instead? I guess does not matter.
         tmp = {}
-        Object.keys(msg).forEach((k) => {
-          tmp[k] = msg[k]
-        })
-        tmp.$ = (msg.$$ || msg.$).get((tmp.get = key))
+        Object.assign(tmp, msg)
+        tmp.get = key
+        tmp.$ = (msg.$$?.get(tmp.get) || msg.$?.get(tmp.get))
         delete tmp.$$
         delete tmp.$$$
         sat.on('in', tmp)
@@ -318,16 +331,16 @@
     }
     tat.echo = tat.echo || {}
     if (
-      tat.echo[cat.id] && // we've already linked ourselves so we do not need to do it again. Except... (annoying implementation details)
-      !(root.pass || '')[cat.id]
+      tat.echo?.[cat.id] && // we've already linked ourselves so we do not need to do it again. Except... (annoying implementation details)
+      !root.pass?.[cat.id]
     ) {
       return
     } // if a new event listener was added, we need to make a pass through for it. The pass will be on the chain, not always the chain passed down.
     tmp = root.pass
+    if (tmp?.[link + cat.id]) {
+      return
+    }
     if (tmp) {
-      if (tmp[link + cat.id]) {
-        return
-      }
       tmp[link + cat.id] = 1
     } // But the above edge case may "pass through" on a circular graph causing infinite passes, so we hackily add a temporary check for that.
 
@@ -338,21 +351,21 @@
       cat.link = link
     }
     tat.link = link
-    sat = root.$.get(link)._ // grab what we're linking to.
-    if (!sat.echo) {
-      sat.echo = {}
+    sat = root.$.get(link)?._ // grab what we're linking to.
+    if (!sat?.echo) {
+      if (sat) sat.echo = {}
     }
-    sat.echo[tat.id] = tat // link it.
+    if (sat?.echo) sat.echo[tat.id] = tat // link it.
     tmp = cat.ask || '' // ask the chain for what needs to be loaded next!
-    if (tmp[''] || cat.lex) {
+    if ( cat.ask?.[''] || cat.lex ) {
       // we might need to load the whole thing // TODO: cat.lex probably has edge case bugs to it, need more test coverage.
-      sat.on('out', { get: { '#': link } })
+      sat?.on('out', { get: { '#': link } })
     }
     setTimeout.each(
       Object.keys(tmp),
       (get) => {
         // if sub chains are asking for data. // TODO: .keys( is slow // BUG? ?Some re-in logic may depend on this being sync?
-        const sat = tmp[get]
+        const sat = (cat.ask || {})?.[get]
         if (!get || !sat) {
           return
         }
@@ -379,14 +392,14 @@
         return
       } // data may not be found on a soul, but if a soul already has data, then nothing can clear the soul as a whole.
       //if(!cat.has){ return }
-      tmp = (msg.$$ || msg.$ || '')._ || ''
-      if (msg['@'] && (u !== tmp.put || u !== cat.put)) {
+      tmp = msg.$$?._ || msg.$?._ || ''
+      if (msg?.['@'] && (u !== tmp.put || u !== cat.put)) {
         return
       } // a "not found" from other peers should not clear out data if we have already found it.
       //if(cat.has && u === cat.put && !(root.pass||'')[cat.id]){ return } // if we are already unlinked, do not call again, unless edge case. // TODO: BUG! This line should be deleted for "unlink deeply nested".
       link = cat.link || msg.linked
       if (link) {
-        delete (root.$.get(link)._.echo || '')[cat.id]
+        delete root.$.get(link)?._?.echo?.[cat.id]
       }
       if (cat.has) {
         // TODO: Empty out links, maps, echos, acks/asks, etc.?
@@ -396,15 +409,15 @@
       // TODO: BUG! For maps, proxy this so the individual sub is triggered, not all subs.
       setTimeout.each(
         Object.keys(cat.next || ''),
-        (get, sat) => {
+        (get) => {
           // empty out all sub chains. // TODO: .keys( is slow // BUG? ?Some re-in logic may depend on this being sync? // TODO: BUG? This will trigger deeper put first, does put logic depend on nested order? // TODO: BUG! For map, this needs to be the isolated child, not all of them.
-          sat = cat.next[get]
+          const sat = cat.next?.[get]
           if (!sat) {
             return
           }
           //if(cat.has && u === sat.put && !(root.pass||'')[sat.id]){ return } // if we are already unlinked, do not call again, unless edge case. // TODO: BUG! This line should be deleted for "unlink deeply nested".
           if (link) {
-            delete (root.$.get(link).get(get)._.echo || '')[sat.id]
+            delete root.$.get(link)?.get(get)?._?.echo?.[sat.id]
           }
           sat.on('in', { get: get, put: u, $: sat.$ }) // TODO: BUG? Add recursive seen check?
         },
@@ -420,14 +433,14 @@
       return
     } // a linked chain does not do the unlinking, the sub chain does. // TODO: BUG? Will this cancel maps?
     link = valid(change) // need to unlink anytime we are not the same link, though only do this once per unlink (and not on init).
-    tmp = msg.$._ || ''
-    if (link === tmp.link || (cat.has && !tmp.link)) {
-      if ((root.pass || '')[cat.id] && 'string' !== typeof link) {
+    tmp = msg.$?._ || ''
+    if (link === tmp?.link || (cat.has && !tmp?.link)) {
+      if ((root.pass || {})?.[cat.id] && 'string' !== typeof link) {
       } else {
         return
       }
     }
-    delete (tmp.echo || '')[cat.id]
+    delete tmp?.echo?.[cat.id]
     const linkedValue = msg.linked || tmp.link
     msg.linked = linkedValue
     unlink(
@@ -449,7 +462,7 @@
     const at = as.$._
     const get = as.get || ''
     const tmp = (msg.put || '')[get['#']] || ''
-    if (!msg.put || ('string' === typeof get['.'] && u === tmp[get['.']])) {
+    if (!msg.put || (typeof get?.['.'] === 'string' && u === tmp?.[get?.['.']])) {
       if (u !== at.put) {
         return
       }
@@ -459,8 +472,8 @@
       at.ack = (at.ack || 0) + 1
       at.put = u
       at.on('in', {
-        '@': msg['@'],
         $: at.$,
+        '@': msg['@'],
         get: at.get,
         put: at.put
       })
