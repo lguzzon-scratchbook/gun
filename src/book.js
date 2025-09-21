@@ -4,6 +4,11 @@
   const sT = setTimeout
   let B = sT.Book
   if (!B) {
+    /**
+     * @constructor Book
+     * @param {string} [text] - Optional text input for initializing the book.
+     * @returns {Function} The book function that manages key-value storage.
+     */
     B = sT.Book = (text) => {
       const b = function book(word, is) {
         const has = b.all[word]
@@ -42,8 +47,13 @@
       return b
     }
   }
-  PAGE = 2 ** 12
+  const PAGE = 2 ** 12
 
+  /**
+   * Retrieves the page for the given word.
+   * @param {string} word - The word to search for.
+   * @returns {Object} The page object.
+   */
   function page(word) {
     const l = this.list
     const i = spot(word, l, this.parse)
@@ -59,10 +69,14 @@
         toString: to
       }
     } // TODO: test, how do we arrive at this condition again?
-    //p.i = i;
     return p
     // TODO: BUG! What if we get the page, it turns out to be too big & split, we must then RE get the page!
   }
+  /**
+   * Retrieves the value associated with the given word.
+   * @param {string} word - The word to search for.
+   * @returns {*} The value associated with the word, or undefined if not found.
+   */
   function get(word) {
     if (!word) {
       return
@@ -76,16 +90,21 @@
     }
     // get does an exact match, so we would have found it already, unless parseless page:
     const page = this.page(word)
-    if (!page || !page.from) {
+    if (!page?.from) {
       return
     } // no parseless data
     return got(word, page)
   }
+  /**
+   * Retrieves the value for a word from a page.
+   * @param {string} word - The word to retrieve.
+   * @param {Object} page - The page object.
+   * @returns {*} The value associated with the word, or undefined if not found.
+   */
   function got(word, page) {
     const b = page.book
     const l = from(page)
     let hasGot
-    let a
     let i
     if (l) {
       i = spot(word, l, B.decode)
@@ -106,13 +125,12 @@
       b.all[word] = hasGot
       return hasGot.is
     }
-    a = slot(hasGot) // Escape!
-    if (word !== B.decode(a[0])) {
+    const [key, val] = slot(hasGot) // Escape!
+    if (word !== B.decode(key)) {
       i += 1
       got.i = i
-      hasGot = l[i] // edge case bug?
-      a = slot(hasGot) // edge case bug?
-      if (word !== B.decode(a[0])) {
+      hasGot = l[i][key] = slot(hasGot) // edge case bug?
+      if (word !== B.decode(key)) {
         return
       }
     }
@@ -120,7 +138,7 @@
       l[i] =
       b.all[word] =
         {
-          is: B.decode(a[1]),
+          is: B.decode(val),
           page: page,
           substring: subt,
           toString: tot,
@@ -129,7 +147,20 @@
     return hasGot.is
   }
 
+  /**
+   * Performs a binary search on a sorted array to find the insertion point for a word.
+   * @param {string} word - The word to search for.
+   * @param {Array} sorted - The sorted array to search in.
+   * @param {Function} [parse] - Optional parse function to transform array elements.
+   * @returns {number} The index where the word should be inserted.
+   */
   function spot(word, sorted, parse) {
+    if (!Array.isArray(sorted)) {
+      throw new TypeError('sorted must be an array')
+    }
+    if (parse && typeof parse !== 'function') {
+      throw new TypeError('parse must be a function if provided')
+    }
     if (!parse) {
       if (!spot.no) {
         spot.no = (t) => t
@@ -159,6 +190,14 @@
     return Math.floor(i)
   }
 
+  /**
+   * Processes the 'from' property of the given object.
+   * If 'from' is not a string, returns it as is.
+   * Otherwise, parses it using slot and updates the object.
+   * @param {Object} a - The object containing the 'from' property.
+   * @param {string|*} a.from - The value to process.
+   * @returns {*} The processed value.
+   */
   function from(a) {
     if ('string' !== typeof a.from) {
       return a.from
@@ -168,11 +207,16 @@
     a.from = l
     return l
   }
+  /**
+   * Lists the items in the book, applying the each function to each item.
+   * @param {Function} [each] - Function to apply to each item. Defaults to identity.
+   * @returns {Array} Array of results from applying each to each item.
+   */
   function list(each) {
-    each = each || ((x) => x)
+    each = each ?? ((x) => x)
     const l = sort(this)
     const r = []
-    const p = this.book.parse || (() => {})
+    const p = this.book?.parse ?? (() => {})
     //while(w = l[i++]){ r.push(each(slot(w)[1], p(w)||w, this)) }
     for (let idx = 0; idx < l.length; idx++) {
       let w = l[idx]
@@ -182,6 +226,12 @@
     return r
   }
 
+  /**
+   * Sets the value for a word in the book.
+   * @param {string} word - The word to set.
+   * @param {*} is - The value to set.
+   * @returns {Function} The book function.
+   */
   function set(word, is) {
     // TODO: Perf on random write is decent, but short keys or seq seems significantly slower.
     let hasSet = this.all[word]
@@ -212,22 +262,24 @@
     page.limbo.push(hasSet)
     this(word, is)
     page.size += size(wordStr) + size(is)
-    if ((this.PAGE || PAGE) < page.size) {
+    if ((this.PAGE ?? PAGE) < page.size) {
       split(page, this)
     }
     return this
   }
 
+  /**
+   * Splits a page when it exceeds the size limit.
+   * @param {Object} p - The page to split.
+   * @param {Object} b - The book containing the page.
+   */
   function split(p, b) {
     // TODO: use closest hash instead of half.
-    //console.time();
-    //var S = performance.now();
     const L = sort(p)
     const l = L.length
     const i = (l / 2) >> 0
     const j = i
     const half = L[j]
-    //console.timeEnd();
     const next = {
       book: b,
       first: half.substring(),
@@ -250,20 +302,30 @@
     p.from = p.from.slice(0, j)
     p.size -= next.size
     b.list.splice(spot(next.first, b.list) + 1, 0, next) // TODO: BUG! Make sure next.first is decoded text. // TODO: BUG! spot may need parse too?
-    //console.timeEnd();
     if (b.split) {
       b.split(next, p)
     }
-    //console.log(S = (performance.now() - S), 'split');
-    //console.BIG = console.BIG > S? console.BIG : S;
   }
 
+  /**
+   * Parses a serialized string into an array.
+   * @param {string} t - The serialized string to parse.
+   * @returns {Array} The parsed array.
+   */
   function slot(t) {
-    t = t || ''
+    t = t ?? ''
     return heal(t.substring(1, t.length - 1).split(t[0]), t[0])
   }
   B.slot = slot // TODO: check first=last & pass `s`.
+  /**
+   * Heals an array by rejoining escaped values split by a separator.
+   * @param {Array} l - The array to heal.
+   * @param {string} [s] - The separator, defaults to '|'.
+   * @returns {Array} The healed array.
+   */
   function heal(l, s) {
+    if (!Array.isArray(l)) return []
+    if (typeof s !== 'string') s = '|'
     const i = l.indexOf('')
     if (0 > i) {
       return l
@@ -281,13 +343,23 @@
     if (Number.isNaN(e)) {
       return []
     } // NaN check in JS is weird.
-    l[i] = l.slice(i, e).join(s || '|') // rejoin the escaped value
+    l[i] = l.slice(i, e).join(s ?? '|') // rejoin the escaped value
     return l.slice(0, i + 1).concat(heal(l.slice(e), s)) // merge left with checked right.
   }
 
+  /**
+   * @param {any} t
+   * @returns {number}
+   */
   function size(t) {
-    return (t || '').length || 1
+    return (t ?? '').length || 1
   } // bits/numbers less size? Bug or feature?
+  /**
+   * @function subt
+   * @param {number} _i - Unused parameter.
+   * @param {number} _j - Unused parameter.
+   * @returns {string} The word property of the context.
+   */
   function subt(_i, _j) {
     return this.word
   }
