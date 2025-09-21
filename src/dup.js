@@ -1,15 +1,29 @@
 ;(() => {
   require('./shim')
-  function Dup(opt) {
+  /**
+   * Creates a Dup instance for tracking duplicate IDs with automatic cleanup.
+   * @param {Object} [opt] - Options object.
+   * @param {number} [opt.age=9000] - Age in ms for cleanup.
+   * @param {number} [opt.max=999] - Max items.
+   * @returns {Object} Dup instance with check, track, drop methods.
+   */
+  function Dup(opt = { age: 1000 * 9, max: 999 }) {
     const dup = { s: {} }
     const s = dup.s
-    opt = opt || { age: 1000 * 9, max: 999 } //*/ 1000 * 9 * 3};
+    /**
+     * Checks if an ID is tracked, and tracks it if so.
+     * @param {string} id - The ID to check.
+     * @returns {Object|boolean} The tracked item or false.
+     */
     dup.check = (id) => {
-      if (!s[id]) {
-        return false
-      }
+      if (!s[id]) return false
       return dt(id)
     }
+    /**
+     * Tracks an ID with timestamp.
+     * @param {string} id - The ID to track.
+     * @returns {Object} The tracked item.
+     */
     dup.track = (id) => {
       if (!s[id]) {
         s[id] = {}
@@ -21,12 +35,14 @@
       if (!dup.to) {
         dup.to = setTimeout(dup.drop, opt.age + 9)
       }
-      if (dt.ed) {
-        dt.ed(id)
-      }
+      dt.ed?.(id)
       return it
     }
     const dt = dup.track
+    /**
+     * Drops old tracked items based on age.
+     * @param {number} [age] - Optional age override.
+     */
     dup.drop = (age) => {
       let it
       dup.to = null

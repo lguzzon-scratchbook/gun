@@ -13,6 +13,11 @@
   const state_is = state.is
   const state_ify = state.ify
 
+  /**
+   * Creates a new chain instance.
+   * @param {Function} [sub] - Optional subclass constructor.
+   * @returns {Object} The new chain instance.
+   */
   Gun.chain.chain = function (sub) {
     const at = this._
     const chain = new (sub || this).constructor(this)
@@ -27,6 +32,10 @@
     return chain
   }
 
+  /**
+   * Handles outgoing messages for the chain.
+   * @param {Object} msg - The message to output.
+   */
   function output(msg) {
     let get
     const at = this.as
@@ -158,8 +167,12 @@
     }
     return back.on('out', msg)
   }
-  Gun.on.out = output
 
+  /**
+   * Handles incoming messages for the chain.
+   * @param {Object} msg - The incoming message.
+   * @param {Object} [cat] - The chain context.
+   */
   function input(msg, cat) {
     cat = cat || this.as // TODO: V8 may not be able to optimize functions with different parameter calls, so try to do benchmark to see if there is any actual difference.
     const root = cat.root
@@ -309,8 +322,12 @@
 
     link(msg, cat)
   }
-  Gun.on.in = input
 
+  /**
+   * Links chains for data propagation.
+   * @param {Object} msg - The message.
+   * @param {Object} cat - The chain context.
+   */
   function link(msg, cat) {
     cat = cat || this.as || msg.$._
     let sat
@@ -379,8 +396,12 @@
       99
     )
   }
-  Gun.on.link = link
 
+  /**
+   * Unlinks chains when data is removed.
+   * @param {Object} msg - The message.
+   * @param {Object} cat - The chain context.
+   */
   function unlink(msg, cat) {
     // ugh, so much code for seemingly edge case behavior.
     const put = msg.put || ''
@@ -457,8 +478,11 @@
       cat
     ) // unlink our sub chains.
   }
-  Gun.on.unlink = unlink
 
+  /**
+   * Handles acknowledgments for messages.
+   * @param {Object} msg - The message.
+   */
   function ack(msg) {
     //if(!msg['%'] && (this||'').off){ this.off() } // do NOT memory leak, turn off listeners! Now handled by .ask itself
     // manhattan:
@@ -494,4 +518,9 @@
     Gun.on.put(msg)
     return // eom
   }
+
+  Gun.on.out = output
+  Gun.on.in = input
+  Gun.on.link = link
+  Gun.on.unlink = unlink
 })()
