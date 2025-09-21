@@ -1,266 +1,428 @@
 ;(() => {
   const Gun = require('./root')
+  /**
+   * Retrieves data from the Gun database.
+   * @param {string|function|number} key - The key to get, or a callback function, or a number.
+   * @param {function|boolean|object} [cb] - The callback function, true for soul extraction, or options object.
+   * @param {*} [as] - Additional options or context.
+   * @returns {object} The gun chain.
+   */
   Gun.chain.get = function (key, cb, as) {
-    let gun
-    let tmp
-    var cat, next, opt, root, id, wait
+    let nodeChain
+    let tempValue
+    let currentContext
+    let nextChains
+    let getOptions
+    let rootContext
+    let listenerId
+    let waitList
     if (typeof key === 'string') {
       if (key.length === 0) {
-        gun = this.chain()
-        gun._.err = { err: Gun.log('0 length key!', key) }
+        nodeChain = this.chain()
+        nodeChain._.err = { err: Gun.log('0 length key!', key) }
         if (cb) {
-          cb.call(gun, gun._.err)
+          cb.call(nodeChain, nodeChain._.err)
         }
-        return gun
+        return nodeChain
       }
-      cat = this._
-      next = cat.next || empty
-      gun = next[key]
-      if (!gun) {
-        gun = key && cache(key, this)
+      currentContext = this._
+      nextChains = currentContext.next || emptyObject
+      nodeChain = nextChains[key]
+      if (!nodeChain) {
+        nodeChain = key && createCachedChain(key, this)
       }
-      gun = gun?.$
+      nodeChain = nodeChain?.$
     } else if ('function' === typeof key) {
       if (true === cb) {
-        return soul(this, key, cb, as), this
+        extractSoul(this, key, cb, as)
+        return this
       }
-      gun = this
-      ;(cat = gun._), (opt = cb || {}), (root = cat.root), id
-      opt.at = cat
-      opt.ok = key
-      wait = {} // can we assign this to the at instead, like in once?
-      //var path = []; cat.$.back(at => { at.get && path.push(at.get.slice(0,9))}); path = path.reverse().join('.');
-      function any(msg, eve, f) {
-        if (any.stun) {
+      nodeChain = this
+      currentContext = nodeChain._
+      getOptions = cb || {}
+      rootContext = currentContext.root
+      listenerId = String.random(7)
+      getOptions.at = currentContext
+      getOptions.ok = key
+      waitList = {} // can we assign this to the at instead, like in once?
+      //var path = []; context.$.back(at => { at.get && path.push(at.get.slice(0,9))}); path = path.reverse().join('.');
+      function listenerHandler(msg, eve, f) {
+        let passData
+        if (listenerHandler.stun) {
           return
         }
-        if ((tmp = root.pass) && !tmp[id]) {
+        passData = rootContext.pass
+        if (passData && !passData[listenerId]) {
           return
         }
-        var at = msg.$._,
-          sat = (msg.$$ || '')._,
-          data = (sat || at).put,
-          odd = !at.has && !at.soul,
-          test = {},
-          link,
-          tmp
-        if (odd || u === data) {
+        const at = msg.$._
+        const sat = (msg.$$ || '')._
+        let nodeData = (sat || at).put
+        const isOddNode = !at.has && !at.soul
+        let stunCheck = {}
+        let isLink
+        if (isOddNode || undefinedValue === nodeData) {
           // handles non-core
-          data =
-            u === ((tmp = msg.put) || '')['=']
-              ? u === (tmp || '')[':']
-                ? tmp
-                : tmp[':']
-              : tmp['=']
+          passData = msg.put
+          nodeData =
+            undefinedValue === (passData || '')['=']
+              ? undefinedValue === (passData || '')[':']
+                ? passData
+                : passData[':']
+              : passData['=']
         }
-        if ((link = 'string' === typeof (tmp = Gun.valid(data)))) {
-          data =
-            u === (tmp = root.$.get(tmp)._.put) ? (opt.not ? u : data) : tmp
+        passData = Gun.valid(nodeData)
+        isLink = 'string' === typeof passData
+        if (isLink) {
+          passData = rootContext.$.get(passData)._.put
+          nodeData = undefinedValue === passData ? (getOptions.not ? undefinedValue : nodeData) : passData
         }
-        if (opt.not && u === data) {
+        if (getOptions.not && undefinedValue === nodeData) {
           return
         }
-        if (u === opt.stun) {
-          if ((tmp = root.stun) && tmp.on) {
-            cat.$.back((a) => {
+        if (undefinedValue === getOptions.stun) {
+          let stunData = rootContext.stun
+          if (stunData?.on) {
+            currentContext.$.back((a) => {
               // our chain stunned?
-              tmp.on(`${a.id}`, (test = {}))
-              if ((test.run || 0) < any.id) {
-                return test
+              stunCheck = {}
+              stunData.on(`${a.id}`, stunCheck)
+              if ((stunCheck.run || 0) < listenerHandler.id) {
+                return stunCheck
               } // if there is an earlier stun on gapless parents/self.
             })
-            !test.run && tmp.on(`${at.id}`, (test = {})) // this node stunned?
-            !test.run && sat && tmp.on(`${sat.id}`, (test = {})) // linked node stunned?
-            if (any.id > test.run) {
-              if (!test.stun || test.stun.end) {
-                test.stun = tmp.on('stun')
-                test.stun = test.stun?.last
+            if (!stunCheck.run) {
+              stunCheck = {}
+              stunData.on(`${at.id}`, stunCheck)
+            } // this node stunned?
+            if (!stunCheck.run && sat) {
+              stunCheck = {}
+              stunData.on(`${sat.id}`, stunCheck)
+            } // linked node stunned?
+            if (listenerHandler.id > stunCheck.run) {
+              if (!stunCheck.stun || stunCheck.stun.end) {
+                stunCheck.stun = stunData.on('stun')
+                stunCheck.stun = stunCheck.stun?.last
               }
-              if (test.stun && !test.stun.end) {
-                //if(odd && u === data){ return }
-                //if(u === msg.put){ return } // "not found" acks will be found if there is stun, so ignore these.
-                ;(test.stun.add || (test.stun.add = {}))[id] = () => {
-                  any(msg, eve, 1)
+              if (stunCheck.stun && !stunCheck.stun.end) {
+                //if(isOddNode && undefinedValue === nodeData){ return }
+                //if(undefinedValue === msg.put){ return } // "not found" acks will be found if there is stun, so ignore these.
+                if (!stunCheck.stun.add) {
+                  stunCheck.stun.add = {}
+                }
+                stunCheck.stun.add[listenerId] = () => {
+                  listenerHandler(msg, eve, 1)
                 } // add ourself to the stun callback list that is called at end of the write.
                 return
               }
             }
           }
-          if (/*odd &&*/ u === data) {
+          if (/*isOddNode &&*/ undefinedValue === nodeData) {
             f = 0
           } // if data not found, keep waiting/trying.
-          /*if(f && u === data){
-					cat.on('out', opt.out);
-					return;
-				}*/
-          if ((tmp = root.hatch) && !tmp.end && u === opt.hatch && !f) {
+          /*if(f && undefinedValue === nodeData){
+    currentContext.on('out', getOptions.out);
+    return;
+  }*/
+          let hatchData = rootContext.hatch
+          if (hatchData && !hatchData.end && undefinedValue === getOptions.hatch && !f) {
             // quick hack! // What's going on here? Because data is streamed, we get things one by one, but a lot of developers would rather get a callback after each batch instead, so this does that by creating a wait list per chain id that is then called at the end of the batch by the hatch code in the root put listener.
-            if (wait[at.$._.id]) {
+            if (waitList[at.$._.id]) {
               return
             }
-            wait[at.$._.id] = 1
-            tmp.push(() => {
-              any(msg, eve, 1)
+            waitList[at.$._.id] = 1
+            hatchData.push(() => {
+              listenerHandler(msg, eve, 1)
             })
             return
           }
-          wait = {} // end quick hack.
+          waitList = {} // end quick hack.
         }
         // call:
-        if (root.pass) {
-          if (root.pass[id + at.id]) {
+        if (rootContext.pass) {
+          if (rootContext.pass[listenerId + at.id]) {
             return
           }
-          root.pass[id + at.id] = 1
+          rootContext.pass[listenerId + at.id] = 1
         }
-        if (opt.on) {
-          opt.ok.call(at.$, data, at.get, msg, eve || any)
+        if (getOptions.on) {
+          getOptions.ok.call(at.$, nodeData, at.get, msg, eve || listenerHandler)
           return
         } // TODO: Also consider breaking `this` since a lot of people do `=>` these days and `.call(` has slower performance.
-        if (opt.v2020) {
-          opt.ok(msg, eve || any)
+        if (getOptions.v2020) {
+          getOptions.ok(msg, eve || listenerHandler)
           return
         }
-        Object.keys(msg).forEach(
-          (k) => {
-            tmp[k] = msg[k]
-          },
-          (tmp = {})
-        )
-        msg = tmp
-        msg.put = data // 2019 COMPATIBILITY! TODO: GET RID OF THIS!
-        opt.ok.call(opt.as, msg, eve || any) // is this the right
+        let messageCopy = {}
+        Object.keys(msg).forEach((k) => {
+          messageCopy[k] = msg[k]
+        })
+        msg = messageCopy
+        msg.put = nodeData // 2019 COMPATIBILITY! TODO: GET RID OF THIS!
+        getOptions.ok.call(getOptions.as, msg, eve || listenerHandler) // is this the right
       }
-      any.at = cat
-      //(cat.any||(cat.any=function(msg){ setTimeout.each(Object.keys(cat.any||''), function(act){ (act = cat.any[act]) && act(msg) },0,99) }))[id = String.random(7)] = any; // maybe switch to this in future?
-      ;(cat.any || (cat.any = {}))[(id = String.random(7))] = any
-      any.off = () => {
-        any.stun = 1
-        if (!cat.any) {
+      listenerHandler.at = currentContext
+      //(currentContext.any||(currentContext.any=function(msg){ setTimeout.each(Object.keys(currentContext.any||''), function(act){ (act = currentContext.any[act]) && act(msg) },0,99) }))[listenerId = String.random(7)] = listenerHandler; // maybe switch to this in future?
+      if (!currentContext.any) {
+        currentContext.any = {}
+      }
+      listenerId = String.random(7)
+      currentContext.any[listenerId] = listenerHandler
+      listenerHandler.off = () => {
+        listenerHandler.stun = 1
+        if (!currentContext.any) {
           return
         }
-        delete cat.any[id]
+        delete currentContext.any[listenerId]
       }
-      any.rid = rid // logic from old version, can we clean it up now?
-      any.id = opt.run || ++root.once // used in callback to check if we are earlier than a write. // will this ever cause an integer overflow?
-      tmp = root.pass
-      ;(root.pass = {})[id] = 1 // Explanation: test trade-offs want to prevent recursion so we add/remove pass flag as it gets fulfilled to not repeat, however map map needs many pass flags - how do we reconcile?
-      opt.out = opt.out || { get: {} }
-      cat.on('out', opt.out)
-      root.pass = tmp
-      return gun
+      listenerHandler.rid = function rid(at) {
+        let ridContext = this.at || this.on
+        if (!at || ridContext.soul || ridContext.has) {
+          return this.off()
+        }
+        at = at.$ || at
+        at = at._ || at
+        if (!at.id) {
+          return
+        }
+        let tempNode
+        let seenNodes
+        //if(!map || !(tempNode = map[at]) || !(tempNode = tempNode.at)){ return }
+        if (!this.seen) {
+          this.seen = {}
+        }
+        seenNodes = this.seen
+        tempNode = seenNodes[at]
+        if (tempNode) {
+          return true
+        }
+        seenNodes[at] = true
+        //tempNode.echo[ridContext.id] = {}; // TODO: Warning: This unsubscribes ALL of this chain's listeners from this link, not just the one callback event.
+        //obj.del(map, at); // TODO: Warning: This unsubscribes ALL of this chain's listeners from this link, not just the one callback event.
+        return
+      } // logic from old version, can we clean it up now?
+      listenerHandler.id = getOptions.run || ++rootContext.once // used in callback to check if we are earlier than a write. // will this ever cause an integer overflow?
+      let originalPass = rootContext.pass
+      rootContext.pass = {}
+      rootContext.pass[listenerId] = 1 // Explanation: test trade-offs want to prevent recursion so we add/remove pass flag as it gets fulfilled to not repeat, however map map needs many pass flags - how do we reconcile?
+      getOptions.out = getOptions.out || { get: {} }
+      currentContext.on('out', getOptions.out)
+      rootContext.pass = originalPass
+      return nodeChain
     } else if ('number' === typeof key) {
       return this.get(`${key}`, cb, as)
-    } else if ('string' === typeof (tmp = valid(key))) {
-      return this.get(tmp, cb, as)
-    } else if ((tmp = this.get.next)) {
-      gun = tmp(this, key)
+    } else {
+      let validatedKey = validate(key)
+      if ('string' === typeof validatedKey) {
+        return this.get(validatedKey, cb, as)
+      }
+      let nextHandler = this.get.next
+      if (nextHandler) {
+        nodeChain = nextHandler(this, key)
+      }
     }
-    if (!gun) {
-      ;(gun = this.chain())._.err = {
+    if (!nodeChain) {
+      nodeChain = this.chain()
+      nodeChain._.err = {
         err: Gun.log('Invalid get request!', key)
       } // CLEAN UP
       if (cb) {
-        cb.call(gun, gun._.err)
+        cb.call(nodeChain, nodeChain._.err)
       }
-      return gun
+      return nodeChain
     }
     if (cb && 'function' === typeof cb) {
-      gun.get(cb, as)
+      nodeChain.get(cb, as)
     }
-    return gun
+    return nodeChain
   }
-  function cache(key, back) {
-    var cat = back._,
-      next = cat.next,
-      gun = back.chain(),
-      at = gun._
-    if (!next) {
-      next = cat.next = {}
+  /**
+   * Creates a cached chain for the given key and back context.
+   * @param {string} key - The key for the chain.
+   * @param {object} back - The back context.
+   * @returns {object} The new chain context.
+   */
+  function createCachedChain(key, back) {
+    const backContext = back._
+    let nextChains = backContext.next
+    const newChain = back.chain()
+    const newChainContext = newChain._
+    if (!nextChains) {
+      nextChains = backContext.next = {}
     }
-    next[(at.get = key)] = at
-    if (back === cat.root.$) {
-      at.soul = key
-      //at.put = {};
-    } else if (cat.soul || cat.has) {
-      at.has = key
-      //if(obj_has(cat.put, key)){
-      //at.put = cat.put[key];
+    newChainContext.get = key
+    nextChains[newChainContext.get] = newChainContext
+    if (back === backContext.root.$) {
+      newChainContext.soul = key
+      //newChainContext.put = {};
+    } else if (backContext.soul || backContext.has) {
+      newChainContext.has = key
+      //if(obj_has(backContext.put, key)){
+      //newChainContext.put = backContext.put[key];
       //}
     }
-    return at
+    return newChainContext
   }
-  function soul(gun, cb, opt, as) {
-    var cat = gun._,
-      acks = 0,
-      tmp
-    if ((tmp = cat.soul || cat.link)) {
-      return cb(tmp, as, cat)
+  /**
+   * Extracts the soul from the gun context.
+   * @param {object} gun - The gun instance.
+   * @param {function} cb - The callback function.
+   * @param {*} _opt - Options (unused).
+   * @param {*} as - Additional context.
+   * @returns {object} The gun instance.
+   */
+  function extractSoul(gun, cb, _opt, as) {
+    const gunContext = gun._
+    let ackCount = 0
+    let soulValue
+    soulValue = gunContext.soul || gunContext.link
+    if (soulValue) {
+      return cb(soulValue, as, gunContext)
     }
-    if (cat.jam) {
-      return cat.jam.push([cb, as])
+    if (gunContext.jam) {
+      return gunContext.jam.push([cb, as])
     }
-    cat.jam = [[cb, as]]
+    gunContext.jam = [[cb, as]]
     gun.get(
-      function go(msg, eve) {
-        if (
-          u === msg.put &&
-          !cat.root.opt.super &&
-          (tmp = Object.keys(cat.root.opt.peers).length) &&
-          ++acks <= tmp
-        ) {
+      function processAck(msg, eve) {
+        let peerCount = Object.keys(gunContext.root.opt.peers).length
+        if (undefinedValue === msg.put && !gunContext.root.opt.super && peerCount && ++ackCount <= peerCount) {
           // TODO: super should not be in core code, bring AXE up into core instead to fix? // TODO: .keys( is slow
           return
         }
         eve.rid(msg)
-        var at = ((at = msg.$) && at._) || {},
-          i = 0,
-          as
-        tmp = cat.jam
-        delete cat.jam // tmp = cat.jam.splice(0, 100);
-        //if(tmp.length){ process.nextTick(function(){ go(msg, eve) }) }
-        while ((as = tmp[i++])) {
-          //Gun.obj.map(tmp, function(as, cb){
-          var cb = as[0],
-            id
-          as = as[1]
-          cb?.(
-              (id =
-                at.link ||
-                at.soul ||
-                Gun.valid(msg.put) ||
-                msg.put?._?.['#']),
-              as,
-              msg,
-              eve
-            )
+        const msgContext = msg.$ ? msg.$._ : {}
+        let index = 0
+        let callbackArgs
+        let jamQueue = gunContext.jam
+        delete gunContext.jam // jamQueue = gunContext.jam.splice(0, 100);
+        //if(jamQueue.length){ process.nextTick(function(){ processAck(msg, eve) }) }
+        while (index < jamQueue.length) {
+          callbackArgs = jamQueue[index++]
+          if (!callbackArgs) continue
+          //Gun.obj.map(jamQueue, function(callbackArgs, cb){
+          const cb = callbackArgs[0]
+          callbackArgs = callbackArgs[1]
+          const soulId =
+            msgContext.link || msgContext.soul || Gun.valid(msg.put) || msg.put?._?.['#']
+          cb?.(soulId, callbackArgs, msg, eve)
         } //);
       },
       { out: { get: { '.': true } } }
     )
     return gun
   }
-  function rid(at) {
-    var cat = this.at || this.on
-    if (!at || cat.soul || cat.has) {
-      return this.off()
+
+  /**
+   * Handles stun logic for the listener handler.
+   * @param {object} stunData - The stun data from root context.
+   * @param {object} currentContext - The current gun context.
+   * @param {object} at - The 'at' context from message.
+   * @param {object} sat - The 'sat' context from message.
+   * @param {function} listenerHandler - The listener handler function.
+   * @param {object} stunCheck - The stun check object.
+   * @param {object} waitList - The wait list for batching.
+   * @param {object} getOptions - The get options.
+   * @param {*} nodeData - The node data.
+   * @param {number} f - Flag for data found.
+   * @param {object} rootContext - The root context.
+   * @param {object} msg - The message object.
+   * @param {object} eve - The event object.
+   */
+  function handleStun(stunData, currentContext, at, sat, listenerHandler, stunCheck, waitList, getOptions, nodeData, f, rootContext, msg, eve) {
+    if (stunData?.on) {
+      currentContext.$.back((a) => {
+        // our chain stunned?
+        stunCheck = {}
+        stunData.on(`${a.id}`, stunCheck)
+        if ((stunCheck.run || 0) < listenerHandler.id) {
+          return stunCheck
+        } // if there is an earlier stun on gapless parents/self.
+      })
+      if (!stunCheck.run) {
+        stunCheck = {}
+        stunData.on(`${at.id}`, stunCheck)
+      } // this node stunned?
+      if (!stunCheck.run && sat) {
+        stunCheck = {}
+        stunData.on(`${sat.id}`, stunCheck)
+      } // linked node stunned?
+      if (listenerHandler.id > stunCheck.run) {
+        if (!stunCheck.stun || stunCheck.stun.end) {
+          stunCheck.stun = stunData.on('stun')
+          stunCheck.stun = stunCheck.stun?.last
+        }
+        if (stunCheck.stun && !stunCheck.stun.end) {
+          //if(isOddNode && undefinedValue === nodeData){ return }
+          //if(undefinedValue === msg.put){ return } // "not found" acks will be found if there is stun, so ignore these.
+          if (!stunCheck.stun.add) {
+            stunCheck.stun.add = {}
+          }
+          stunCheck.stun.add[listenerId] = () => {
+            listenerHandler(msg, eve, 1)
+          } // add ourself to the stun callback list that is called at end of the write.
+          return
+        }
+      }
     }
-    if (!(at = (at = (at = at.$ || at)._ || at).id)) {
+    if (/*isOddNode &&*/ undefinedValue === nodeData) {
+      f = 0
+    } // if data not found, keep waiting/trying.
+    /*if(f && undefinedValue === nodeData){
+      currentContext.on('out', getOptions.out);
+      return;
+    }*/
+    let hatchData = rootContext.hatch
+    if (hatchData && !hatchData.end && undefinedValue === getOptions.hatch && !f) {
+      // quick hack! // What's going on here? Because data is streamed, we get things one by one, but a lot of developers would rather get a callback after each batch instead, so this does that by creating a wait list per chain id that is then called at the end of the batch by the hatch code in the root put listener.
+      if (waitList[at.$._.id]) {
+        return
+      }
+      waitList[at.$._.id] = 1
+      hatchData.push(() => {
+        listenerHandler(msg, eve, 1)
+      })
       return
     }
-    var map = cat.map,
-      tmp,
-      seen
-    //if(!map || !(tmp = map[at]) || !(tmp = tmp.at)){ return }
-    if ((tmp = (seen = this.seen || (this.seen = {}))[at])) {
-      return true
-    }
-    seen[at] = true
-    //tmp.echo[cat.id] = {}; // TODO: Warning: This unsubscribes ALL of this chain's listeners from this link, not just the one callback event.
-    //obj.del(map, at); // TODO: Warning: This unsubscribes ALL of this chain's listeners from this link, not just the one callback event.
-    return
+    waitList = {} // end quick hack.
   }
-  var empty = {},
-    valid = Gun.valid,
-    u
+
+  /**
+   * Handles the callback invocation for the listener handler.
+   * @param {object} getOptions - The get options.
+   * @param {object} rootContext - The root context.
+   * @param {string} listenerId - The listener ID.
+   * @param {object} at - The 'at' context from message.
+   * @param {*} nodeData - The node data.
+   * @param {object} msg - The message object.
+   * @param {object} eve - The event object.
+   * @param {function} listenerHandler - The listener handler function.
+   * @param {object} messageCopy - The copied message object.
+   */
+  function handleCallback(getOptions, rootContext, listenerId, at, nodeData, msg, eve, listenerHandler, messageCopy) {
+    if (rootContext.pass) {
+      if (rootContext.pass[listenerId + at.id]) {
+        return
+      }
+      rootContext.pass[listenerId + at.id] = 1
+    }
+    if (getOptions.on) {
+      getOptions.ok.call(at.$, nodeData, at.get, msg, eve || listenerHandler)
+      return
+    } // TODO: Also consider breaking `this` since a lot of people do `=>` these days and `.call(` has slower performance.
+    if (getOptions.v2020) {
+      getOptions.ok(msg, eve || listenerHandler)
+      return
+    }
+    messageCopy = {}
+    Object.keys(msg).forEach((k) => {
+      messageCopy[k] = msg[k]
+    })
+    msg = messageCopy
+    msg.put = nodeData // 2019 COMPATIBILITY! TODO: GET RID OF THIS!
+    getOptions.ok.call(getOptions.as, msg, eve || listenerHandler) // is this the right
+  }
+  const emptyObject = {}
+  const validate = Gun.valid
+  const undefinedValue = undefined
 })()
