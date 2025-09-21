@@ -14,5 +14,10 @@
   require('./mesh')
   require('./websocket')
   require('./localStorage')
+
+  /**
+   * Main GUN module export.
+   * @module Gun
+   */
   module.exports = Gun
 })()
