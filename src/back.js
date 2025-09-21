@@ -1,15 +1,17 @@
 ;(() => {
   const Gun = require('./root')
+  /**
+   * Traverses back in the chain by a specified number of levels or path.
+   * @param {number|string|Array|function} n - The number of levels to go back, a dot-separated string path, an array path, or a function to test.
+   * @param {*} [opt] - Optional parameter passed to function if n is a function.
+   * @returns {*} The node at the specified back position or the result of the function.
+   */
   Gun.chain.back = function (n, opt) {
-    let i
-    let l
-    let tmp
     const empty = {}
-    let u
     n = n || 1
-    if (-1 === n || Infinity === n) {
+    if (n === -1 || n === Infinity) {
       return this._.root.$
-    } else if (1 === n) {
+    } else if (n === 1) {
       return (this._.back || this._).$
     }
     const at = this._
@@ -17,33 +19,32 @@
       n = n.split('.')
     }
     if (Array.isArray(n)) {
-      i = 0
-      l = n.length
-      tmp = at
-      for (i; i < l; i++) {
+      const l = n.length
+      let tmp = at
+      for (let i = 0; i < l; i++) {
         tmp = (tmp || empty)[n[i]]
       }
-      if (u !== tmp) {
+      if (undefined !== tmp) {
         return opt ? this : tmp
       } else {
-        tmp = at.back
-        if (tmp) {
-          return tmp.$.back(n, opt)
+        const backTmp = at.back
+        if (backTmp) {
+          return backTmp.$.back(n, opt)
         }
       }
       return
     }
-    if ('function' === typeof n) {
+    if (typeof n === 'function') {
       let yes
       let tmp = { back: at }
       while (tmp.back) {
         tmp = tmp.back
         yes = n(tmp, opt)
-        if (u !== yes) break
+        if (undefined !== yes) break
       }
       return yes
     }
-    if ('number' === typeof n) {
+    if (typeof n === 'number') {
       return (at.back || at).$.back(n - 1)
     }
     return this
