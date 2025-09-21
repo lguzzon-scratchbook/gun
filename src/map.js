@@ -1,65 +1,120 @@
 ;(() => {
+  // Utility Functions
+  /** @function noop @returns {void} No-op function. */
   const noop = () => {}
-  var Gun = require('./root'),
+  /** @function getSoul @param {object|string} lex - Input lex. @returns {string} Soul if present. */
+  const getSoul = (lex) => {
+    if (!lex) return ''
+    const tmp = lex['#'] || ''
+    if (Array.isArray(tmp)) return tmp[0] || ''
+    return tmp['='] || tmp
+  }
+  /** @function getLexPattern @param {object|string} lex - Input lex. @returns {string} Lex pattern. */
+  const getLexPattern = (lex) => {
+    if (!lex) return ''
+    return lex['.'] || lex['#'] || lex
+  }
+  /** @function checkMapField @param {string|object} field - Field to check. @returns {boolean} True if valid map field. @throws {Error} For invalid inputs. */
+  const checkMapField = (field) => {
+    return (
+      typeof field === 'string' ||
+      (field && typeof field === 'object' && !Array.isArray(field))
+    )
+  }
+  /** @function invokeLexSafely @param {Object} gun - Gun instance. @param {string|Object} query - Lex query. @param {function} next - Next function. @param {function} noop - Noop function. @returns {*} Result of lex or fallback. */
+  const invokeLexSafely = (gun, query, next, noop) => {
+    try {
+      return lex(gun, query, next, noop)
+    } catch (error) {
+      if (!gun._) {
+        console.warn('GUN map.get.next: Internal fallback for missing gun._')
+        return next?.call(gun, query) ?? gun
+      }
+      throw error
+    }
+  }
+  const Gun = require('./root'),
     next = Gun.chain.get.next
   /**
-   * Handles lex query processing for get.next override.
-   * @param {Object} gun - The gun instance.
-   * @param {Object|string} lex - The lex query.
-   * @param {Function} next - The original next function.
-   * @param {Function} noop - No-op function.
-   * @returns {Object} The chained result.
+   * @param {IGunInstance} node
+   * @param {string|object} lexQuery
+   * @param {function} [next=noop]
+   * @param {function} [noop=() => {}]
+   * @returns {IGunChainReference} Chain with optional off method
+   * @throws {Error} Invalid inputs
+   * @example lex(node, '#soul', cb)
    */
-  const handleLexQuery = (gun, lex, next, noop) => {
-    let tmp
-    if (!Object.plain(lex)) {
-      return (next || noop)(gun, lex)
+  const lex = (node, lexQuery, next, noop) => {
+    if (!node || !node._ || typeof node !== 'object')
+      throw new Error('Invalid node')
+    if (
+      typeof lexQuery !== 'string' &&
+      (!lexQuery || typeof lexQuery !== 'object' || Array.isArray(lexQuery))
+    ) {
+      throw new Error(
+        `Invalid lex query: expected string or plain object, got ${typeof lexQuery}`
+      )
     }
-    tmp = lex['#'] || ''
-    tmp = tmp['='] || tmp
-    if (tmp) {
-      return gun.get(tmp)
+    // Handles non-plain objects by direct callback
+    if (!Object.plain(lexQuery)) {
+      return (next || noop)(node, lexQuery)
     }
-    const chainTmp = gun.chain()._
-    chainTmp.lex = lex
-    const processInEvent = function (eve) {
+    const soul = getSoul(lexQuery)
+    if (soul) {
+      return node.get(soul)
+    }
+    const chainTmp = node.chain()._
+    chainTmp.lex = lexQuery
+    const handleLexEvent = function (eve) {
       if (
-        String.match(
-          eve.get || (eve.put || '')['.'],
-          lex['.'] || lex['#'] || lex
-        )
+        String.match(eve.get || (eve.put || '')['.'], getLexPattern(lexQuery))
       ) {
         chainTmp.on('in', eve)
       }
       this.to.next(eve)
     }
-    gun.on('in', processInEvent)
+    node.on('in', handleLexEvent)
+    chainTmp.$.off = () => node.off('in', handleLexEvent)
     return chainTmp.$
   }
   /**
    * Overrides the get.next chain method to handle lex queries.
-   * @param {Object} gun - The gun instance.
-   * @param {Object|string} lex - The lex query.
-   * @returns {Object} The chained result.
-   * @throws {Error} If gun or lex is invalid.
+   * @param {Object} gun - The gun instance (optional internal usage tolerated).
+   * @param {string|Object} query - The lex query (string or plain object).
+   * @returns {IGunChainReference} The chained result.
+   * @throws {Error} If gun or query is invalid.
+   * @example gun.get('#soul')
+   * @example gun.get({'.': 'field'})
    */
-  Gun.chain.get.next = (gun, lex) => {
-    if (!gun || typeof gun !== 'object') throw new Error('Invalid gun instance')
-    if (!lex) throw new Error('Invalid lex query')
-    return handleLexQuery(gun, lex, next, noop)
+  Gun.chain.get.next = (gun, query) => {
+    if (
+      !gun ||
+      typeof gun !== 'object' ||
+      (gun._ && typeof gun._ !== 'object')
+    ) {
+      throw new Error('GUN map.get.next: Invalid gun instance')
+    }
+    if (!query || !checkMapField(query))
+      throw new Error('GUN map.get.next: Invalid lex query')
+    return invokeLexSafely(gun, query, next, noop)
   }
   /**
    * Maps over the data in the chain.
+   * @param {Object} chain - GUN chain
    * @param {Function|Object} cb - Callback function or lex query.
    * @param {*} _opt - Options (unused).
    * @param {*} _t - Additional parameter (unused).
-   * @returns {Object} The chained result.
+   * @returns {Object} - updated chain
+   * @throws {Error} - invalid field
+   * @example chain.map('field')
    */
   Gun.chain.map = function (cb, _opt, _t) {
     const cat = this._
+    if (cb != null && !checkMapField(cb) && typeof cb !== 'function')
+      throw new Error('Invalid map argument')
     let lex
     let chain
-    if (Object.plain(cb)) {
+    if (checkMapField(cb)) {
       lex = cb['.'] ? cb : { '.': cb }
       cb = u
     }
@@ -92,9 +147,7 @@
         return chain._.on('in', next._)
       }
       const tmp = {}
-      Object.keys(msg.put).forEach((k) => {
-        tmp[k] = msg.put[k]
-      })
+      Object.assign(tmp, msg.put)
       tmp['='] = next
       chain._.on('in', { get: key, put: tmp })
     })
@@ -108,11 +161,8 @@
    * @returns {boolean} True if matches, false otherwise.
    */
   const checkLex = (cat, msg, put) => {
-    const tmp = cat.lex
-    return (
-      !tmp ||
-      String.match(msg.get || (put || '')['.'], tmp['.'] || tmp['#'] || tmp)
-    )
+    const lex = cat.lex
+    return !lex || String.match(msg.get || (put || '')['.'], getLexPattern(lex))
   }
   /**
    * Internal map function to handle messages.
@@ -132,6 +182,6 @@
     }
     Gun.on.link(msg, cat)
   }
-  var event = { off: noop, stun: noop },
-    u
+  const _event = { off: noop, stun: noop },
+    u = undefined
 })()
