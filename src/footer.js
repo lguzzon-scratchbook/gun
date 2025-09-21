@@ -164,7 +164,7 @@
       return o
     },
     empty: (() => {
-      function empty(v, i) {
+      function empty(_v, i) {
         var n = this.n
         if (n && (i === n || (obj_is(n) && Object.hasOwn(n, i)))) {
           return
@@ -178,7 +178,7 @@
         if (!o) {
           return true
         }
-        return obj_map(o, empty, { n: n }) ? false : true
+        return !obj_map(o, empty, { n: n })
       }
     })(),
     has: (o, k) => {
@@ -223,7 +223,7 @@
       Object.keys =
         Object.keys ||
         ((o) =>
-          map(o, (v, k, t) => {
+          map(o, (_v, k, t) => {
             t(k)
           }))
       return (l, c, _) => {
@@ -443,7 +443,7 @@
       var o = this.o
       var tmp
       if (o.map) {
-        tmp = o.map.call(this.as, v, '' + k, o.node)
+        tmp = o.map.call(this.as, v, `${k}`, o.node)
         if (undefined === tmp) {
           obj_del2(o.node, k)
         } else if (o.node) {
@@ -472,7 +472,7 @@
   }
   State.to = (from, k, to) => {
     DEP('state.to')
-    var val = (from || {})[k]
+    var val = from?.[k]
     if (obj_is3(val)) {
       val = obj_copy3(val)
     }
@@ -506,7 +506,7 @@
         map.call({ o: o, s: s }, v, k)
       }
     }
-    function map(v, k) {
+    function map(_v, k) {
       if (N_ === k) {
         return
       }
@@ -514,7 +514,6 @@
     }
   })()
   var obj3 = Type.obj
-  var obj_as3 = obj3.as
   var obj_has3 = obj3.has
   var obj_is3 = obj3.is
   var obj_map3 = obj3.map
@@ -571,7 +570,7 @@
       if (env.soul) {
         at.link = Val.link.ify(env.soul)
       }
-      env.shell = (as || {}).shell
+      env.shell = as?.shell
       env.graph = env.graph || {}
       env.seen = env.seen || []
       env.as = env.as || as
