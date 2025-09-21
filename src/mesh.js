@@ -1,32 +1,77 @@
 ;(() => {
   require('./shim')
 
+  /**
+   * No-op function.
+   */
   const noop = () => {}
 
+  /**
+   * Retry helper for async operations.
+   * @param {function} fn - Function to retry.
+   * @param {number} maxRetries - Maximum retries.
+   * @returns {function} Retried function.
+   */
+  const retry =
+    (fn, maxRetries = 3) =>
+    (...args) => {
+      const cb = args[args.length - 2] // assuming cb is second last
+      let attempts = 0
+      const attempt = () => {
+        fn(...args.slice(0, -1), (err, ...rest) => {
+          if (err && attempts < maxRetries) {
+            attempts++
+            setTimeout(attempt, 10)
+            return
+          }
+          cb(err, ...rest)
+        })
+      }
+      attempt()
+    }
+
+  /**
+   * Asynchronous JSON parse with retries and validation.
+   * @param {string} t - JSON string to parse.
+   * @param {function} cb - Callback (err, result, time).
+   * @param {function} r - Reviver function.
+   */
   const parse =
     JSON.parseAsync ||
-    ((t, cb, r) => {
-      let u
+    retry((t, cb, r) => {
+      if (typeof t !== 'string')
+        return cb(new Error('Invalid input: not a string'))
+      t = t.trim()
       const d = Date.now()
       try {
-        cb(u, JSON.parse(t, r), json.sucks(Date.now() - d))
+        cb(null, JSON.parse(t, r), json.sucks(Date.now() - d))
       } catch (e) {
         cb(e)
       }
     })
 
+  /**
+   * Asynchronous JSON stringify with retries.
+   * @param {*} v - Value to stringify.
+   * @param {function} cb - Callback (err, result, time).
+   * @param {function} r - Replacer function.
+   * @param {number|string} s - Space.
+   */
   const json =
     JSON.stringifyAsync ||
-    ((v, cb, r, s) => {
-      let u
+    retry((v, cb, r, s) => {
       const d = Date.now()
       try {
-        cb(u, JSON.stringify(v, r, s), json.sucks(Date.now() - d))
+        cb(null, JSON.stringify(v, r, s), json.sucks(Date.now() - d))
       } catch (e) {
         cb(e)
       }
     })
 
+  /**
+   * Warns if JSON operation takes too long.
+   * @param {number} d - Duration in ms.
+   */
   json.sucks = (d) => {
     if (d > 99) {
       console.log(
