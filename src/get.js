@@ -5,13 +5,12 @@
   const validate = Gun.valid
   const undefinedValue = undefined
 
-
   /**
-   * Retrieves data from the Gun database.
-   * @param {string|function|number} key - The key to get, or a callback function, or a number.
-   * @param {function|boolean|object} [cb] - The callback function, true for soul extraction, or options object.
-   * @param {*} [as] - Additional options or context.
-   * @returns {object} The gun chain.
+   * Handles retrieval for string keys.
+   * @param {string} key - The string key to retrieve.
+   * @param {function} [cb] - Optional callback function.
+   * @param {object} context - The gun context.
+   * @returns {object} The gun chain for the key.
    */
   function handleStringKey(key, cb, context) {
     if (key.length === 0) {
@@ -31,6 +30,14 @@
     return nodeChain?.$
   }
 
+  /**
+   * Handles retrieval for function keys (callbacks).
+   * @param {function} key - The callback function.
+   * @param {*} cb - Options or true for soul extraction.
+   * @param {*} as - Additional context.
+   * @param {object} context - The gun context.
+   * @returns {object} The gun chain.
+   */
   function handleFunctionKey(key, cb, as, context) {
     if (true === cb) {
       extractSoul(context, key, cb, as)
@@ -121,7 +128,7 @@
           }
         }
         if (/*isOddNode &&*/ undefinedValue === nodeData) {
-          f = 0;
+          f = 0
         } // if data not found, keep waiting/trying.
         /*if(f && undefinedValue === nodeData){
     currentContext.on('out', getOptions.out);
@@ -154,13 +161,7 @@
         rootContext.pass[listenerId + at.id] = 1
       }
       if (getOptions.on) {
-        getOptions.ok.call(
-          at.$,
-          nodeData,
-          at.get,
-          msg,
-          eve || listenerHandler
-        )
+        getOptions.ok.call(at.$, nodeData, at.get, msg, eve || listenerHandler)
         return
       } // TODO: Also consider breaking `this` since a lot of people do `=>` these days and `.call(` has slower performance.
       if (getOptions.v2020) {
@@ -223,10 +224,26 @@
     return nodeChain
   }
 
+  /**
+   * Handles retrieval for number keys by converting to string.
+   * @param {number} key - The number key.
+   * @param {function} [cb] - Optional callback function.
+   * @param {*} [as] - Additional options.
+   * @param {object} context - The gun context.
+   * @returns {object} The gun chain.
+   */
   function handleNumberKey(key, cb, as, context) {
     return context.get(`${key}`, cb, as)
   }
 
+  /**
+   * Handles retrieval for invalid keys by validating or delegating.
+   * @param {*} key - The key to validate.
+   * @param {function} [cb] - Optional callback function.
+   * @param {*} [as] - Additional options.
+   * @param {object} context - The gun context.
+   * @returns {object|undefined} The gun chain or undefined.
+   */
   function handleInvalidKey(key, cb, as, context) {
     const validatedKey = validate(key)
     if ('string' === typeof validatedKey) {
@@ -239,6 +256,13 @@
     return undefined
   }
 
+  /**
+   * Retrieves data from the Gun database based on the key type.
+   * @param {string|function|number} key - The key to get, or a callback function, or a number.
+   * @param {function|boolean|object} [cb] - The callback function, true for soul extraction, or options object.
+   * @param {*} [as] - Additional options or context.
+   * @returns {object} The gun chain.
+   */
   Gun.chain.get = function (key, cb, as) {
     let nodeChain
     if (typeof key === 'string') {
@@ -251,14 +275,14 @@
       nodeChain = handleInvalidKey(key, cb, as, this)
     }
     if (!nodeChain) {
-      nodeChain = this.chain()
-      nodeChain._.err = {
+      const errorChain = this.chain()
+      errorChain._.err = {
         err: Gun.log('Invalid get request!', key)
       }
       if (cb) {
-        cb.call(nodeChain, nodeChain._.err)
+        cb.call(errorChain, errorChain._.err)
       }
-      return nodeChain
+      return errorChain
     }
     if (cb && 'function' === typeof cb) {
       nodeChain.get(cb, as)
