@@ -22,6 +22,8 @@
           }))
     if (f) {
       var be = {
+        as: as,
+        next: arg,
         off:
           onto.off ||
           (onto.off = function () {
@@ -38,11 +40,9 @@
               delete this.on.tag[this.the.tag]
             }
           }),
-        to: onto._,
-        next: arg,
-        the: tag,
         on: this,
-        as: as
+        the: tag,
+        to: onto._
       }
       ;(be.back = tag.last || tag).to = be
       return (tag.last = be)

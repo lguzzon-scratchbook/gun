@@ -84,6 +84,6 @@
     Gun.on.link(msg, cat)
   }
   var noop = () => {},
-    event = { stun: noop, off: noop },
+    event = { off: noop, stun: noop },
     u
 })()

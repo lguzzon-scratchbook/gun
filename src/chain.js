@@ -90,9 +90,9 @@
           back.on('in', {
             get: get,
             put: {
-              '#': back.soul,
-              '.': get,
               ':': back.put[get],
+              '.': get,
+              '#': back.soul,
               '>': state_is(root.graph[back.soul], get)
             }
           })
@@ -197,8 +197,8 @@
           }
           cat.on('in', {
             $: gun,
-            VIA: msg,
-            put: { '#': soul, '.': k, '=': tmp[k], '>': state }
+            put: { '.': k, '#': soul, '=': tmp[k], '>': state },
+            VIA: msg
           })
         })
       }
@@ -207,8 +207,8 @@
       cat.on('in', {
         $: at.back.$,
         put: {
-          '#': soul,
           '.': key,
+          '#': soul,
           '=': tmp,
           '>': state_is(at.back.put, key)
         },
@@ -373,7 +373,7 @@
         if (!get || !sat) {
           return
         }
-        sat.on('out', { get: { '#': link, '.': get } }) // go get it.
+        sat.on('out', { get: { '.': get, '#': link } }) // go get it.
       },
       0,
       99
@@ -423,7 +423,7 @@
           if (link) {
             delete root.$.get(link)?.get(get)?._?.echo?.[sat.id]
           }
-          sat.on('in', { get: get, put: u, $: sat.$ }) // TODO: BUG? Add recursive seen check?
+          sat.on('in', { $: sat.$, get: get, put: u }) // TODO: BUG? Add recursive seen check?
         },
         0,
         99
@@ -479,8 +479,8 @@
       at.ack = (at.ack || 0) + 1
       at.put = u
       at.on('in', {
-        $: at.$,
         '@': msg['@'],
+        $: at.$,
         get: at.get,
         put: at.put
       })

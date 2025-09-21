@@ -403,7 +403,7 @@
       s = Node.soul(n)
       if (s) {
         // must have a soul on it.
-        return !obj_map2(n, map, { as: as, cb: cb, s: s, n: n })
+        return !obj_map2(n, map, { as: as, cb: cb, n: n, s: s })
       }
       return false // nope! This was not a valid node.
     }
@@ -435,7 +435,7 @@
       }
       o.node = Node.soul.ify(o.node || {}, o)
       if (o.node) {
-        obj_map2(obj, map, { o: o, as: as })
+        obj_map2(obj, map, { as: as, o: o })
       }
       return o.node // This will only be a valid node if the object wasn't already deep!
     }
@@ -532,7 +532,7 @@
       if (!g || !obj_is4(g) || obj_empty4(g)) {
         return false
       } // must be an object.
-      return !obj_map4(g, map, { cb: cb, fn: fn, as: as }) // makes sure it wasn't an empty object.
+      return !obj_map4(g, map, { as: as, cb: cb, fn: fn }) // makes sure it wasn't an empty object.
     }
     function map(n, s) {
       // we invert this because the way'? we check for this is via a negation.
@@ -556,7 +556,7 @@
   ;(() => {
     Graph.ify = (obj, env, as) => {
       DEP('graph.ify')
-      var at = { path: [], obj: obj }
+      var at = { obj: obj, path: [] }
       if (!env) {
         env = {}
       } else if (typeof env === 'string') {
@@ -702,7 +702,7 @@
       }
       var obj = {}
       opt = opt || { seen: {} }
-      obj_map4(graph[root], map, { obj: obj, graph: graph, opt: opt })
+      obj_map4(graph[root], map, { graph: graph, obj: obj, opt: opt })
       return obj
     }
     function map(v, k) {

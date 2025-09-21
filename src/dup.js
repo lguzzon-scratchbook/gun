@@ -3,7 +3,7 @@
   function Dup(opt) {
     const dup = { s: {} }
     const s = dup.s
-    opt = opt || { max: 999, age: 1000 * 9 } //*/ 1000 * 9 * 3};
+    opt = opt || { age: 1000 * 9, max: 999 } //*/ 1000 * 9 * 3};
     dup.check = (id) => {
       if (!s[id]) {
         return false

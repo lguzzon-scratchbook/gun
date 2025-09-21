@@ -87,8 +87,8 @@
           (cat = {
             it: d,
             link: {},
-            todo: g ? [] : Object.keys(d).sort().reverse(),
             path: (to.path || []).slice(),
+            todo: g ? [] : Object.keys(d).sort().reverse(),
             up: at
           })
         ) // Any perf reasons to CPU schedule this .keys( ?
@@ -101,9 +101,9 @@
         ;(tmp = (d && (d._ || '')['#']) || tmp.soul || tmp.link)
           ? resolve({ soul: tmp })
           : cat.ref.get(resolve, {
+              out: { get: { '.': ' ' } },
               run: as.run,
-              /*hatch: 0,*/ v2020: 1,
-              out: { get: { '.': ' ' } }
+              /*hatch: 0,*/ v2020: 1
             }) // TODO: BUG! This should be resolve ONLY soul to prevent full data from being loaded. // Fixed now?
         //setTimeout(function(){ if(F){ return } console.log("I HAVE NOT BEEN CALLED!", path, id, cat.ref._.id, k) }, 9000); var F; // MAKE SURE TO ADD F = 1 below!
         function resolve(msg, eve) {
@@ -239,11 +239,11 @@
       as.ok = as.acks || 9
     } // TODO: In future! Remove this! This is just old API support.
     as.via._.on('out', {
-      put: (as.out = as.graph),
+      _: tmp,
+      '#': ask,
       ok: as.ok && { '@': as.ok + 1 },
       opt: as.opt,
-      '#': ask,
-      _: tmp
+      put: (as.out = as.graph)
     })
     //})();
   }

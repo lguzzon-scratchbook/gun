@@ -196,7 +196,7 @@
         if (!(v instanceof Object)) return v
         Object.keys(v)
           .sort()
-          .forEach(sorta, { to: (tmp = {}), on: v })
+          .forEach(sorta, { on: v, to: (tmp = {}) })
         return tmp
       }
       function sorta(k) {
@@ -411,7 +411,7 @@
       const wire = peer.wire
       let tmp
       if (!wire) {
-        mesh.wire((peer.length && { url: peer, id: peer }) || peer)
+        mesh.wire((peer.length && { id: peer, url: peer }) || peer)
         return
       }
       if (peer.id) {
@@ -455,7 +455,7 @@
         if (!peer.pid) peer.pid = msg.pid
         if (msg['@']) return
       }
-      mesh.say({ dam: '?', pid: opt.pid, '@': msg['#'] }, peer)
+      mesh.say({ '@': msg['#'], dam: '?', pid: opt.pid }, peer)
       delete dup.s[peer.last]
     }
 
@@ -514,7 +514,7 @@
           mesh.say(
             {
               '##': String.hash((root.graph[soul] || '')[key]),
-              get: { '#': soul, '.': key }
+              get: { '.': key, '#': soul }
             },
             peer
           )

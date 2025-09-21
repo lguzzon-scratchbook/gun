@@ -12,14 +12,14 @@
   if (!store) {
     Gun.log('Warning: No localStorage exists to persist data to!')
     store = {
-      setItem: function (k, v) {
-        this[k] = v
+      getItem: function (k) {
+        return this[k]
       },
       removeItem: function (k) {
         delete this[k]
       },
-      getItem: function (k) {
-        return this[k]
+      setItem: function (k, v) {
+        this[k] = v
       }
     }
   }

@@ -96,7 +96,7 @@
         one[id] = setTimeout(once, opt.wait || 99) // TODO: Bug? This doesn't handle plural chains.
         function once(f) {
           if (!at.has && !at.soul) {
-            at = { put: data, get: key }
+            at = { get: key, put: data }
           } // handles non-core messages.
           if (u === (tmp = at.put)) {
             tmp = ((msg.$$ || '')._ || '').put
