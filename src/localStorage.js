@@ -3,12 +3,13 @@
     return
   }
 
-  var noop = () => {},
-    store,
-    u
+  // Constants and utilities
+  const noop = () => {}
+  let store
+  const u = undefined
   try {
     store = (Gun.window || noop).localStorage
-  } catch (e) {}
+  } catch (_e) {}
   if (!store) {
     Gun.log('Warning: No localStorage exists to persist data to!')
     store = {
@@ -24,20 +25,19 @@
     }
   }
 
-  var parse =
+  // Async JSON utilities (fallback if not available)
+  const _parse =
     JSON.parseAsync ||
     ((t, cb, r) => {
-      var u
       try {
         cb(u, JSON.parse(t, r))
       } catch (e) {
         cb(e)
       }
     })
-  var json =
+  const json =
     JSON.stringifyAsync ||
     ((v, cb, r, s) => {
-      var u
       try {
         cb(u, JSON.stringify(v, r, s))
       } catch (e) {
@@ -45,40 +45,47 @@
       }
     })
 
+  /**
+   * Initializes localStorage persistence for a GUN instance.
+   * Sets up event listeners for get and put operations to persist data.
+   * @param {Object} root - The GUN root instance.
+   */
   Gun.on('create', function lg(root) {
     this.to.next(root)
-    var opt = root.opt,
-      graph = root.graph,
-      acks = [],
-      disk,
-      to,
-      size,
-      stop
+    const opt = root.opt
+    const _graph = root.graph
+    let acks = []
+    let disk
+    let to
+    let size
+    let stop
     if (false === opt.localStorage) {
       return
     }
     opt.prefix = opt.file || 'gun/'
     try {
-      disk = lg[opt.prefix] =
-        lg[opt.prefix] || JSON.parse((size = store.getItem(opt.prefix))) || {} // TODO: Perf! This will block, should we care, since limited to 5MB anyways?
-    } catch (e) {
+      const item = store.getItem(opt.prefix)
+      disk = lg[opt.prefix] = lg[opt.prefix] || JSON.parse(item) || {} // TODO: Perf! This will block, should we care, since limited to 5MB anyways?
+      size = (item || '').length
+    } catch (_e) {
       disk = lg[opt.prefix] = {}
+      size = 0
     }
-    size = (size || '').length
 
     root.on('get', function (msg) {
       this.to.next(msg)
-      var lex = msg.get,
-        soul,
-        data,
-        tmp,
-        u
-      if (!lex || !(soul = lex['#'])) {
+      const lex = msg.get
+      const soul = lex?.['#']
+      let data
+      const u = undefined
+      if (!lex || !soul) {
         return
       }
+      // Retrieve data from in-memory disk
       data = disk[soul] || u
-      if (data && (tmp = lex['.']) && !Object.plain(tmp)) {
-        // pluck!
+      const tmp = lex?.['.']
+      if (data && tmp && !Object.plain(tmp)) {
+        // Pluck specific field from the data
         data = Gun.state.ify({}, tmp, Gun.state.is(data, tmp), data[tmp], soul)
       }
       //if(data){ (tmp = {})[soul] = data } // back into a graph.
@@ -89,60 +96,65 @@
 
     root.on('put', function (msg) {
       this.to.next(msg) // remember to call next middleware adapter
-      var put = msg.put,
-        soul = put['#'],
-        key = put['.'],
-        id = msg['#'],
-        ok = msg.ok || '',
-        tmp // pull data off wire envelope
-      disk[soul] = Gun.state.ify(disk[soul], key, put['>'], put[':'], soul) // merge into disk object
+      const put = msg.put
+      const soul = put['#']
+      const key = put['.']
+      const id = msg['#']
+      const ok = msg.ok || ''
+      const _tmp = undefined // pull data off wire envelope
+      // Merge data into in-memory disk
+      disk[soul] = Gun.state.ify(disk[soul], key, put['>'], put[':'], soul)
       if (stop && size > 4999880) {
+        // Check localStorage size limit (~5MB)
         root.on('in', { '@': id, err: 'localStorage max!' })
         return
       }
-      //if(!msg['@']){ acks.push(id) } // then ack any non-ack write. // TODO: use batch id.
+      // Probabilistic ack to avoid flooding (only for non-ack messages)
       if (!msg['@'] && (!msg._.via || Math.random() < ok['@'] / ok['/'])) {
         acks.push(id)
-      } // then ack any non-ack write. // TODO: use batch id.
+      }
       if (to) {
         return
       }
+      // Schedule flush with delay based on data size
       to = setTimeout(flush, 9 + size / 333) // 0.1MB = 0.3s, 5MB = 15s
     })
     function flush() {
+      // Defer flush if busy and no pending acks
       if (!acks.length && ((setTimeout.turn || '').s || '').length) {
         setTimeout(flush, 99)
         return
-      } // defer if "busy" && no saves.
-      var err,
-        ack = acks
+      }
+      let _err
+      const ack = acks
       clearTimeout(to)
       to = false
       acks = []
-      json(disk, (err, tmp) => {
+      // Persist disk to localStorage
+      json(disk, (_err, tmp) => {
         try {
-          !err && store.setItem(opt.prefix, tmp)
+          !_err && store.setItem(opt.prefix, tmp)
         } catch (e) {
-          err = stop = e || 'localStorage failure'
+          _err = stop = e || 'localStorage failure'
         }
-        if (err) {
+        if (_err) {
           Gun.log(
-            err +
+            _err +
               " Consider using GUN's IndexedDB plugin for RAD for more storage space, https://gun.eco/docs/RAD#install"
           )
           root.on('localStorage:error', {
-            err: err,
+            err: _err,
             get: opt.prefix,
             put: disk
           })
         }
         size = tmp.length
 
-        //if(!err && !Object.empty(opt.peers)){ return } // only ack if there are no peers. // Switch this to probabilistic mode
+        // Send acks for persisted messages
         setTimeout.each(
           ack,
           (id) => {
-            root.on('in', { '@': id, err: err, ok: 0 }) // localStorage isn't reliable, so make its `ok` code be a low number.
+            root.on('in', { '@': id, err: _err, ok: 0 }) // localStorage isn't reliable, so make its `ok` code be a low number.
           },
           0,
           99
