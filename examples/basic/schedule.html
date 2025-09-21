@@ -74,7 +74,7 @@ function schedule(ms){
   $('ul').empty();
   day.map().on(UI);
 }
-schedule(+new Date());
+schedule(Date.now());
 
 $('#left').on('click', function(){ schedule(+new Date(schedule.on.getFullYear(), schedule.on.getMonth(), schedule.on.getDate() - 1)) });
 $('#right').on('click', function(){ schedule(+new Date(schedule.on.getFullYear(), schedule.on.getMonth(), schedule.on.getDate() + 1)) });

@@ -12,7 +12,7 @@
     }
     const dt = (dup.track = (id) => {
       const it = s[id] || (s[id] = {})
-      it.was = dup.now = +new Date()
+      it.was = dup.now = Date.now()
       if (!dup.to) {
         dup.to = setTimeout(dup.drop, opt.age + 9)
       }
@@ -24,10 +24,10 @@
     dup.drop = (age) => {
       let it
       dup.to = null
-      dup.now = +new Date()
+      dup.now = Date.now()
       const l = Object.keys(s)
       console.STAT &&
-        console.STAT(dup.now, +new Date() - dup.now, 'dup drop keys') // prev ~20% CPU 7% RAM 300MB // now ~25% CPU 7% RAM 500MB
+        console.STAT(dup.now, Date.now() - dup.now, 'dup drop keys') // prev ~20% CPU 7% RAM 300MB // now ~25% CPU 7% RAM 500MB
       setTimeout.each(
         l,
         (id) => {

@@ -1,7 +1,7 @@
 ;(() => {
   require('./shim')
   function State() {
-    var t = +new Date()
+    var t = Date.now()
     if (last < t) {
       return (N = 0), (last = t + State.drift)
     }

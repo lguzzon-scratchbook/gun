@@ -23,17 +23,20 @@
     }
     opt.WebSocket = websocket
 
-    var mesh = (opt.mesh = opt.mesh || Gun.Mesh(root))
+    opt.mesh = opt.mesh || Gun.Mesh(root)
+    var mesh = opt.mesh
 
     var wired = mesh.wire || opt.wire
     mesh.wire = opt.wire = open
     function open(peer) {
+      var url, wire
       try {
         if (!peer || !peer.url) {
           return wired && wired(peer)
         }
-        var url = peer.url.replace(/^http/, 'ws')
-        var wire = (peer.wire = new opt.WebSocket(url))
+        url = peer.url.replace(/^http/, 'ws')
+        peer.wire = new opt.WebSocket(url)
+        wire = peer.wire
         wire.onclose = () => {
           reconnect(peer)
           opt.mesh.bye(peer)
@@ -69,9 +72,12 @@
       if (doc && peer.retry <= 0) {
         return
       }
+      var previousTried = peer.tried
+      var now = Date.now()
+      peer.tried = now
+      var delta = now - (previousTried || 0)
       peer.retry =
-        (peer.retry || opt.retry + 1 || 60) -
-        (-peer.tried + (peer.tried = +new Date()) < wait * 4 ? 1 : 0)
+        (peer.retry || opt.retry + 1 || 60) - (delta < wait * 4 ? 1 : 0)
       peer.defer = setTimeout(function to() {
         if (doc && doc.hidden) {
           return setTimeout(to, wait)
@@ -79,7 +85,7 @@
         open(peer)
       }, wait)
     }
-    var doc = '' + u !== typeof document && document
+    var doc = typeof document !== 'undefined' && document
   })
   var noop = () => {},
     u

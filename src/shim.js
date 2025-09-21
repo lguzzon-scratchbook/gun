@@ -106,7 +106,7 @@
         })(),
       check = (sT.check = sT.check ||
         (typeof performance !== '' + u && performance) || {
-          now: () => +new Date()
+          now: () => Date.now()
         })
     sT.hold = sT.hold || 9 // half a frame benchmarks faster than < 1ms?
     sT.poll =
