@@ -43,9 +43,9 @@
       if (!s.length) {
         return c
       }
-      var i
-      var l
-      var n
+      let i
+      let l
+      let n
       for (i = 0, l = s.length, void 0; i < l; ++i) {
         n = s.charCodeAt(i)
         c = (c << 5) - c + n
@@ -68,7 +68,7 @@
       return typeof t === 'string'
     },
     match: (t, o) => {
-      var tmp
+      let tmp
       DEP('text.match')
       if ('string' !== typeof t) {
         return false
@@ -104,7 +104,7 @@
     },
     random: (l, c) => {
       DEP('text.random')
-      var s = ''
+      let s = ''
       l = l || 24 // you are not going to make a 0 length random number, so no need to check type
       c = c || '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
       while (l > 0) {
@@ -165,7 +165,7 @@
     },
     empty: (() => {
       function empty(_v, i) {
-        var n = this.n
+        const n = this.n
         if (n && (i === n || (obj_is(n) && Object.hasOwn(n, i)))) {
           return
         }
@@ -218,8 +218,8 @@
         t.r = t.r || []
         t.r.push(k)
       }
-      var keys = Object.keys
-      var map
+      const keys = Object.keys
+      let map
       Object.keys =
         Object.keys ||
         ((o) =>
@@ -228,13 +228,13 @@
           }))
       return (l, c, _) => {
         DEP('obj.map')
-        var i = 0
-        var x
-        var r
-        var ll
-        var lle
-        var ii
-        var f = typeof c === 'function'
+        let i = 0
+        let x
+        let r
+        let ll
+        let lle
+        let ii
+        const f = typeof c === 'function'
         t.r = undefined
         if (keys && obj_is(l)) {
           ll = keys(l)
@@ -306,11 +306,11 @@
       return t ? t instanceof Date : Date.now()
     })
 
-  var list_is = Type.list.is
-  var obj = Type.obj
-  var obj_is = obj.is
-  var obj_has = obj.has
-  var obj_map = obj.map
+  const list_is = Type.list.is
+  const obj = Type.obj
+  const obj_is = obj.is
+  const obj_has = obj.has
+  const obj_map = obj.map
 
   var Val = {
     is: (v) => {
@@ -340,7 +340,7 @@
   ;(() => {
     Val.link.is = (v) => {
       DEP('val.link.is') // this defines whether an object is a soul relation or not, they look like this: {'#': 'UUID'}
-      var o
+      let o
       if (v?.[rel_] && !v?._ && obj_is(v)) {
         // must be an object.
         o = {}
@@ -371,11 +371,11 @@
     return obj_put({}, rel_, t)
   } // convert a soul into a relation and return it.
   Type.obj.has._ = '.'
-  var rel_ = Val.link._
+  const rel_ = Val.link._
   var bi_is = Type.bi.is
   var num_is = Type.num.is
   var text_is = Type.text.is
-  var obj_put = obj.put
+  const obj_put = obj.put
 
   Type.val = Type.val || Val
 
@@ -396,7 +396,7 @@
   ;(() => {
     Node.is = (n, cb, as) => {
       DEP('node.is')
-      var s // checks to see if an object is a valid node.
+      let s // checks to see if an object is a valid node.
       if (!obj_is2(n)) {
         return false
       } // must be an object.
@@ -440,8 +440,8 @@
       return o.node // This will only be a valid node if the object wasn't already deep!
     }
     function map(v, k) {
-      var o = this.o
-      var tmp
+      const o = this.o
+      let tmp
       if (o.map) {
         tmp = o.map.call(this.as, v, `${k}`, o.node)
         if (undefined === tmp) {
@@ -456,10 +456,10 @@
       }
     }
   })()
-  var obj2 = Type.obj
-  var obj_is2 = obj2.is
-  var obj_del2 = obj2.del
-  var obj_map2 = obj2.map
+  const obj2 = Type.obj
+  const obj_is2 = obj2.is
+  const obj_del2 = obj2.del
+  const obj_map2 = obj2.map
   var text = Type.text
   var text_random = text.random
   var soul_ = Node.soul._
@@ -483,7 +483,7 @@
       DEP('state.map')
 
       const temp = cb || s
-      var o = obj_is3(temp) ? temp : null
+      const o = obj_is3(temp) ? temp : null
       const temp2 = cb || s
       cb = fn_is3(temp2) ? temp2 : null
       if (o && !cb) {
@@ -513,11 +513,11 @@
       State.ify(this.o, k, this.s)
     }
   })()
-  var obj3 = Type.obj
-  var obj_has3 = obj3.has
-  var obj_is3 = obj3.is
-  var obj_map3 = obj3.map
-  var obj_copy3 = obj3.copy
+  const obj3 = Type.obj
+  const obj_has3 = obj3.has
+  const obj_is3 = obj3.is
+  const obj_map3 = obj3.map
+  const obj_copy3 = obj3.copy
   var num3 = Type.num
   var num_is3 = num3.is
   var fn3 = Type.fn
@@ -579,7 +579,7 @@
       return env.graph
     }
     function node(env, at) {
-      var tmp
+      let tmp
       tmp = seen(env, at)
       if (tmp) {
         return tmp
@@ -597,7 +597,7 @@
     function map(v, k, n) {
       var env = this.env
       var is
-      var tmp
+      let tmp
       if (Node._ === k && Object.hasOwn(v, Val.link._)) {
         return n._ // TODO: Bug?
       }
@@ -655,7 +655,7 @@
       }
     }
     function valid(v, k, n, at, env) {
-      var tmp
+      let tmp
       if (Val.is(v)) {
         return true
       }
@@ -699,14 +699,14 @@
       if (!graph) {
         return
       }
-      var obj = {}
+      const obj = {}
       opt = opt || { seen: {} }
       obj_map4(graph[root], map, { graph: graph, obj: obj, opt: opt })
       return obj
     }
     function map(v, k) {
-      var tmp
-      var obj
+      let tmp
+      let obj
       if (Node._ === k) {
         if (obj_empty4(v, Val.link._)) {
           return
