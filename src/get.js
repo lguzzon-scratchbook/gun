@@ -19,7 +19,7 @@
       if (!gun) {
         gun = key && cache(key, this)
       }
-      gun = gun && gun.$
+      gun = gun?.$
     } else if ('function' === typeof key) {
       if (true === cb) {
         return soul(this, key, cb, as), this
@@ -53,7 +53,7 @@
                 : tmp[':']
               : tmp['=']
         }
-        if ((link = 'string' == typeof (tmp = Gun.valid(data)))) {
+        if ((link = 'string' === typeof (tmp = Gun.valid(data)))) {
           data =
             u === (tmp = root.$.get(tmp)._.put) ? (opt.not ? u : data) : tmp
         }
@@ -64,17 +64,17 @@
           if ((tmp = root.stun) && tmp.on) {
             cat.$.back((a) => {
               // our chain stunned?
-              tmp.on('' + a.id, (test = {}))
+              tmp.on(`${a.id}`, (test = {}))
               if ((test.run || 0) < any.id) {
                 return test
               } // if there is an earlier stun on gapless parents/self.
             })
-            !test.run && tmp.on('' + at.id, (test = {})) // this node stunned?
-            !test.run && sat && tmp.on('' + sat.id, (test = {})) // linked node stunned?
+            !test.run && tmp.on(`${at.id}`, (test = {})) // this node stunned?
+            !test.run && sat && tmp.on(`${sat.id}`, (test = {})) // linked node stunned?
             if (any.id > test.run) {
               if (!test.stun || test.stun.end) {
                 test.stun = tmp.on('stun')
-                test.stun = test.stun && test.stun.last
+                test.stun = test.stun?.last
               }
               if (test.stun && !test.stun.end) {
                 //if(odd && u === data){ return }
@@ -149,9 +149,9 @@
       cat.on('out', opt.out)
       root.pass = tmp
       return gun
-    } else if ('number' == typeof key) {
-      return this.get('' + key, cb, as)
-    } else if ('string' == typeof (tmp = valid(key))) {
+    } else if ('number' === typeof key) {
+      return this.get(`${key}`, cb, as)
+    } else if ('string' === typeof (tmp = valid(key))) {
       return this.get(tmp, cb, as)
     } else if ((tmp = this.get.next)) {
       gun = tmp(this, key)
@@ -165,7 +165,7 @@
       }
       return gun
     }
-    if (cb && 'function' == typeof cb) {
+    if (cb && 'function' === typeof cb) {
       gun.get(cb, as)
     }
     return gun
@@ -224,13 +224,12 @@
           var cb = as[0],
             id
           as = as[1]
-          cb &&
-            cb(
+          cb?.(
               (id =
                 at.link ||
                 at.soul ||
                 Gun.valid(msg.put) ||
-                ((msg.put || {})._ || {})['#']),
+                msg.put?._?.['#']),
               as,
               msg,
               eve
