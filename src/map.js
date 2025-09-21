@@ -35,6 +35,30 @@
   }
   const Gun = require('./root'),
     next = Gun.chain.get.next
+  /** @function validateLexInput @param {object} node - Gun node instance. @param {string|object} lexQuery - Lex query. @throws {Error} For invalid node or lexQuery. */
+  const validateLexInput = (node, lexQuery) => {
+    if (!node || typeof node !== 'object')
+      throw new Error('Invalid node: must be an object')
+    if (!node._) throw new Error('Invalid node: missing _ property')
+    if (
+      typeof lexQuery !== 'string' &&
+      (!lexQuery || typeof lexQuery !== 'object' || Array.isArray(lexQuery))
+    ) {
+      throw new Error(
+        `Invalid lex query: expected string or plain object, got ${typeof lexQuery}`
+      )
+    }
+  }
+  /** @function createHandleLexEvent @param {object} chainTmp - Chain temp object. @param {string|object} lexQuery - Lex query. @returns {function} Event handler function. */
+  const createHandleLexEvent = (chainTmp, lexQuery) =>
+    function (eve) {
+      if (
+        String.match(eve.get || (eve.put || '')['.'], getLexPattern(lexQuery))
+      ) {
+        chainTmp.on('in', eve)
+      }
+      this.to.next(eve)
+    }
   /**
    * @param {IGunInstance} node
    * @param {string|object} lexQuery
@@ -45,16 +69,7 @@
    * @example lex(node, '#soul', cb)
    */
   const lex = (node, lexQuery, next, noop) => {
-    if (!node || !node._ || typeof node !== 'object')
-      throw new Error('Invalid node')
-    if (
-      typeof lexQuery !== 'string' &&
-      (!lexQuery || typeof lexQuery !== 'object' || Array.isArray(lexQuery))
-    ) {
-      throw new Error(
-        `Invalid lex query: expected string or plain object, got ${typeof lexQuery}`
-      )
-    }
+    validateLexInput(node, lexQuery)
     // Handles non-plain objects by direct callback
     if (!Object.plain(lexQuery)) {
       return (next || noop)(node, lexQuery)
@@ -65,14 +80,7 @@
     }
     const chainTmp = node.chain()._
     chainTmp.lex = lexQuery
-    const handleLexEvent = function (eve) {
-      if (
-        String.match(eve.get || (eve.put || '')['.'], getLexPattern(lexQuery))
-      ) {
-        chainTmp.on('in', eve)
-      }
-      this.to.next(eve)
-    }
+    const handleLexEvent = createHandleLexEvent(chainTmp, lexQuery)
     node.on('in', handleLexEvent)
     chainTmp.$.off = () => node.off('in', handleLexEvent)
     return chainTmp.$
@@ -98,58 +106,59 @@
       throw new Error('GUN map.get.next: Invalid lex query')
     return invokeLexSafely(gun, query, next, noop)
   }
+  /** @function validateMapCallback @param {*} cb - Callback or field. @throws {Error} For invalid cb. */
+  const validateMapCallback = (cb) => {
+    if (cb != null && !checkMapField(cb) && typeof cb !== 'function')
+      throw new Error('Invalid map argument')
+  }
+  /** @function isValidMapNode @param {object} at - Gun at object. @param {object} msg - Message. @returns {boolean} True if valid node. */
+  const isValidMapNode = (at, msg) => at.soul || msg.$$
+  /** @function handleMapCallbackResult @param {object} chain - Chain. @param {*} data - Data. @param {string} key - Key. @param {object} msg - Message. @param {object} eve - Event. @param {*} next - Next value. */
+  const handleMapCallbackResult = (chain, data, key, msg, eve, next) => {
+    if (u === next) return
+    if (data === next) return chain._.on('in', msg)
+    if (Gun.is(next)) return chain._.on('in', next._)
+    const tmp = {}
+    Object.assign(tmp, msg.put)
+    tmp['='] = next
+    chain._.on('in', { get: key, put: tmp })
+  }
   /**
    * Maps over the data in the chain.
-   * @param {Object} chain - GUN chain
-   * @param {Function|Object} cb - Callback function or lex query.
+   * @param {Function|Object|string} cb - Callback function or lex query.
    * @param {*} _opt - Options (unused).
    * @param {*} _t - Additional parameter (unused).
-   * @returns {Object} - updated chain
-   * @throws {Error} - invalid field
+   * @returns {IGunChainReference} - updated chain
+   * @throws {Error} - invalid cb
    * @example chain.map('field')
+   * @example chain.map(function(data, key) { ... })
    */
   Gun.chain.map = function (cb, _opt, _t) {
     const cat = this._
-    if (cb != null && !checkMapField(cb) && typeof cb !== 'function')
-      throw new Error('Invalid map argument')
+    validateMapCallback(cb)
     let lex
-    let chain
     if (checkMapField(cb)) {
       lex = cb['.'] ? cb : { '.': cb }
       cb = u
     }
     if (!cb) {
-      chain = cat.each
-      if (chain) {
-        return chain
-      }
-      chain = this.chain()
-      cat.each = chain
-      chain._.lex = lex || chain._.lex || cat.lex
-      chain._.nix = this.back('nix')
-      this.on('in', map, chain._)
-      return chain
+      const chain = cat.each
+      if (chain) return chain
+      const newChain = this.chain()
+      cat.each = newChain
+      newChain._.lex = lex || newChain._.lex || cat.lex
+      newChain._.nix = this.back('nix')
+      this.on('in', map, newChain._)
+      return newChain
     }
     Gun.log.once(
       'mapfn',
       'Map functions are experimental, their behavior and API may change moving forward. Please play with it and report bugs and ideas on how to improve it.'
     )
-    chain = this.chain()
-    this.map().on(function (data, key, msg, eve) {
+    const chain = this.chain()
+    this.map().on((data, key, msg, eve) => {
       const next = (cb || noop).call(this, data, key, msg, eve)
-      if (u === next) {
-        return
-      }
-      if (data === next) {
-        return chain._.on('in', msg)
-      }
-      if (Gun.is(next)) {
-        return chain._.on('in', next._)
-      }
-      const tmp = {}
-      Object.assign(tmp, msg.put)
-      tmp['='] = next
-      chain._.on('in', { get: key, put: tmp })
+      handleMapCallbackResult(chain, data, key, msg, eve, next)
     })
     return chain
   }
@@ -174,12 +183,8 @@
     const gun = msg.$
     const at = gun._
     const put = msg.put
-    if (!at.soul && !msg.$$) {
-      return
-    } // this line took hundreds of tries to figure out. It only works if core checks to filter out above chains during link tho. This says "only bother to map on a node" for this layer of the chain. If something is not a node, map should not work.
-    if (!checkLex(cat, msg, put)) {
-      return
-    }
+    if (!isValidMapNode(at, msg)) return
+    if (!checkLex(cat, msg, put)) return
     Gun.on.link(msg, cat)
   }
   const _event = { off: noop, stun: noop },
