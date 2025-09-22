@@ -6,14 +6,14 @@
   "_location": "/text-encoding",
   "_phantomChildren": {},
   "_requested": {
-    "type": "range",
-    "registry": true,
-    "raw": "text-encoding@^0.7.0",
-    "name": "text-encoding",
     "escapedName": "text-encoding",
+    "fetchSpec": "^0.7.0",
+    "name": "text-encoding",
+    "raw": "text-encoding@^0.7.0",
     "rawSpec": "^0.7.0",
+    "registry": true,
     "saveSpec": null,
-    "fetchSpec": "^0.7.0"
+    "type": "range"
   },
   "_requiredBy": [
     "/",
@@ -24,8 +24,8 @@
   "_spec": "text-encoding@^0.7.0",
   "_where": "/Users/alive",
   "author": {
-    "name": "Joshua Bell",
-    "email": "inexorabletash@gmail.com"
+    "email": "inexorabletash@gmail.com",
+    "name": "Joshua Bell"
   },
   "bugs": {
     "url": "https://github.com/inexorabletash/text-encoding/issues"
@@ -33,40 +33,40 @@
   "bundleDependencies": false,
   "contributors": [
     {
-      "name": "Joshua Bell",
-      "email": "inexorabletash@gmail.com"
+      "email": "inexorabletash@gmail.com",
+      "name": "Joshua Bell"
     },
     {
-      "name": "Rick Eyre",
-      "email": "rick.eyre@outlook.com"
+      "email": "rick.eyre@outlook.com",
+      "name": "Rick Eyre"
     },
     {
-      "name": "Eugen Podaru",
-      "email": "eugen.podaru@live.com"
+      "email": "eugen.podaru@live.com",
+      "name": "Eugen Podaru"
     },
     {
-      "name": "Filip Dupanović",
-      "email": "filip.dupanovic@gmail.com"
+      "email": "filip.dupanovic@gmail.com",
+      "name": "Filip Dupanović"
     },
     {
-      "name": "Anne van Kesteren",
-      "email": "annevk@annevk.nl"
+      "email": "annevk@annevk.nl",
+      "name": "Anne van Kesteren"
     },
     {
-      "name": "Author: Francis Avila",
-      "email": "francisga@gmail.com"
+      "email": "francisga@gmail.com",
+      "name": "Author: Francis Avila"
     },
     {
-      "name": "Michael J. Ryan",
-      "email": "tracker1@gmail.com"
+      "email": "tracker1@gmail.com",
+      "name": "Michael J. Ryan"
     },
     {
-      "name": "Pierre Queinnec",
-      "email": "pierre@queinnec.org"
+      "email": "pierre@queinnec.org",
+      "name": "Pierre Queinnec"
     },
     {
-      "name": "Zack Weinberg",
-      "email": "zackw@panix.com"
+      "email": "zackw@panix.com",
+      "name": "Zack Weinberg"
     }
   ],
   "deprecated": "no longer maintained",

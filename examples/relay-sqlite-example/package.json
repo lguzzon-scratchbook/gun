@@ -1,27 +1,5 @@
 {
-  "name": "gun-relay-sqlite",
-  "private": true,
-  "version": "0.0.1",
-  "type": "module",
-  "scripts": {
-    "dev": "npm run copy:sql:wasm && vite --host",
-    "build:web": "npm run copy:sql:wasm && npm run build",
-    "build:native": "npm run remove:sql:wasm && npm run build",
-    "build": "vue-tsc && vite build",
-    "preview": "vite preview",
-    "ionic:serve:before": "npm run copy:sql:wasm",
-    "copy:sql:wasm": "copyfiles -u 3 node_modules/sql.js/dist/sql-wasm.wasm public/assets",
-    "remove:sql:wasm": "rimraf public/assets/sql-wasm.wasm",
-    "ios:start": "npm run remove:sql:wasm && npm run build:native && npx cap sync && npx cap copy && npx cap open ios",
-    "android:start": "npm run remove:sql:wasm && npm run build:native && npx cap sync && npx cap copy && npx cap open android",
-    "electron:install": "cd electron && npm install && cd ..",
-    "electron:prepare": "npm run remove:sql:wasm && npm run build && npx cap sync @capacitor-community/electron && npx cap copy @capacitor-community/electron",
-    "electron:start": "npm run electron:prepare && cd electron && npm run electron:start",
-    "clean:vite:cache": "vite clean",
-    "test:e2e": "cypress run",
-    "test:unit": "vitest",
-    "lint": "eslint"
-  },
+  "author": "",
   "dependencies": {
     "@angular/core": "^19.1.6",
     "@aparajita/capacitor-biometric-auth": "^9.0.0",
@@ -155,6 +133,7 @@
     "vue3-touch-events": "latest",
     "webrtc-adapter": "^9.0.3"
   },
+  "description": "gun-sqlite-relay",
   "devDependencies": {
     "@capacitor/cli": "^7.0.0",
     "@iconify-json/tabler": "latest",
@@ -196,9 +175,30 @@
     "vitest": "latest",
     "vue-tsc": "latest"
   },
-  "description": "gun-sqlite-relay",
-  "main": "index.js",
   "keywords": [],
-  "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "main": "index.js",
+  "name": "gun-relay-sqlite",
+  "private": true,
+  "scripts": {
+    "android:start": "npm run remove:sql:wasm && npm run build:native && npx cap sync && npx cap copy && npx cap open android",
+    "build": "vue-tsc && vite build",
+    "build:native": "npm run remove:sql:wasm && npm run build",
+    "build:web": "npm run copy:sql:wasm && npm run build",
+    "clean:vite:cache": "vite clean",
+    "copy:sql:wasm": "copyfiles -u 3 node_modules/sql.js/dist/sql-wasm.wasm public/assets",
+    "dev": "npm run copy:sql:wasm && vite --host",
+    "electron:install": "cd electron && npm install && cd ..",
+    "electron:prepare": "npm run remove:sql:wasm && npm run build && npx cap sync @capacitor-community/electron && npx cap copy @capacitor-community/electron",
+    "electron:start": "npm run electron:prepare && cd electron && npm run electron:start",
+    "ionic:serve:before": "npm run copy:sql:wasm",
+    "ios:start": "npm run remove:sql:wasm && npm run build:native && npx cap sync && npx cap copy && npx cap open ios",
+    "lint": "eslint",
+    "preview": "vite preview",
+    "remove:sql:wasm": "rimraf public/assets/sql-wasm.wasm",
+    "test:e2e": "cypress run",
+    "test:unit": "vitest"
+  },
+  "type": "module",
+  "version": "0.0.1"
 }

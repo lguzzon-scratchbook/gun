@@ -1,11 +1,4 @@
 {
-  "name": "GunDemo",
-  "version": "0.0.1",
-  "private": true,
-  "scripts": {
-    "start": "node node_modules/react-native/local-cli/cli.js start",
-    "test": "jest"
-  },
   "dependencies": {
     "buffer": "^5.2.1",
     "encode-utf8": "^1.0.2",
@@ -26,5 +19,12 @@
   },
   "jest": {
     "preset": "react-native"
-  }
+  },
+  "name": "GunDemo",
+  "private": true,
+  "scripts": {
+    "start": "node node_modules/react-native/local-cli/cli.js start",
+    "test": "jest"
+  },
+  "version": "0.0.1"
 }
