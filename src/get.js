@@ -29,6 +29,34 @@
     }
     return nodeChain?.$
   }
+  function processMessageData(msg, getOptions, rootContext) {
+    const at = msg.$._
+    const sat = (msg.$$ || '')._
+    let nodeData = (sat || at).put
+    if ((!at.has && !at.soul) || undefinedValue === nodeData) {
+      // handles non-core
+      const passData = msg.put
+      nodeData =
+        undefinedValue === (passData || '')['=']
+          ? undefinedValue === (passData || '')[':']
+            ? passData
+            : passData[':']
+          : passData['=']
+    }
+    let passData = Gun.valid(nodeData)
+    const isLink = 'string' === typeof passData
+    if (isLink) {
+      passData = rootContext.$.get(passData)._.put
+      nodeData =
+        undefinedValue === passData
+          ? getOptions.not
+            ? undefinedValue
+            : nodeData
+          : passData
+    }
+    const shouldSkip = getOptions.not && undefinedValue === nodeData
+    return { at, nodeData, sat, shouldSkip }
+  }
 
   /**
    * Handles retrieval for function keys (callbacks).
@@ -53,43 +81,20 @@
     let waitList = {} // can we assign this to the at instead, like in once?
     //var path = []; context.$.back(at => { at.get && path.push(at.get.slice(0,9))}); path = path.reverse().join('.');
     function listenerHandler(msg, eve, f) {
-      let passData
       if (listenerHandler.stun) {
         return
       }
-      passData = rootContext.pass
+      const passData = rootContext.pass
       if (passData && !passData[listenerId]) {
         return
       }
-      const at = msg.$._
-      const sat = (msg.$$ || '')._
-      let nodeData = (sat || at).put
-      const isOddNode = !at.has && !at.soul
+      const { nodeData, at, sat, shouldSkip } = processMessageData(
+        msg,
+        getOptions,
+        rootContext
+      )
+      if (shouldSkip) return
       let stunCheck = {}
-      if (isOddNode || undefinedValue === nodeData) {
-        // handles non-core
-        passData = msg.put
-        nodeData =
-          undefinedValue === (passData || '')['=']
-            ? undefinedValue === (passData || '')[':']
-              ? passData
-              : passData[':']
-            : passData['=']
-      }
-      passData = Gun.valid(nodeData)
-      const isLink = 'string' === typeof passData
-      if (isLink) {
-        passData = rootContext.$.get(passData)._.put
-        nodeData =
-          undefinedValue === passData
-            ? getOptions.not
-              ? undefinedValue
-              : nodeData
-            : passData
-      }
-      if (getOptions.not && undefinedValue === nodeData) {
-        return
-      }
       if (undefinedValue === getOptions.stun) {
         const stunData = rootContext.stun
         if (stunData?.on) {
