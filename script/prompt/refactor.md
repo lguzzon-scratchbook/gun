@@ -1,12 +1,19 @@
-# Refactor src/valid.js for Maintainability and Correctness
+# Refactor src/state.js for Maintainability and Correctness
 
 ## Objective
 
-Refactor the `src/valid.js` file to improve code maintainability, readability, and correctness while ensuring all functionality remains intact.
+Refactor the file to improve code maintainability, readability, and correctness while ensuring all functionality remains intact.
 
-## Refactoring Constraints
+## Refactoring phases workflow
+
+***Execute each phase in strict succession order***
 
 ### 1. Variable Declaration Updates
+
+***Architect: produce a refactoring plan divided in different sections; explicitly do not refer to code lines in sections***
+***You: Review and fine tune plan***
+***You: For each section of the final refactoring plan sequentially assign the execution to Coder using sub-task sequentially***
+***Coder: Implement exclusively what reported in the assigned task***
 
 - Convert all `var` declarations to appropriate `let` or `const` using proper scope
 - Use `const` for values that won't be reassigned
@@ -14,6 +21,11 @@ Refactor the `src/valid.js` file to improve code maintainability, readability, a
 - Apply block scoping where appropriate
 
 ### 2. Function Optimization  
+
+***Architect: produce a refactoring plan divided in different sections; explicitly do not refer to code lines in sections***
+***You: Review and fine tune plan***
+***You: For each section of the final refactoring plan sequentially assign the execution to Coder using sub-task sequentially***
+***Coder: Implement exclusively what reported in the assigned task***
 
 - Split functions larger than 30-40 lines into smaller, focused functions
 - Ensure each function has a single responsibility
@@ -28,20 +40,22 @@ Refactor the `src/valid.js` file to improve code maintainability, readability, a
   - Usage examples where helpful
 - Add inline comments for complex logic, decision points, loops, and error handling
 
-### 4. Quality Assurance Process
+## Refactoring Constraints
+
+### 1. Quality Assurance Process
 
 **After each code change:**
 
-1. Run `npm run check:File <filename>` to validate code quality
+1. Run `npm run check:file <filename>` to validate code quality
 2. Run `npm run test` to ensure functionality is preserved
 3. Fix ALL errors, warnings, and suggestions before proceeding
 4. Document any issues encountered and their resolutions
 
-### 5. Final Validation
+### 2. Final Validation
 
 Upon completion of all refactoring:
 
-- Execute `npm run check:File <filename>`
+- Execute `npm run check:file <filename>`
 - Execute `npm run test`
 - Ensure zero errors or warnings
 - Provide a summary of changes made
