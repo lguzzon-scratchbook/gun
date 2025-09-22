@@ -14,7 +14,7 @@
     if ('string' !== typeof t) {
       return false
     }
-    if ('string' == typeof o) {
+    if ('string' === typeof o) {
       o = { '=': o }
     }
     o = o || {}
@@ -52,7 +52,7 @@
     if (!s.length) {
       return c
     }
-    for (var i = 0, l = s.length, n; i < l; ++i) {
+    for (let i = 0, l = s.length, n; i < l; ++i) {
       n = s.charCodeAt(i)
       c = (c << 5) - c + n
       c |= 0
@@ -68,7 +68,7 @@
       : false
   Object.empty = (o, n) => {
     for (var k in o) {
-      if (has.call(o, k) && (!n || -1 == n.indexOf(k))) {
+      if (has.call(o, k) && (!n || -1 === n.indexOf(k))) {
         return false
       }
     }
@@ -93,11 +93,11 @@
       sI =
         (typeof setImmediate !== '' + u && setImmediate) ||
         ((c, f) => {
-          if (typeof MessageChannel == '' + u) {
+          if (typeof MessageChannel === `${u}`) {
             return sT
           }
           ;(c = new MessageChannel()).port1.onmessage = (e) => {
-            '' == e.data && f()
+            '' === e.data && f()
           }
           return (q) => {
             f = q
@@ -131,7 +131,7 @@
       t = (sT.turn =
         sT.turn ||
         ((f) => {
-          1 == s.push(f) && p(T)
+        1 === s.push(f) && p(T)
         })),
       s = (t.s = []),
       p = sT.poll,
@@ -141,7 +141,7 @@
         if ((f = s[i++])) {
           f()
         }
-        if (i == s.length || 99 == i) {
+        if (i === s.length || 99 === i) {
           s = t.s = s.slice(i)
           i = 0
         }
@@ -160,7 +160,7 @@
         S = S || 9
         ;(function t(s, L, r) {
           if ((L = (s = (l || []).splice(0, S)).length)) {
-            for (var i = 0; i < L; i++) {
+            for (let i = 0; i < L; i++) {
               if (u !== (r = f(s[i]))) {
                 break
               }
@@ -170,6 +170,7 @@
               return
             }
           }
+          // biome-ignore lint/complexity/useOptionalChain: TODO: Investigate better... odd cases
           e && e(r)
         })()
       }))()

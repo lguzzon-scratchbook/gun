@@ -11,6 +11,7 @@
       'boolean' === typeof v ||
       // we want +/- Infinity to be, but JSON does not support it, sad face.
       // can you guess what v === v checks for? ;)
+      // biome-ignore lint/suspicious/noSelfCompare: old code works good like this ...
       ('number' === typeof v && v !== Infinity && v !== -Infinity && v === v) ||
       (!!v &&
         'string' === typeof v['#'] &&

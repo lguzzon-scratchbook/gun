@@ -19,7 +19,7 @@
     if (!tmp) {
       return
     }
-    return 'number' == typeof (tmp = tmp[k]) ? tmp : NI
+    return 'number' === typeof (tmp = tmp[k]) ? tmp : NI
   }
   State.ify = (n, k, s, v, soul) => {
     // put a key's state on a node.
@@ -29,7 +29,7 @@
     } // set a soul if specified.
     var tmp = n._['>'] || (n._['>'] = {}) // grab the states data.
     if (u !== k && k !== '_') {
-      if ('number' == typeof s) {
+      if ('number' === typeof s) {
         tmp[k] = s
       } // add the valid state.
       if (u !== v) {
