@@ -6,14 +6,17 @@
       root = at.root
     as = as || {}
     as.root = at.root
+    // biome-ignore lint/suspicious/noAssignInExpressions: <explanation>
     as.run || (as.run = root.once)
     stun(as, at.id) // set a flag for reads to check if this chain is writing.
     as.ack = as.ack || cb
     as.via = as.via || this
     as.data = as.data || data
-    as.soul || (as.soul = at.soul || ('string' == typeof cb && cb))
-    var s = (as.state = as.state || Gun.state())
-    if ('function' == typeof data) {
+    if (!as.soul) {
+      as.soul = at.soul || ('string' === typeof cb && cb)
+    }
+    as.state = as.state || Gun.state()
+    if ('function' === typeof data) {
       data((d) => {
         as.data = d
         this.put(u, u, as)
@@ -33,14 +36,15 @@
       var to = as.todo,
         at = to.pop(),
         d = at.it,
-        cid = at.ref && at.ref._.id,
+        cid = at.ref?._.id,
         v,
         k,
         cat,
         tmp,
         g
       stun(as, at.ref)
-      if ((tmp = at.todo)) {
+      tmp = at.todo
+      if (tmp) {
         k = tmp.pop()
         d = d[k]
         if (tmp.length) {
@@ -48,7 +52,9 @@
         }
       }
       k && (to.path || (to.path = [])).push(k)
-      if (!(v = valid(d)) && !(g = Gun.is(d))) {
+      v = valid(d)
+      g = Gun.is(d)
+      if (!v && !g) {
         if (!Object.plain(d)) {
           ran.err(
             as,
@@ -69,14 +75,15 @@
         var seen = as.seen || (as.seen = []),
           i = seen.length
         while (i--) {
-          if (d === (tmp = seen[i]).it) {
+          tmp = seen[i]
+          if (d === tmp.it) {
             v = d = tmp.link
             break
           }
         }
       }
       if (k && v) {
-        at.node = state_ify(at.node, k, s, d)
+        at.node = state_ify(at.node, k, as.state, d)
       } // handle soul later.
       else {
         if (!as.seen) {
@@ -92,7 +99,7 @@
             up: at
           })
         ) // Any perf reasons to CPU schedule this .keys( ?
-        at.node = state_ify(at.node, k, s, cat.link)
+        at.node = state_ify(at.node, k, as.state, cat.link)
         !g && cat.todo.length && to.push(cat)
         // ---------------
         var id = as.seen.length
@@ -148,7 +155,7 @@
           delete as.wait[id]
           cat.wait &&
             setTimeout.each(cat.wait, (cb) => {
-              cb && cb()
+              cb?.()
             })
           as.ran(as)
         }
@@ -170,14 +177,17 @@
     var run = as.root.stun || (as.root.stun = { on: Gun.on }),
       test = {},
       tmp
-    as.stun || (as.stun = run.on('stun', () => {}))
-    if ((tmp = run.on('' + id))) {
+    if (!as.stun) {
+      as.stun = run.on('stun', () => {})
+    }
+    tmp = run.on(`${id}`)
+    if (tmp) {
       tmp.the.last.next(test)
     }
     if (test.run >= as.run) {
       return
     }
-    run.on('' + id, function (test) {
+    run.on(`${id}`, function (test) {
       if (as.stun.end) {
         this.off()
         this.to.next(test)
