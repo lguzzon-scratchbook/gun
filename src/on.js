@@ -1,193 +1,278 @@
 ;(() => {
-  var Gun = require('./root')
+  const Gun = require('./root')
+  const u = undefined
+  const empty = Object.freeze({})
+  const _noop = () => {}
+
+  /**
+   * Subscribe to events on a Gun chain reference
+   *
+   * @param {string|Function} tag - Event name or callback function
+   * @param {Function|Object} [arg] - Callback function or options
+   * @param {Object} [eas] - Event aggregation scope
+   * @param {*} [as] - Context for callback execution
+   * @returns {Gun} Returns the Gun chain for method chaining
+   *
+   * Flow:
+   * 1. Handle string-based event subscriptions with callbacks
+   * 2. Handle function-based subscriptions with options
+   * 3. Set up event listening with proper context and cleanup
+   */
   Gun.chain.on = function (tag, arg, eas, as) {
-    // don't rewrite!
-    var cat = this._,
-      root = cat.root,
-      act,
-      off,
-      id,
-      tmp
+    const cat = this._
+    const _root = cat.root
+
+    // Handle string-based event subscription
     if (typeof tag === 'string') {
+      // Return existing subscription if no callback provided
       if (!arg) {
         return cat.on(tag)
       }
-      act = cat.on(tag, arg, eas || cat, as)
-      if (eas && eas.$) {
-        ;(eas.subs || (eas.subs = [])).push(act)
+
+      // Create new subscription
+      const act = cat.on(tag, arg, eas || cat, as)
+
+      // Track subscription for cleanup if eas context provided
+      if (eas?.$ && Array.isArray(eas.subs)) {
+        eas.subs.push(act)
       }
+
       return this
     }
-    var opt = arg
-    ;(opt = true === opt ? { change: true } : opt || {}).not = 1
+
+    // Handle function-based subscription with options
+    let opt = arg
+    opt = opt === true ? { change: true } : opt || {}
+    opt.not = 1
     opt.on = 1
-    //opt.at = cat;
-    //opt.ok = tag;
-    //opt.last = {};
-    var wait = {} // can we assign this to the at instead, like in once?
+
+    // Track waiting state for event handling
+    const _wait = {}
+
+    // Subscribe to data changes
     this.get(tag, opt)
-    /*gun.get(function on(data,key,msg,eve){ var $ = this;
-		if(tmp = root.hatch){ // quick hack!
-			if(wait[$._.id]){ return } wait[$._.id] = 1;
-			tmp.push(function(){on.call($, data,key,msg,eve)});
-			return;
-		}; wait = {}; // end quick hack.
-		tag.call($, data,key,msg,eve);
-	}, opt); // TODO: PERF! Event listener leak!!!?*/
-    /*
-	function one(msg, eve){
-		if(one.stun){ return }
-		var at = msg.$._, data = at.put, tmp;
-		if(tmp = at.link){ data = root.$.get(tmp)._.put }
-		if(opt.not===u && u === data){ return }
-		if(opt.stun===u && (tmp = root.stun) && (tmp = tmp[at.id] || tmp[at.back.id]) && !tmp.end){ // Remember! If you port this into `.get(cb` make sure you allow stun:0 skip option for `.put(`.
-			tmp[id] = function(){one(msg,eve)};
-			return;
-		}
-		//tmp = one.wait || (one.wait = {}); console.log(tmp[at.id] === ''); if(tmp[at.id] !== ''){ tmp[at.id] = tmp[at.id] || setTimeout(function(){tmp[at.id]='';one(msg,eve)},1); return } delete tmp[at.id];
-		// call:
-		if(opt.as){
-			opt.ok.call(opt.as, msg, eve || one);
-		} else {
-			opt.ok.call(at.$, data, msg.get || at.get, msg, eve || one);
-		}
-	};
-	one.at = cat;
-	(cat.act||(cat.act={}))[id = String.random(7)] = one;
-	one.off = function(){ one.stun = 1; if(!cat.act){ return } delete cat.act[id] }
-	cat.on('out', {get: {}});*/
+
     return this
   }
-  // Rules:
-  // 1. If cached, should be fast, but not read while write.
-  // 2. Should not retrigger other listeners, should get triggered even if nothing found.
-  // 3. If the same callback passed to many different once chains, each should resolve - an unsubscribe from the same callback should not effect the state of the other resolving chains, if you do want to cancel them all early you should mutate the callback itself with a flag & check for it at top of callback
-  Gun.chain.once = function (cb, opt) {
-    opt = opt || {} // avoid rewriting
+
+  /**
+   * Subscribe to a single occurrence of an event
+   *
+   * Rules:
+   * 1. If cached, should be fast, but not read while write
+   * 2. Should not retrigger other listeners, should get triggered even if nothing found
+   * 3. Multiple callbacks should resolve independently
+   *
+   * @param {Function} [cb] - Callback function to execute once
+   * @param {Object} [opt={}] - Options object
+   * @param {number} [opt.wait=99] - Timeout in milliseconds
+   * @returns {Gun} Returns the Gun chain or a new chain if no callback
+   *
+   * Flow:
+   * 1. Generate unique ID for this subscription
+   * 2. Set up timeout-based resolution mechanism
+   * 3. Handle data validation and link resolution
+   * 4. Execute callback once and clean up
+   */
+  Gun.chain.once = function (cb, opt = {}) {
+    // Return chainable promise-like interface if no callback
     if (!cb) {
-      return none(this, opt)
+      return createOnceChain(this, opt)
     }
-    var cat = this._,
-      root = cat.root,
-      data = cat.put,
-      id = String.random(7),
-      one,
-      tmp
+
+    const cat = this._
+    const root = cat.root
+    const id = String.random(7)
+
     this.get(
       function (data, key, msg, eve) {
-        var $ = this,
-          at = $._,
-          one = at.one || (at.one = {})
-        if (eve.stun) {
+        const $ = this
+        const at = $._
+        if (!at.one) at.one = {}
+        const one = at.one
+
+        // Skip if event is stunned or already resolved
+        if (eve.stun || one[id] === '') {
           return
         }
-        if ('' === one[id]) {
+
+        const tmp = Gun.valid(data)
+
+        // Handle valid data immediately
+        if (tmp === true) {
+          executeOnce()
           return
         }
-        if (true === (tmp = Gun.valid(data))) {
-          once()
+
+        // Skip if validation error
+        if (typeof tmp === 'string') {
           return
         }
-        if ('string' == typeof tmp) {
-          return
-        } // TODO: BUG? Will this always load?
-        clearTimeout((cat.one || '')[id]) // clear "not found" since they only get set on cat.
+
+        // Clear existing timeouts and set new one
+        clearTimeout(cat.one?.[id])
         clearTimeout(one[id])
-        one[id] = setTimeout(once, opt.wait || 99) // TODO: Bug? This doesn't handle plural chains.
-        function once(f) {
+        one[id] = setTimeout(executeOnce, opt.wait || 99)
+
+        /**
+         * Execute the callback once with proper data resolution
+         * @param {boolean} [force] - Force execution even without data
+         */
+        function executeOnce(force = false) {
+          let resolvedAt = at
+
+          // Handle non-core messages
           if (!at.has && !at.soul) {
-            at = { get: key, put: data }
-          } // handles non-core messages.
-          if (u === (tmp = at.put)) {
-            tmp = ((msg.$$ || '')._ || '').put
+            resolvedAt = { get: key, put: data }
           }
-          if ('string' == typeof Gun.valid(tmp)) {
-            tmp = root.$.get(tmp)._.put
-            if (tmp === u && !f) {
-              one[id] = setTimeout(() => {
-                once(1)
-              }, opt.wait || 99) // TODO: Quick fix. Maybe use ack count for more predictable control?
+
+          let resolvedData = resolvedAt.put
+
+          // Fallback data resolution
+          if (resolvedData === u) {
+            resolvedData = msg.$$?._.put
+          }
+
+          // Handle linked data resolution
+          if (typeof Gun.valid(resolvedData) === 'string') {
+            resolvedData = root.$.get(resolvedData)._.put
+
+            // Retry if linked data not yet available
+            if (resolvedData === u && !force) {
+              one[id] = setTimeout(() => executeOnce(true), opt.wait || 99)
               return
             }
           }
-          //console.log("AND VANISHED", data);
-          if (eve.stun) {
+
+          // Skip if event stunned or already resolved
+          if (eve.stun || one[id] === '') {
             return
           }
-          if ('' === one[id]) {
-            return
-          }
+
+          // Mark as resolved and clean up
           one[id] = ''
+
+          // Unsubscribe if this is a soul or hash-based chain
           if (cat.soul || cat.has) {
             eve.off()
-          } // TODO: Plural chains? // else { ?.off() } // better than one check?
-          cb.call($, tmp, at.get)
-          clearTimeout(one[id]) // clear "not found" since they only get set on cat. // TODO: This was hackily added, is it necessary or important? Probably not, in future try removing this. Was added just as a safety for the `&& !f` check.
+          }
+
+          // Execute callback with resolved data
+          cb.call($, resolvedData, resolvedAt.get)
+
+          // Final cleanup
+          clearTimeout(one[id])
         }
       },
       { on: 1 }
     )
+
     return this
   }
-  function none(gun, opt, chain) {
+
+  /**
+   * Create a chainable once interface without callback
+   * @param {Gun} gun - Gun instance
+   * @param {Object} opt - Options
+   * @returns {Gun} New Gun chain
+   */
+  function createOnceChain(gun, _opt) {
     Gun.log.once(
       'valonce',
-      'Chainable val is experimental, its behavior and API may change moving forward. Please play with it and report bugs and ideas on how to improve it.'
+      'Chainable val is experimental, its behavior and API may change moving forward. ' +
+        'Please play with it and report bugs and ideas on how to improve it.'
     )
-    ;(chain = gun.chain())._.nix = gun.once(function (data, key) {
+
+    const chain = gun.chain()
+
+    // Set up chain cleanup
+    chain._.nix = gun.once(function (_data, _key) {
       chain._.on('in', this._)
     })
-    chain._.lex = gun._.lex // TODO: Better approach in future? This is quick for now.
+
+    // Copy lexical context for proper chaining
+    chain._.lex = gun._.lex
+
     return chain
   }
 
+  /**
+   * Unsubscribe from events and clean up all related resources
+   *
+   * @returns {Gun} Returns the Gun chain for method chaining
+   *
+   * Flow:
+   * 1. Reset acknowledgment state for resubscription capability
+   * 2. Clean up next/previous chain references
+   * 3. Remove from caches and indexes
+   * 4. Recursively clean up linked and mapped references
+   * 5. Emit cleanup event
+   */
   Gun.chain.off = function () {
-    // make off more aggressive. Warning, it might backfire!
-    var at = this._,
-      tmp
-    var cat = at.back
+    const at = this._
+    const cat = at.back
+
     if (!cat) {
-      return
+      return this
     }
-    at.ack = 0 // so can resubscribe.
-    if ((tmp = cat.next)) {
-      if (tmp[at.get]) {
-        delete tmp[at.get]
-      } else {
+
+    // Reset acknowledgment for potential resubscription
+    at.ack = 0
+
+    // Clean up next chain references
+    const next = cat.next
+    if (next) {
+      if (next[at.get]) {
+        delete next[at.get]
       }
     }
-    // TODO: delete cat.one[map.id]?
-    if ((tmp = cat.any)) {
-      delete cat.any
+
+    // Clean up any cache
+    if (cat.any) {
       cat.any = {}
     }
-    if ((tmp = cat.ask)) {
-      delete tmp[at.get]
+
+    // Clean up ask queue
+    const ask = cat.ask
+    if (ask) {
+      delete ask[at.get]
     }
-    if ((tmp = cat.put)) {
-      delete tmp[at.get]
+
+    // Clean up put cache
+    const put = cat.put
+    if (put) {
+      delete put[at.get]
     }
-    if ((tmp = at.soul)) {
-      delete cat.root.graph[tmp]
+
+    // Remove from graph if has soul
+    const soul = at.soul
+    if (soul) {
+      delete cat.root.graph[soul]
     }
-    if ((tmp = at.map)) {
-      Object.keys(tmp).forEach((i, at) => {
-        at = tmp[i] //obj_map(tmp, function(at){
-        if (at.link) {
-          cat.root.$.get(at.link).off()
+
+    // Recursively clean up mapped references
+    const map = at.map
+    if (map) {
+      Object.keys(map).forEach((key) => {
+        const mapAt = map[key]
+        if (mapAt?.link) {
+          cat.root.$.get(mapAt.link).off()
         }
       })
     }
-    if ((tmp = at.next)) {
-      Object.keys(tmp).forEach((i, neat) => {
-        neat = tmp[i] //obj_map(tmp, function(neat){
-        neat.$.off()
+
+    // Recursively clean up nested chains
+    const atNext = at.next
+    if (atNext) {
+      Object.keys(atNext).forEach((key) => {
+        const neat = atNext[key]
+        neat?.$?.off()
       })
     }
-    at.on('off', {})
+
+    // Emit cleanup event
+    at.on('off', empty)
+
     return this
   }
-  var empty = {},
-    noop = () => {},
-    u
 })()
