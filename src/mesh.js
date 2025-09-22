@@ -116,8 +116,7 @@
         parse(raw, (err, msg) => {
           if (err || !msg)
             return mesh.say({ dam: '!', err: 'DAM JSON parse error.' }, peer)
-          console.STAT &&
-            console.STAT(Date.now(), msg.length, '# on hear batch')
+          console.STAT?.(Date.now(), msg.length, '# on hear batch')
           const P = opt.puff
           ;(function go() {
             const S = Date.now()
@@ -127,7 +126,7 @@
               mesh.hear(m, peer)
             }
             msg = msg.slice(i)
-            console.STAT && console.STAT(S, Date.now() - S, 'hear loop')
+            console.STAT?.(S, Date.now() - S, 'hear loop')
             flush(peer)
             if (!msg.length) return
             puff(go, 0)
@@ -193,12 +192,11 @@
       }
       root.on('in', (mesh.last = msg))
       DBG && (DBG.hd = Date.now())
-      console.STAT &&
-        console.STAT(
-          SS,
-          Date.now() - SS,
-          msg.get ? 'msg get' : msg.put ? 'msg put' : 'msg'
-        )
+      console.STAT?.(
+        SS,
+        Date.now() - SS,
+        msg.get ? 'msg get' : msg.put ? 'msg put' : 'msg'
+      )
       dup_track(id)
       if (ash) dup_track(ash)
       mesh.leap = mesh.last = null
@@ -226,7 +224,7 @@
               puff(hash, 0)
               return
             }
-            console.STAT && console.STAT(S, Date.now() - S, 'say json+hash')
+            console.STAT?.(S, Date.now() - S, 'say json+hash')
             msg._.$put = t
             msg['##'] = h
             mesh.say(msg, peer)
@@ -294,10 +292,10 @@
         if (!peer || !peer.id) {
           if (!Object.plain(peer || opt.peers)) return false
           const SS = Date.now()
-          const P = opt.puff,
+          let P = opt.puff,
             ps = opt.peers,
             pl = Object.keys(peer || opt.peers || {})
-          console.STAT && console.STAT(SS, Date.now() - SS, 'peer keys')
+          console.STAT?.(SS, Date.now() - SS, 'peer keys')
           ;(function go() {
             const SS = Date.now()
             loop = 1
@@ -312,7 +310,7 @@
             meta.raw = wr
             loop = 0
             pl = pl.slice(i)
-            console.STAT && console.STAT(SS, Date.now() - SS, 'say loop')
+            console.STAT?.(SS, Date.now() - SS, 'say loop')
             if (!pl.length) return
             puff(go, 0)
             ack && dup_track(ack)
@@ -326,12 +324,11 @@
         if (peer === meta.via) return false
         if ((tmp = meta.yo) && (tmp[peer.url] || tmp[peer.pid] || tmp[peer.id]))
           return false
-        console.STAT &&
-          console.STAT(
-            S,
-            ((DBG || meta).yp = Date.now()) - (meta.y || S),
-            'say prep'
-          )
+        console.STAT?.(
+          S,
+          ((DBG || meta).yp = Date.now()) - (meta.y || S),
+          'say prep'
+        )
         !loop && ack && dup_track(ack)
 
         if (peer.batch) {
@@ -346,7 +343,7 @@
         peer.batch = '['
         const ST = Date.now()
         setTimeout(() => {
-          console.STAT && console.STAT(ST, Date.now() - ST, '0ms TO')
+          console.STAT?.(ST, Date.now() - ST, '0ms TO')
           flush(peer)
         }, opt.gap)
         send(raw, peer)
@@ -404,7 +401,7 @@
             const S = Date.now()
             tmp = raw.indexOf('"put":":])([:"')
             res(u, (raw = raw.slice(0, tmp + 6) + put + raw.slice(tmp + 14)))
-            console.STAT && console.STAT(S, Date.now() - S, 'say slice')
+            console.STAT?.(S, Date.now() - S, 'say slice')
           })
           return
         }
