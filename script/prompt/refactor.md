@@ -1,3 +1,42 @@
+# JavaScript Code Refactoring Request
+
+Transform the provided JavaScript code into a modern, maintainable version compliant with ES2023+ standards, ensuring 100% preservation of original functionality while enhancing readability, performance, and robustness.
+
+## **Core Requirements**
+
+### **Modern JavaScript Standards**
+
+- Replace `var` declarations with `const` for immutable bindings and `let` for mutable ones where appropriate
+- Include the `'use strict';` directive at the module or script level
+- Leverage arrow functions for concise callbacks, destructuring for object/array assignments, optional chaining (`?.`), and nullish coalescing (`??`) for safer operations
+- Incorporate template literals for string interpolation, async/await for asynchronous code (if applicable), and modern array methods like `flat()`, `flatMap()`, and `Array.from()`
+- Use ES modules (`import`/`export`) if the code structure supports it; otherwise, ensure compatibility with bundlers like Webpack or Rollup
+- Add comprehensive JSDoc documentation, including `@param`, `@returns`, `@throws`, and type annotations (e.g., `@type {string}`) for all functions, classes, and variables
+
+### **Code Quality**
+
+- Enforce consistent naming conventions: camelCase for variables/functions, PascalCase for classes/constructors
+- Refactor into focused, single-responsibility functions and modularize where possible (e.g., break large functions into smaller, reusable ones)
+- Eliminate dead/unused code, rename variables for clarity (e.g., avoid single-letter names except in loops), and remove redundant logic
+- Implement robust error handling with try-catch blocks, custom error classes, and input validation using techniques like `typeof` checks, `instanceof`, or libraries like Zod (if external dependencies are allowed)
+- Ensure accessibility in code patterns, such as semantic variable names and avoiding inline styles in DOM manipulations
+
+### **Performance & Safety**
+
+- Add explicit null/undefined checks, defensive programming with type guards, and prevent memory leaks (e.g., remove event listeners in cleanup functions)
+- Optimize loops, conditionals, and computations by reducing redundant operations, using `Map`/`Set` over objects/arrays for better performance when suitable, and minimizing DOM queries
+- Employ safe property access with `?.` and `??`, validate user inputs to prevent injection vulnerabilities, and include resource cleanup (e.g., closing streams or aborting fetch requests)
+- Follow security best practices: sanitize inputs, avoid `eval()` or `new Function()`, and use secure random number generation if needed
+
+## **Expected Output**
+
+- ✅ Preserves 100% of the original functionality, including edge cases and behaviors
+- ✅ Production-ready code with comprehensive error handling, logging (e.g., via `console.error`), and graceful degradation
+- ✅ Extensively documented with JSDoc for all public APIs, inline comments for complex logic, and a high-level overview comment at the top
+- ✅ Adheres to modern JavaScript best practices, including ESLint-compatible style (e.g., no-console in production) and compatibility with tools like Prettier for formatting
+
+---
+
 # Refactor src/state.js for Maintainability and Correctness
 
 ## Objective

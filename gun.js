@@ -21,237 +21,529 @@ if (typeof module !== 'undefined') {
   /* UNBUILD */
 
 	;USE(function(module){
-		// Shim for generic javascript utilities.
-		  String.random = (l, c) => {
-		    var s = ''
-		    l = l || 24 // you are not going to make a 0 length random number, so no need to check type
-		    c = c || '0123456789ABCDEFGHIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz'
-		    while (l-- > 0) {
-		      s += c.charAt(Math.floor(Math.random() * c.length))
+		/**
+		   * JavaScript Utilities Library
+		   *
+		   * A comprehensive collection of utility functions extending native JavaScript objects
+		   * and providing enhanced scheduling capabilities. This library adds methods to String
+		   * and Object prototypes while implementing advanced asynchronous execution patterns.
+		   *
+		   * @version 1.0.0
+		   * @author JavaScript Utilities Team
+		   */
+
+		  // ===== STRING UTILITIES =====
+
+		  /**
+		   * Generates a random string of specified length using provided character set
+		   *
+		   * @param {number} [length=24] - Length of the random string to generate
+		   * @param {string} [charset='0123456789ABCDEFGHIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz'] - Character set to use
+		   * @returns {string} Generated random string
+		   *
+		   * @example
+		   * String.random(8) // Returns: 'aB3xY9mK'
+		   * String.random(4, '0123456789') // Returns: '7421'
+		   */
+		  String.random = (
+		    length = 24,
+		    charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz'
+		  ) => {
+		    let result = ''
+		    const charsetLength = charset.length
+
+		    for (let i = 0; i < length; i++) {
+		      result += charset.charAt(Math.floor(Math.random() * charsetLength))
 		    }
-		    return s
+
+		    return result
 		  }
-		  String.match = (t, o) => {
-		    var tmp, u
-		    if ('string' !== typeof t) {
+
+		  /**
+		   * Advanced string matching utility supporting multiple comparison operators
+		   *
+		   * @param {string} target - The string to test
+		   * @param {string|Object} options - Matching criteria
+		   * @param {string} [options['=']] - Exact match
+		   * @param {string} [options['*']] - Starts with match
+		   * @param {string} [options['>']] - Greater than or starts with
+		   * @param {string} [options['<']] - Less than
+		   * @returns {boolean} True if target matches any of the specified criteria
+		   *
+		   * @example
+		   * String.match('hello', 'hello') // Returns: true (exact match)
+		   * String.match('hello world', {'*': 'hello'}) // Returns: true (starts with)
+		   * String.match('zebra', {'>': 'apple', '<': 'zoo'}) // Returns: true (between range)
+		   */
+		  String.match = (target, options) => {
+		    if (typeof target !== 'string') {
 		      return false
 		    }
-		    if ('string' === typeof o) {
-		      o = { '=': o }
+
+		    // Convert string option to exact match object
+		    if (typeof options === 'string') {
+		      options = { '=': options }
 		    }
-		    o = o || {}
-		    tmp = o['='] || o['*'] || o['>'] || o['<']
-		    if (t === tmp) {
-		      return true
+
+		    options = options || {}
+
+		    // Check exact match first
+		    if (options['='] !== undefined) {
+		      return target === options['=']
 		    }
-		    if (u !== o['=']) {
-		      return false
+
+		    // Check starts with pattern
+		    if (options['*'] !== undefined) {
+		      const prefix = options['*']
+		      return target.startsWith(prefix)
 		    }
-		    tmp = o['*'] || o['>']
-		    if (t.slice(0, (tmp || '').length) === tmp) {
-		      return true
+
+		    // Check range comparisons
+		    const hasGreaterThan = options['>'] !== undefined
+		    const hasLessThan = options['<'] !== undefined
+
+		    if (hasGreaterThan && hasLessThan) {
+		      return target >= options['>'] && target <= options['<']
+		    } else if (hasGreaterThan) {
+		      return target >= options['>']
+		    } else if (hasLessThan) {
+		      return target <= options['<']
 		    }
-		    if (u !== o['*']) {
-		      return false
-		    }
-		    if (u !== o['>'] && u !== o['<']) {
-		      return t >= o['>'] && t <= o['<'] ? true : false
-		    }
-		    if (u !== o['>'] && t >= o['>']) {
-		      return true
-		    }
-		    if (u !== o['<'] && t <= o['<']) {
-		      return true
-		    }
+
 		    return false
 		  }
-		  String.hash = (s, c) => {
-		    // via SO
-		    if (typeof s !== 'string') {
-		      return
+
+		  /**
+		   * Generates a hash code for a string using a simple hash algorithm
+		   * Based on Java's String.hashCode() implementation
+		   *
+		   * @param {string} str - The string to hash
+		   * @param {number} [seed=0] - Initial seed value for the hash
+		   * @returns {number|undefined} Hash code as 32-bit integer, undefined for non-strings
+		   *
+		   * @example
+		   * String.hash('hello') // Returns: 99162322
+		   * String.hash('world', 12345) // Returns: hash with seed
+		   */
+		  String.hash = (str, seed = 0) => {
+		    if (typeof str !== 'string') {
+		      return undefined
 		    }
-		    c = c || 0 // CPU schedule hashing by
-		    if (!s.length) {
-		      return c
+
+		    if (str.length === 0) {
+		      return seed
 		    }
-		    for (let i = 0, l = s.length, n; i < l; ++i) {
-		      n = s.charCodeAt(i)
-		      c = (c << 5) - c + n
-		      c |= 0
+
+		    let hash = seed
+		    for (let i = 0; i < str.length; i++) {
+		      const char = str.charCodeAt(i)
+		      hash = (hash << 5) - hash + char
+		      hash = hash & hash // Convert to 32-bit integer
 		    }
-		    return c
+
+		    return hash
 		  }
-		  var has = Object.prototype.hasOwnProperty
-		  Object.plain = (o) =>
-		    o
-		      ? (o instanceof Object && o.constructor === Object) ||
-		        Object.prototype.toString.call(o).match(/^\[object (\w+)\]$/)[1] ===
-		          'Object'
-		      : false
-		  Object.empty = (o, n) => {
-		    for (var k in o) {
-		      if (has.call(o, k) && (!n || -1 === n.indexOf(k))) {
-		        return false
+
+		  // ===== OBJECT UTILITIES =====
+
+		  const hasOwnProperty = Object.prototype.hasOwnProperty
+
+		  /**
+		   * Determines if an object is a plain object (created by {} or new Object())
+		   *
+		   * @param {*} obj - Value to test
+		   * @returns {boolean} True if the value is a plain object
+		   *
+		   * @example
+		   * Object.plain({}) // Returns: true
+		   * Object.plain([]) // Returns: false
+		   * Object.plain(new Date()) // Returns: false
+		   */
+		  Object.plain = (obj) => {
+		    if (!obj || typeof obj !== 'object') {
+		      return false
+		    }
+
+		    // Check if it's a plain object created by {} or new Object()
+		    return (
+		      obj.constructor === Object ||
+		      Object.prototype.toString.call(obj) === '[object Object]'
+		    )
+		  }
+
+		  /**
+		   * Checks if an object is empty (has no own enumerable properties)
+		   *
+		   * @param {Object} obj - Object to check
+		   * @param {string[]} [excludeKeys] - Keys to exclude from the emptiness check
+		   * @returns {boolean} True if object has no own properties (excluding specified keys)
+		   *
+		   * @example
+		   * Object.empty({}) // Returns: true
+		   * Object.empty({a: 1}) // Returns: false
+		   * Object.empty({a: 1, b: 2}, ['a']) // Returns: false (b still exists)
+		   */
+		  Object.empty = (obj, excludeKeys) => {
+		    if (!obj || typeof obj !== 'object') {
+		      return true
+		    }
+
+		    for (const key in obj) {
+		      if (hasOwnProperty.call(obj, key)) {
+		        if (!excludeKeys || !excludeKeys.includes(key)) {
+		          return false
+		        }
 		      }
 		    }
+
 		    return true
 		  }
-		  Object.keys =
-		    Object.keys ||
-		    ((o) => {
-		      var l = []
-		      for (var k in o) {
-		        if (has.call(o, k)) {
-		          l.push(k)
+
+		  /**
+		   * Polyfill for Object.keys() - returns array of object's own enumerable property names
+		   * Only adds the method if it doesn't already exist (for older browsers)
+		   */
+		  if (!Object.keys) {
+		    Object.keys = (obj) => {
+		      const keys = []
+		      for (const key in obj) {
+		        if (hasOwnProperty.call(obj, key)) {
+		          keys.push(key)
 		        }
 		      }
-		      return l
-		    })
+		      return keys
+		    }
+		  }
+		  // ===== ADVANCED SCHEDULING UTILITIES =====
+
+		  /**
+		   * Enhanced setTimeout with polling capabilities and performance optimization
+		   * Implements frame-aware scheduling to prevent blocking
+		   */
 		  ;(() => {
-		    var u,
-		      sT = setTimeout,
-		      l = 0,
-		      c = 0,
-		      sI =
-		        (typeof setImmediate !== '' + u && setImmediate) ||
-		        ((c, f) => {
-		          if (typeof MessageChannel === `${u}`) {
-		            return sT
+		    const originalSetTimeout = setTimeout
+		    let lastTime = 0
+		    let counter = 0
+
+		    // Create setImmediate polyfill using MessageChannel for better performance
+		    const setImmediatePolyfill = (() => {
+		      if (typeof setImmediate !== 'undefined') {
+		        return setImmediate
+		      }
+
+		      if (typeof MessageChannel !== 'undefined') {
+		        const channel = new MessageChannel()
+		        let callback
+
+		        channel.port1.onmessage = (event) => {
+		          if (event.data === 'trigger' && callback) {
+		            callback()
 		          }
-		          ;(c = new MessageChannel()).port1.onmessage = (e) => {
-		            '' === e.data && f()
-		          }
-		          return (q) => {
-		            f = q
-		            c.port2.postMessage('')
-		          }
-		        })(),
-		      check = (sT.check = sT.check ||
-		        (typeof performance !== '' + u && performance) || {
-		          now: () => Date.now()
-		        })
-		    sT.hold = sT.hold || 9 // half a frame benchmarks faster than < 1ms?
-		    sT.poll =
-		      sT.poll ||
-		      ((f) => {
-		        if (sT.hold >= check.now() - l && c++ < 3333) {
-		          f()
+		        }
+
+		        return (fn) => {
+		          callback = fn
+		          channel.port2.postMessage('trigger')
+		        }
+		      }
+
+		      return originalSetTimeout
+		    })()
+
+		    // Performance timing utility
+		    const performanceTimer = (() => {
+		      if (typeof performance !== 'undefined' && performance.now) {
+		        return performance
+		      }
+		      return { now: () => Date.now() }
+		    })()
+
+		    /**
+		     * Frame hold time - minimum time to hold before yielding control
+		     * @type {number}
+		     */
+		    originalSetTimeout.hold = originalSetTimeout.hold || 9
+
+		    /**
+		     * Performance check utility
+		     * @type {Object}
+		     */
+		    originalSetTimeout.check = originalSetTimeout.check || performanceTimer
+
+		    /**
+		     * Intelligent polling function that yields control when necessary
+		     * Prevents blocking by limiting consecutive executions
+		     *
+		     * @param {Function} fn - Function to execute
+		     */
+		    originalSetTimeout.poll =
+		      originalSetTimeout.poll ||
+		      ((fn) => {
+		        const now = performanceTimer.now()
+
+		        // If we haven't held long enough and haven't exceeded max consecutive runs
+		        if (now - lastTime >= originalSetTimeout.hold && counter++ < 3333) {
+		          fn()
 		          return
 		        }
-		        sI(
-		          () => {
-		            l = check.now()
-		            f()
-		          },
-		          (c = 0)
-		        )
+
+		        // Yield control and reset
+		        setImmediatePolyfill(() => {
+		          lastTime = performanceTimer.now()
+		          counter = 0
+		          fn()
+		        })
 		      })
 		  })()
+
+		  /**
+		   * Turn-based execution system for managing multiple polling operations
+		   * Prevents overwhelming the event loop by scheduling functions in turns
+		   */
 		  ;(() => {
-		    // Too many polls block, this "threads" them in turns over a single thread in time.
-		    var sT = setTimeout,
-		      t = (sT.turn =
-		        sT.turn ||
-		        ((f) => {
-		          1 === s.push(f) && p(T)
-		        })),
-		      s = (t.s = []),
-		      p = sT.poll,
-		      i = 0,
-		      f,
-		      T = () => {
-		        if ((f = s[i++])) {
-		          f()
-		        }
-		        if (i === s.length || 99 === i) {
-		          s = t.s = s.slice(i)
-		          i = 0
-		        }
-		        if (s.length) {
-		          p(T)
-		        }
+		    const originalSetTimeout = setTimeout
+		    const pollFunction = originalSetTimeout.poll
+		    let currentIndex = 0
+		    let currentFunction
+
+		    /**
+		     * Queue for turn-based function execution
+		     * @type {Function[]}
+		     */
+		    const executionQueue = []
+
+		    /**
+		     * Main execution loop for turn-based processing
+		     * Processes functions in queue with automatic cleanup
+		     */
+		    const executeNextTurn = () => {
+		      // Execute current function if available
+		      if ((currentFunction = executionQueue[currentIndex++])) {
+		        currentFunction()
 		      }
+
+		      // Clean up queue when reaching end or batch limit
+		      if (currentIndex === executionQueue.length || currentIndex === 99) {
+		        executionQueue.splice(0, currentIndex)
+		        currentIndex = 0
+		      }
+
+		      // Continue processing if queue has items
+		      if (executionQueue.length > 0) {
+		        pollFunction(executeNextTurn)
+		      }
+		    }
+
+		    /**
+		     * Adds a function to the turn-based execution queue
+		     * Starts processing if this is the first function in queue
+		     *
+		     * @param {Function} fn - Function to add to execution queue
+		     */
+		    const addToTurnQueue = (fn) => {
+		      const isFirstItem = executionQueue.push(fn) === 1
+		      if (isFirstItem) {
+		        pollFunction(executeNextTurn)
+		      }
+		    }
+
+		    // Expose turn queue functionality
+		    addToTurnQueue.s = executionQueue
+		    originalSetTimeout.turn = originalSetTimeout.turn || addToTurnQueue
 		  })()
+
+		  /**
+		   * Batch processing utility for handling large arrays without blocking
+		   * Processes arrays in chunks with configurable batch sizes
+		   */
 		  ;(() => {
-		    var u,
-		      sT = setTimeout,
-		      T = sT.turn
-		    ;(sT.each =
-		      sT.each ||
-		      ((l, f, e, S) => {
-		        S = S || 9
-		        ;(function t(s, L, r) {
-		          if ((L = (s = (l || []).splice(0, S)).length)) {
-		            for (let i = 0; i < L; i++) {
-		              if (u !== (r = f(s[i]))) {
-		                break
-		              }
-		            }
-		            if (u === r) {
-		              T(t)
-		              return
+		    const originalSetTimeout = setTimeout
+		    const turnFunction = originalSetTimeout.turn
+
+		    /**
+		     * Processes an array in batches to prevent UI blocking
+		     *
+		     * @param {Array} list - Array to process
+		     * @param {Function} processor - Function to call for each item
+		     * @param {Function} [callback] - Function to call when processing completes
+		     * @param {number} [batchSize=9] - Number of items to process per batch
+		     *
+		     * @example
+		     * setTimeout.each(largeArray, (item) => {
+		     *   console.log(item);
+		     * }, () => {
+		     *   console.log('Processing complete');
+		     * }, 10);
+		     */
+		    const batchProcessor = (list, processor, callback, batchSize = 9) => {
+		      const processNextBatch = () => {
+		        const batch = (list || []).splice(0, batchSize)
+		        const batchLength = batch.length
+		        let result
+
+		        if (batchLength > 0) {
+		          // Process current batch
+		          for (let i = 0; i < batchLength; i++) {
+		            result = processor(batch[i])
+		            if (result !== undefined) {
+		              break // Stop processing if processor returns a value
 		            }
 		          }
-		          // biome-ignore lint/complexity/useOptionalChain: TODO: Investigate better... odd cases
-		          e && e(r)
-		        })()
-		      }))()
+
+		          // Continue with next batch if no early termination
+		          if (result === undefined) {
+		            turnFunction(processNextBatch)
+		            return
+		          }
+		        }
+
+		        // Call completion callback if provided
+		        if (callback) {
+		          callback(result)
+		        }
+		      }
+
+		      processNextBatch()
+		    }
+
+		    originalSetTimeout.each = originalSetTimeout.each || batchProcessor
 		  })()
 	})(USE, './shim');
 
 	;USE(function(module){
-		// On event emitter generic javascript utility.
-		  module.exports = function onto(tag, arg, as) {
-		    if (!tag) {
+		/**
+		   * Event Emitter Utility - A lightweight event system for JavaScript
+		   *
+		   * This module provides a simple event emitter implementation that allows:
+		   * - Registering event listeners
+		   * - Emitting events to registered listeners
+		   * - Removing event listeners
+		   * - Chaining event listeners
+		   *
+		   * @module EventEmitter
+		   */
+
+		  /**
+		   * Main event emitter function that handles both event registration and emission
+		   *
+		   * @param {string} eventName - The name of the event to listen to or emit
+		   * @param {Function|*} handler - Event handler function or data to emit
+		   * @param {*} context - Optional context for the event handler
+		   * @returns {Object|Function} Returns event system object or listener for chaining
+		   */
+		  function onto(eventName, handler, context) {
+		    // If no event name provided, return the onto function for chaining
+		    if (!eventName) {
 		      return { to: onto }
 		    }
-		    var u,
-		      f = 'function' == typeof arg,
-		      tag =
-		        (this.tag || (this.tag = {}))[tag] ||
-		        (f &&
-		          (this.tag[tag] = {
-		            tag: tag,
-		            to: (onto._ = {
-		              next: function (arg) {
-		                var tmp
-		                if ((tmp = this.to)) {
-		                  tmp.next(arg)
-		                }
-		              }
-		            })
-		          }))
-		    if (f) {
-		      var be = {
-		        as: as,
-		        next: arg,
-		        off:
-		          onto.off ||
-		          (onto.off = function () {
-		            if (this.next === onto._.next) {
-		              return !0
-		            }
-		            if (this === this.the.last) {
-		              this.the.last = this.back
-		            }
-		            this.to.back = this.back
-		            this.next = onto._.next
-		            this.back.to = this.to
-		            if (this.the.last === this.the) {
-		              delete this.on.tag[this.the.tag]
-		            }
-		          }),
-		        on: this,
-		        the: tag,
-		        to: onto._
+
+		    const isFunction = typeof handler === 'function'
+
+		    // Initialize event registry if it doesn't exist
+		    this.tag ??= {}
+
+		    // Get existing event or create new one if handler is a function
+		    let eventRegistry = this.tag[eventName]
+
+		    if (!eventRegistry && isFunction) {
+		      // Create new event registry with terminal node
+		      eventRegistry = this.tag[eventName] = {
+		        tag: eventName,
+		        to: onto.terminalNode
 		      }
-		      ;(be.back = tag.last || tag).to = be
-		      return (tag.last = be)
 		    }
-		    if ((tag = tag.to) && u !== arg) {
-		      tag.next(arg)
+
+		    // If handler is a function, register it as a listener
+		    if (isFunction) {
+		      return registerEventListener(eventRegistry, handler, context, this)
 		    }
-		    return tag
+
+		    // If handler is not a function, emit the event
+		    if (eventRegistry?.to && handler !== undefined) {
+		      eventRegistry.to.next(handler)
+		    }
+
+		    return eventRegistry?.to
+		  }
+
+		  /**
+		   * Terminal node for the event chain - handles the end of the listener chain
+		   */
+		  onto.terminalNode = {
+		    next(data) {
+		      // Pass data to next listener in chain if it exists
+		      this.to?.next(data)
+		    }
+		  }
+
+		  /**
+		   * Registers a new event listener in the event chain
+		   *
+		   * @param {Object} eventRegistry - The event registry object
+		   * @param {Function} handler - The event handler function
+		   * @param {*} context - Optional context for the handler
+		   * @param {Object} emitter - The event emitter instance
+		   * @returns {Object} The new listener object
+		   */
+		  function registerEventListener(eventRegistry, handler, context, emitter) {
+		    const listener = {
+		      as: context,
+		      next: handler,
+		      off: removeListener,
+		      on: emitter,
+		      the: eventRegistry,
+		      to: onto.terminalNode
+		    }
+
+		    // Link the new listener into the chain
+		    const previousLast = eventRegistry.last || eventRegistry
+		    listener.back = previousLast
+		    previousLast.to = listener
+		    eventRegistry.last = listener
+
+		    return listener
+		  }
+
+		  /**
+		   * Removes a listener from the event chain
+		   * This function is bound to each listener object as the 'off' method
+		   *
+		   * @returns {boolean} True if listener was already removed
+		   */
+		  function removeListener() {
+		    // Check if already removed
+		    if (this.next === onto.terminalNode.next) {
+		      return true
+		    }
+
+		    // Update the last pointer if this is the last listener
+		    if (this === this.the.last) {
+		      this.the.last = this.back
+		    }
+
+		    // Remove from the chain by linking previous to next
+		    this.to.back = this.back
+		    this.back.to = this.to
+
+		    // Mark as removed
+		    this.next = onto.terminalNode.next
+
+		    // Clean up event registry if no more listeners
+		    if (this.the.last === this.the) {
+		      delete this.on.tag[this.the.tag]
+		    }
+
+		    return false
+		  }
+
+		  // Attach the removal function to the main onto function for access
+		  onto.off = removeListener
+
+		  // Export the module
+		  if (module?.exports) {
+		    module.exports = onto
+		  } else if (typeof window !== 'undefined') {
+		    window.onto = onto
 		  }
 	})(USE, './onto');
 
@@ -801,45 +1093,154 @@ if (typeof module !== 'undefined') {
 	})(USE, './valid');
 
 	;USE(function(module){
-		USE('./shim')
+		/**
+		   * State Management Module
+		   *
+		   * This module provides a state management system with timestamp-based versioning
+		   * for distributed data synchronization. It generates unique timestamps with
+		   * microsecond precision to ensure proper ordering of state changes.
+		   *
+		   * Key Features:
+		   * - Monotonically increasing timestamps
+		   * - State drift compensation
+		   * - Node state management utilities
+		   *
+		   * @module State
+		   */
+
+		  // Import polyfills and compatibility shims
+		  USE('./shim')
+
+		  // Constants for state management
+		  const NEGATIVE_INFINITY = -Infinity
+		  const DECIMAL_PRECISION = 999 // Microsecond precision multiplier
+		  const UNDEFINED = undefined
+
+		  // Module state variables
+		  let nodeCounter = 0
+		  let lastTimestamp = NEGATIVE_INFINITY
+
+		  /**
+		   * Generates a unique, monotonically increasing timestamp for state versioning.
+		   *
+		   * The timestamp system ensures that each state change gets a unique identifier
+		   * that maintains chronological order, even when multiple changes occur within
+		   * the same millisecond.
+		   *
+		   * Algorithm:
+		   * 1. Get current timestamp in milliseconds
+		   * 2. If current time > last recorded time, reset counter and use current time
+		   * 3. If current time <= last recorded time, increment counter and add fractional precision
+		   * 4. Apply drift compensation for clock synchronization
+		   *
+		   * @returns {number} Unique timestamp with microsecond precision
+		   */
 		  function State() {
-		    var t = Date.now()
-		    if (last < t) {
-		      return (N = 0), (last = t + State.drift)
+		    const currentTime = Date.now()
+
+		    if (lastTimestamp < currentTime) {
+		      // Reset counter for new millisecond
+		      nodeCounter = 0
+		      lastTimestamp = currentTime + State.drift
+		      return lastTimestamp
 		    }
-		    return (last = t + (N += 1) / D + State.drift)
+
+		    // Increment counter and add fractional precision for same millisecond
+		    nodeCounter += 1
+		    lastTimestamp = currentTime + nodeCounter / DECIMAL_PRECISION + State.drift
+		    return lastTimestamp
 		  }
+
+		  /**
+		   * Clock drift compensation value for distributed system synchronization.
+		   * Can be adjusted to compensate for network latency and clock differences.
+		   * @type {number}
+		   */
 		  State.drift = 0
-		  var NI = -Infinity,
-		    N = 0,
-		    D = 999,
-		    last = NI,
-		    u // WARNING! In the future, on machines that are D times faster than 2016AD machines, you will want to increase D by another several orders of magnitude so the processing speed never out paces the decimal resolution (increasing an integer effects the state accuracy).
-		  State.is = (n, k, o) => {
-		    // convenience function to get the state on a key on a node and return it.
-		    var tmp = (k && n && n._ && n._['>']) || o
-		    if (!tmp) {
-		      return
+
+		  /**
+		   * Retrieves the state timestamp for a specific key on a node.
+		   *
+		   * This utility function safely extracts state information from a node's
+		   * metadata structure, providing a fallback value if the state doesn't exist.
+		   *
+		   * @param {Object} node - The node object containing state metadata
+		   * @param {string} key - The key to retrieve state for
+		   * @param {*} fallback - Fallback value if state doesn't exist
+		   * @returns {number|*} The state timestamp or fallback value
+		   *
+		   * @example
+		   * const stateValue = State.is(node, 'name', -Infinity);
+		   * console.log(stateValue); // Returns timestamp or -Infinity
+		   */
+		  State.is = (node, key, fallback) => {
+		    // Safely navigate to the state metadata
+		    const stateMetadata = (key && node?._ && node._['>']) || fallback
+
+		    if (!stateMetadata) {
+		      return fallback
 		    }
-		    return 'number' === typeof (tmp = tmp[k]) ? tmp : NI
+
+		    const stateValue = stateMetadata[key]
+		    return typeof stateValue === 'number' ? stateValue : NEGATIVE_INFINITY
 		  }
-		  State.ify = (n, k, s, v, soul) => {
-		    // put a key's state on a node.
-		    ;(n = n || {})._ = n._ || {} // safety check or init.
+
+		  /**
+		   * Sets state information on a node for a specific key.
+		   *
+		   * This function manages the node's metadata structure, ensuring proper
+		   * initialization and state tracking for distributed synchronization.
+		   *
+		   * Node Structure:
+		   * - node._['#']: Soul identifier (unique node ID)
+		   * - node._['>']: State timestamps for each key
+		   * - node[key]: Actual data values
+		   *
+		   * @param {Object} node - The target node (will be created if null/undefined)
+		   * @param {string} key - The key to set state for
+		   * @param {number} stateTimestamp - The timestamp for this state change
+		   * @param {*} value - The actual value to store
+		   * @param {string} [soul] - Optional soul identifier for the node
+		   * @returns {Object} The modified node object
+		   *
+		   * @example
+		   * const node = State.ify({}, 'name', Date.now(), 'John', 'user123');
+		   * console.log(node.name); // 'John'
+		   * console.log(node._['>'].name); // timestamp
+		   */
+		  State.ify = (node, key, stateTimestamp, value, soul) => {
+		    // Initialize node and metadata if needed
+		    const targetNode = node || {}
+		    targetNode._ = targetNode._ || {}
+
+		    // Set soul identifier if provided
 		    if (soul) {
-		      n._['#'] = soul
-		    } // set a soul if specified.
-		    var tmp = n._['>'] || (n._['>'] = {}) // grab the states data.
-		    if (u !== k && k !== '_') {
-		      if ('number' === typeof s) {
-		        tmp[k] = s
-		      } // add the valid state.
-		      if (u !== v) {
-		        n[k] = v
-		      } // Note: Not its job to check for valid values!
+		      targetNode._['#'] = soul
 		    }
-		    return n
+
+		    // Initialize or get state metadata object
+		    if (!targetNode._['>']) {
+		      targetNode._['>'] = {}
+		    }
+		    const stateMetadata = targetNode._['>']
+
+		    // Set state and value for valid keys (excluding metadata keys)
+		    if (key !== UNDEFINED && key !== '_') {
+		      // Set state timestamp if it's a valid number
+		      if (typeof stateTimestamp === 'number') {
+		        stateMetadata[key] = stateTimestamp
+		      }
+
+		      // Set the actual value (validation is caller's responsibility)
+		      if (value !== UNDEFINED) {
+		        targetNode[key] = value
+		      }
+		    }
+
+		    return targetNode
 		  }
+
+		  // Export the State function and its utilities
 		  module.exports = State
 	})(USE, './state');
 
@@ -2958,197 +3359,331 @@ if (typeof module !== 'undefined') {
 	})(USE, './index');
 
 	;USE(function(module){
-		var Gun = USE('./root')
+		const Gun = USE('./root')
+		  const u = undefined
+		  const empty = Object.freeze({})
+		  const _noop = () => {}
+
+		  /**
+		   * Subscribe to events on a Gun chain reference
+		   *
+		   * This method provides two modes of operation:
+		   * 1. String-based event subscription with named events and callbacks
+		   * 2. Function-based subscription for data changes with options
+		   *
+		   * @param {string|Function} tag - Event name (string) or data retrieval function
+		   * @param {Function|Object} [arg] - Callback function for string events, or options for function events
+		   * @param {Object} [eas] - Event aggregation scope for subscription tracking
+		   * @param {*} [as] - Context for callback execution
+		   * @returns {Gun} Returns the Gun chain for method chaining
+		   *
+		   * @example
+		   * // String-based event subscription
+		   * gun.on('change', (data) => console.log('Data changed:', data));
+		   *
+		   * // Function-based data subscription
+		   * gun.on(function(data, key) {
+		   *   console.log('Got data:', data, 'for key:', key);
+		   * }, { change: true });
+		   */
 		  Gun.chain.on = function (tag, arg, eas, as) {
-		    // don't rewrite!
-		    var cat = this._,
-		      root = cat.root,
-		      act,
-		      off,
-		      id,
-		      tmp
+		    const cat = this._
+		    const _root = cat.root
+
+		    // Handle string-based event subscription
 		    if (typeof tag === 'string') {
+		      // Return existing subscription if no callback provided
 		      if (!arg) {
 		        return cat.on(tag)
 		      }
-		      act = cat.on(tag, arg, eas || cat, as)
-		      if (eas && eas.$) {
-		        ;(eas.subs || (eas.subs = [])).push(act)
+
+		      // Create new subscription with proper context
+		      const act = cat.on(tag, arg, eas || cat, as)
+
+		      // Track subscription for cleanup if event aggregation scope provided
+		      if (eas?.$ && Array.isArray(eas.subs)) {
+		        eas.subs.push(act)
 		      }
+
 		      return this
 		    }
-		    var opt = arg
-		    ;(opt = true === opt ? { change: true } : opt || {}).not = 1
-		    opt.on = 1
-		    //opt.at = cat;
-		    //opt.ok = tag;
-		    //opt.last = {};
-		    var wait = {} // can we assign this to the at instead, like in once?
+
+		    // Handle function-based subscription with options
+		    let opt = arg
+
+		    // Normalize options - convert boolean true to change options
+		    if (opt === true) {
+		      opt = { change: true }
+		    } else {
+		      opt = opt || {}
+		    }
+
+		    // Set internal flags for event handling
+		    opt.not = 1 // Enable "not found" events
+		    opt.on = 1 // Enable continuous listening
+
+		    // Subscribe to data changes using the function as a getter
 		    this.get(tag, opt)
-		    /*gun.get(function on(data,key,msg,eve){ var $ = this;
-				if(tmp = root.hatch){ // quick hack!
-					if(wait[$._.id]){ return } wait[$._.id] = 1;
-					tmp.push(function(){on.call($, data,key,msg,eve)});
-					return;
-				}; wait = {}; // end quick hack.
-				tag.call($, data,key,msg,eve);
-			}, opt); // TODO: PERF! Event listener leak!!!?*/
-		    /*
-			function one(msg, eve){
-				if(one.stun){ return }
-				var at = msg.$._, data = at.put, tmp;
-				if(tmp = at.link){ data = root.$.get(tmp)._.put }
-				if(opt.not===u && u === data){ return }
-				if(opt.stun===u && (tmp = root.stun) && (tmp = tmp[at.id] || tmp[at.back.id]) && !tmp.end){ // Remember! If you port this into `.get(cb` make sure you allow stun:0 skip option for `.put(`.
-					tmp[id] = function(){one(msg,eve)};
-					return;
-				}
-				//tmp = one.wait || (one.wait = {}); console.log(tmp[at.id] === ''); if(tmp[at.id] !== ''){ tmp[at.id] = tmp[at.id] || setTimeout(function(){tmp[at.id]='';one(msg,eve)},1); return } delete tmp[at.id];
-				// call:
-				if(opt.as){
-					opt.ok.call(opt.as, msg, eve || one);
-				} else {
-					opt.ok.call(at.$, data, msg.get || at.get, msg, eve || one);
-				}
-			};
-			one.at = cat;
-			(cat.act||(cat.act={}))[id = String.random(7)] = one;
-			one.off = function(){ one.stun = 1; if(!cat.act){ return } delete cat.act[id] }
-			cat.on('out', {get: {}});*/
+
 		    return this
 		  }
-		  // Rules:
-		  // 1. If cached, should be fast, but not read while write.
-		  // 2. Should not retrigger other listeners, should get triggered even if nothing found.
-		  // 3. If the same callback passed to many different once chains, each should resolve - an unsubscribe from the same callback should not effect the state of the other resolving chains, if you do want to cancel them all early you should mutate the callback itself with a flag & check for it at top of callback
-		  Gun.chain.once = function (cb, opt) {
-		    opt = opt || {} // avoid rewriting
+
+		  /**
+		   * Subscribe to a single occurrence of an event or data retrieval
+		   *
+		   * This method follows specific rules:
+		   * 1. If data is cached, retrieval should be fast but not interfere with writes
+		   * 2. Should not retrigger other listeners, fires even if no data found
+		   * 3. Multiple callbacks resolve independently with their own timeouts
+		   * 4. Handles data validation and link resolution automatically
+		   *
+		   * @param {Function} [cb] - Callback function to execute once when data is available
+		   * @param {Object} [opt={}] - Configuration options
+		   * @param {number} [opt.wait=99] - Timeout in milliseconds before resolving with undefined
+		   * @returns {Gun} Returns the Gun chain or a new chainable interface if no callback
+		   *
+		   * @example
+		   * // With callback
+		   * gun.get('user').once((data, key) => {
+		   *   console.log('User data:', data);
+		   * });
+		   *
+		   * // Chainable without callback (experimental)
+		   * gun.get('user').once().get('name').on(callback);
+		   */
+		  Gun.chain.once = function (cb, opt = {}) {
+		    // Return chainable promise-like interface if no callback provided
 		    if (!cb) {
-		      return none(this, opt)
+		      return createOnceChain(this, opt)
 		    }
-		    var cat = this._,
-		      root = cat.root,
-		      data = cat.put,
-		      id = String.random(7),
-		      one,
-		      tmp
+
+		    const cat = this._
+		    const root = cat.root
+		    const subscriptionId = String.random(7)
+
+		    // Set up the one-time data listener
 		    this.get(
-		      function (data, key, msg, eve) {
-		        var $ = this,
-		          at = $._,
-		          one = at.one || (at.one = {})
-		        if (eve.stun) {
+		      function handleOnceData(data, key, msg, eve) {
+		        const $ = this
+		        const at = $._
+
+		        // Initialize once tracking object
+		        at.one ??= {}
+		        const onceTracker = at.one
+
+		        // Skip if event is stunned or already resolved for this subscription
+		        if (eve.stun || onceTracker[subscriptionId] === '') {
 		          return
 		        }
-		        if ('' === one[id]) {
+
+		        const validationResult = Gun.valid(data)
+
+		        // Handle immediately valid data
+		        if (validationResult === true) {
+		          executeOnceCallback()
 		          return
 		        }
-		        if (true === (tmp = Gun.valid(data))) {
-		          once()
+
+		        // Skip if data validation failed with error
+		        if (typeof validationResult === 'string') {
 		          return
 		        }
-		        if ('string' == typeof tmp) {
-		          return
-		        } // TODO: BUG? Will this always load?
-		        clearTimeout((cat.one || '')[id]) // clear "not found" since they only get set on cat.
-		        clearTimeout(one[id])
-		        one[id] = setTimeout(once, opt.wait || 99) // TODO: Bug? This doesn't handle plural chains.
-		        function once(f) {
+
+		        // Set up timeout for data resolution
+		        clearTimeout(cat.one?.[subscriptionId])
+		        clearTimeout(onceTracker[subscriptionId])
+		        onceTracker[subscriptionId] = setTimeout(
+		          executeOnceCallback,
+		          opt.wait || 99
+		        )
+
+		        /**
+		         * Execute the callback once with properly resolved data
+		         * Handles data resolution, link following, and cleanup
+		         *
+		         * @param {boolean} [forceExecution=false] - Force execution even if data is undefined
+		         */
+		        function executeOnceCallback(forceExecution = false) {
+		          let resolvedContext = at
+
+		          // Handle non-core messages by creating context
 		          if (!at.has && !at.soul) {
-		            at = { get: key, put: data }
-		          } // handles non-core messages.
-		          if (u === (tmp = at.put)) {
-		            tmp = ((msg.$$ || '')._ || '').put
+		            resolvedContext = {
+		              get: key,
+		              put: data
+		            }
 		          }
-		          if ('string' == typeof Gun.valid(tmp)) {
-		            tmp = root.$.get(tmp)._.put
-		            if (tmp === u && !f) {
-		              one[id] = setTimeout(() => {
-		                once(1)
-		              }, opt.wait || 99) // TODO: Quick fix. Maybe use ack count for more predictable control?
+
+		          let resolvedData = resolvedContext.put
+
+		          // Fallback data resolution from message
+		          if (resolvedData === u) {
+		            resolvedData = msg.$$?._.put
+		          }
+
+		          // Handle linked data resolution
+		          const linkValidation = Gun.valid(resolvedData)
+		          if (typeof linkValidation === 'string') {
+		            // Follow the link to get actual data
+		            resolvedData = root.$.get(resolvedData)._.put
+
+		            // Retry if linked data not yet available and not forcing
+		            if (resolvedData === u && !forceExecution) {
+		              onceTracker[subscriptionId] = setTimeout(
+		                () => executeOnceCallback(true),
+		                opt.wait || 99
+		              )
 		              return
 		            }
 		          }
-		          //console.log("AND VANISHED", data);
-		          if (eve.stun) {
+
+		          // Skip if event stunned or already resolved during async operations
+		          if (eve.stun || onceTracker[subscriptionId] === '') {
 		            return
 		          }
-		          if ('' === one[id]) {
-		            return
-		          }
-		          one[id] = ''
+
+		          // Mark as resolved to prevent duplicate execution
+		          onceTracker[subscriptionId] = ''
+
+		          // Unsubscribe if this is a soul or hash-based chain to prevent memory leaks
 		          if (cat.soul || cat.has) {
 		            eve.off()
-		          } // TODO: Plural chains? // else { ?.off() } // better than one check?
-		          cb.call($, tmp, at.get)
-		          clearTimeout(one[id]) // clear "not found" since they only get set on cat. // TODO: This was hackily added, is it necessary or important? Probably not, in future try removing this. Was added just as a safety for the `&& !f` check.
+		          }
+
+		          // Execute callback with resolved data and context
+		          try {
+		            cb.call($, resolvedData, resolvedContext.get)
+		          } catch (error) {
+		            Gun.log('Error in once callback:', error)
+		          }
+
+		          // Final cleanup
+		          clearTimeout(onceTracker[subscriptionId])
 		        }
 		      },
-		      { on: 1 }
+		      { on: 1 } // Enable continuous listening until resolved
 		    )
+
 		    return this
 		  }
-		  function none(gun, opt, chain) {
+
+		  /**
+		   * Create a chainable once interface without immediate callback execution
+		   * This is an experimental feature that allows chaining after once()
+		   *
+		   * @param {Gun} gun - Gun instance to create chain from
+		   * @param {Object} opt - Options object
+		   * @returns {Gun} New Gun chain that resolves once
+		   *
+		   * @private
+		   */
+		  function createOnceChain(gun, opt) {
+		    // Log experimental feature warning
 		    Gun.log.once(
 		      'valonce',
-		      'Chainable val is experimental, its behavior and API may change moving forward. Please play with it and report bugs and ideas on how to improve it.'
+		      'Chainable val is experimental, its behavior and API may change moving forward. ' +
+		        'Please play with it and report bugs and ideas on how to improve it.'
 		    )
-		    ;(chain = gun.chain())._.nix = gun.once(function (data, key) {
+
+		    const chain = gun.chain()
+
+		    // Set up chain cleanup mechanism
+		    chain._.nix = gun.once(function handleChainData(data, key) {
 		      chain._.on('in', this._)
 		    })
-		    chain._.lex = gun._.lex // TODO: Better approach in future? This is quick for now.
+
+		    // Copy lexical context for proper chaining behavior
+		    chain._.lex = gun._.lex
+
 		    return chain
 		  }
 
+		  /**
+		   * Unsubscribe from events and clean up all related resources
+		   *
+		   * This method performs comprehensive cleanup:
+		   * 1. Resets acknowledgment state to allow resubscription
+		   * 2. Cleans up chain references and caches
+		   * 3. Removes from graph storage if has soul
+		   * 4. Recursively cleans up mapped and nested references
+		   * 5. Emits cleanup event for other listeners
+		   *
+		   * @returns {Gun} Returns the Gun chain for method chaining
+		   *
+		   * @example
+		   * const ref = gun.get('user').on(callback);
+		   * // Later...
+		   * ref.off(); // Clean up subscription and resources
+		   */
 		  Gun.chain.off = function () {
-		    // make off more aggressive. Warning, it might backfire!
-		    var at = this._,
-		      tmp
-		    var cat = at.back
+		    const at = this._
+		    const cat = at.back
+
+		    // Early return if no parent context
 		    if (!cat) {
-		      return
+		      return this
 		    }
-		    at.ack = 0 // so can resubscribe.
-		    if ((tmp = cat.next)) {
-		      if (tmp[at.get]) {
-		        delete tmp[at.get]
-		      } else {
-		      }
+
+		    // Reset acknowledgment state to allow resubscription
+		    at.ack = 0
+
+		    // Clean up next chain references
+		    const next = cat.next
+		    if (next && at.get && next[at.get]) {
+		      delete next[at.get]
 		    }
-		    // TODO: delete cat.one[map.id]?
-		    if ((tmp = cat.any)) {
-		      delete cat.any
+
+		    // Clear any cached data
+		    if (cat.any) {
 		      cat.any = {}
 		    }
-		    if ((tmp = cat.ask)) {
-		      delete tmp[at.get]
+
+		    // Clean up pending requests queue
+		    const ask = cat.ask
+		    if (ask && at.get) {
+		      delete ask[at.get]
 		    }
-		    if ((tmp = cat.put)) {
-		      delete tmp[at.get]
+
+		    // Clean up put operation cache
+		    const put = cat.put
+		    if (put && at.get) {
+		      delete put[at.get]
 		    }
-		    if ((tmp = at.soul)) {
-		      delete cat.root.graph[tmp]
+
+		    // Remove from graph storage if this has a soul (persistent identifier)
+		    const soul = at.soul
+		    if (soul && cat.root?.graph) {
+		      delete cat.root.graph[soul]
 		    }
-		    if ((tmp = at.map)) {
-		      Object.keys(tmp).forEach((i, at) => {
-		        at = tmp[i] //obj_map(tmp, function(at){
-		        if (at.link) {
-		          cat.root.$.get(at.link).off()
+
+		    // Recursively clean up mapped references
+		    const map = at.map
+		    if (map) {
+		      Object.keys(map).forEach((key) => {
+		        const mapAt = map[key]
+		        if (mapAt?.link && cat.root?.$) {
+		          // Clean up linked references
+		          cat.root.$.get(mapAt.link).off()
 		        }
 		      })
 		    }
-		    if ((tmp = at.next)) {
-		      Object.keys(tmp).forEach((i, neat) => {
-		        neat = tmp[i] //obj_map(tmp, function(neat){
-		        neat.$.off()
+
+		    // Recursively clean up nested chain references
+		    const atNext = at.next
+		    if (atNext) {
+		      Object.keys(atNext).forEach((key) => {
+		        const nestedChain = atNext[key]
+		        if (nestedChain?.$?.off) {
+		          nestedChain.$.off()
+		        }
 		      })
 		    }
-		    at.on('off', {})
+
+		    // Emit cleanup event to notify other components
+		    at.on('off', empty)
+
 		    return this
 		  }
-		  var empty = {},
-		    noop = () => {},
-		    u
 	})(USE, './on');
 
 	;USE(function(module){
