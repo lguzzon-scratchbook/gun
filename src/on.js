@@ -1,14 +1,12 @@
-; (() => {
-  'use strict'
-
+;(() => {
   const Gun = require('./root')
   const u = undefined
   const empty = Object.freeze({})
-  const _noop = () => { }
+  const _noop = () => {}
 
   /**
    * Subscribe to events on a Gun chain reference
-   * 
+   *
    * This method provides two modes of operation:
    * 1. String-based event subscription with named events and callbacks
    * 2. Function-based subscription for data changes with options
@@ -22,10 +20,10 @@
    * @example
    * // String-based event subscription
    * gun.on('change', (data) => console.log('Data changed:', data));
-   * 
+   *
    * // Function-based data subscription
-   * gun.on(function(data, key) { 
-   *   console.log('Got data:', data, 'for key:', key); 
+   * gun.on(function(data, key) {
+   *   console.log('Got data:', data, 'for key:', key);
    * }, { change: true });
    */
   Gun.chain.on = function (tag, arg, eas, as) {
@@ -62,7 +60,7 @@
 
     // Set internal flags for event handling
     opt.not = 1 // Enable "not found" events
-    opt.on = 1  // Enable continuous listening
+    opt.on = 1 // Enable continuous listening
 
     // Subscribe to data changes using the function as a getter
     this.get(tag, opt)
@@ -72,7 +70,7 @@
 
   /**
    * Subscribe to a single occurrence of an event or data retrieval
-   * 
+   *
    * This method follows specific rules:
    * 1. If data is cached, retrieval should be fast but not interfere with writes
    * 2. Should not retrigger other listeners, fires even if no data found
@@ -89,7 +87,7 @@
    * gun.get('user').once((data, key) => {
    *   console.log('User data:', data);
    * });
-   * 
+   *
    * // Chainable without callback (experimental)
    * gun.get('user').once().get('name').on(callback);
    */
@@ -134,12 +132,15 @@
         // Set up timeout for data resolution
         clearTimeout(cat.one?.[subscriptionId])
         clearTimeout(onceTracker[subscriptionId])
-        onceTracker[subscriptionId] = setTimeout(executeOnceCallback, opt.wait || 99)
+        onceTracker[subscriptionId] = setTimeout(
+          executeOnceCallback,
+          opt.wait || 99
+        )
 
         /**
          * Execute the callback once with properly resolved data
          * Handles data resolution, link following, and cleanup
-         * 
+         *
          * @param {boolean} [forceExecution=false] - Force execution even if data is undefined
          */
         function executeOnceCallback(forceExecution = false) {
@@ -209,11 +210,11 @@
   /**
    * Create a chainable once interface without immediate callback execution
    * This is an experimental feature that allows chaining after once()
-   * 
+   *
    * @param {Gun} gun - Gun instance to create chain from
    * @param {Object} opt - Options object
    * @returns {Gun} New Gun chain that resolves once
-   * 
+   *
    * @private
    */
   function createOnceChain(gun, opt) {
@@ -221,7 +222,7 @@
     Gun.log.once(
       'valonce',
       'Chainable val is experimental, its behavior and API may change moving forward. ' +
-      'Please play with it and report bugs and ideas on how to improve it.'
+        'Please play with it and report bugs and ideas on how to improve it.'
     )
 
     const chain = gun.chain()
@@ -239,7 +240,7 @@
 
   /**
    * Unsubscribe from events and clean up all related resources
-   * 
+   *
    * This method performs comprehensive cleanup:
    * 1. Resets acknowledgment state to allow resubscription
    * 2. Cleans up chain references and caches
