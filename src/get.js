@@ -1,9 +1,15 @@
 ;(() => {
   const Gun = require('./root')
 
-  const emptyObject = {}
+  const EMPTY_OBJECT = Object.create(null)
   const validate = Gun.valid
-  const undefinedValue = undefined
+  const LISTENER_ID_LENGTH = 7
+  const CORE_KEY_EQUALS = '='
+  const CORE_KEY_COLON = ':'
+  const PATH_KEY = '.'
+
+  // Redefine undefined for clarity and to avoid potential issues (though unnecessary)
+  const UNDEFINED = undefined
 
   /**
    * Handles retrieval for string keys.
@@ -22,7 +28,7 @@
       return nodeChain
     }
     const currentContext = context._
-    const nextChains = currentContext.next || emptyObject
+    const nextChains = currentContext.next || EMPTY_OBJECT
     let nodeChain = nextChains[key]
     if (!nodeChain) {
       nodeChain = key && createCachedChain(key, context)
@@ -33,28 +39,28 @@
     const at = msg.$._
     const sat = (msg.$$ || '')._
     let nodeData = (sat || at).put
-    if ((!at.has && !at.soul) || undefinedValue === nodeData) {
+    if ((!at.has && !at.soul) || UNDEFINED === nodeData) {
       // handles non-core
       const passData = msg.put
       nodeData =
-        undefinedValue === (passData || '')['=']
-          ? undefinedValue === (passData || '')[':']
+        UNDEFINED === (passData || '')[CORE_KEY_EQUALS]
+          ? UNDEFINED === (passData || '')[CORE_KEY_COLON]
             ? passData
-            : passData[':']
-          : passData['=']
+            : passData[CORE_KEY_COLON]
+          : passData[CORE_KEY_EQUALS]
     }
     let passData = Gun.valid(nodeData)
     const isLink = 'string' === typeof passData
     if (isLink) {
       passData = rootContext.$.get(passData)._.put
       nodeData =
-        undefinedValue === passData
+        UNDEFINED === passData
           ? getOptions.not
-            ? undefinedValue
+            ? UNDEFINED
             : nodeData
           : passData
     }
-    const shouldSkip = getOptions.not && undefinedValue === nodeData
+    const shouldSkip = getOptions.not && UNDEFINED === nodeData
     return { at, nodeData, sat, shouldSkip }
   }
 
@@ -75,7 +81,7 @@
     const currentContext = nodeChain._
     const getOptions = cb || {}
     const rootContext = currentContext.root
-    let listenerId = String.random(7)
+    let listenerId = String.random(LISTENER_ID_LENGTH)
     getOptions.at = currentContext
     getOptions.ok = key
     let waitList = {} // can we assign this to the at instead, like in once?
@@ -95,7 +101,7 @@
       )
       if (shouldSkip) return
       let stunCheck = {}
-      if (undefinedValue === getOptions.stun) {
+      if (UNDEFINED === getOptions.stun) {
         const stunData = rootContext.stun
         if (stunData?.on) {
           currentContext.$.back((a) => {
@@ -120,8 +126,8 @@
               stunCheck.stun = stunCheck.stun?.last
             }
             if (stunCheck.stun && !stunCheck.stun.end) {
-              //if(isOddNode && undefinedValue === nodeData){ return }
-              //if(undefinedValue === msg.put){ return } // "not found" acks will be found if there is stun, so ignore these.
+              //if(isOddNode && UNDEFINED === nodeData){ return }
+              //if(UNDEFINED === msg.put){ return } // "not found" acks will be found if there is stun, so ignore these.
               if (!stunCheck.stun.add) {
                 stunCheck.stun.add = {}
               }
@@ -132,10 +138,10 @@
             }
           }
         }
-        if (/*isOddNode &&*/ undefinedValue === nodeData) {
+        if (/*isOddNode &&*/ UNDEFINED === nodeData) {
           f = 0
         } // if data not found, keep waiting/trying.
-        /*if(f && undefinedValue === nodeData){
+        /*if(f && UNDEFINED === nodeData){
     currentContext.on('out', getOptions.out);
     return;
   }*/
@@ -143,7 +149,7 @@
         if (
           hatchData &&
           !hatchData.end &&
-          undefinedValue === getOptions.hatch &&
+          UNDEFINED === getOptions.hatch &&
           !f
         ) {
           // quick hack! // What's going on here? Because data is streamed, we get things one by one, but a lot of developers would rather get a callback after each batch instead, so this does that by creating a wait list per chain id that is then called at the end of the batch by the hatch code in the root put listener.
@@ -178,11 +184,11 @@
         messageCopy[k] = msg[k]
       })
       msg = messageCopy
-      msg.put = nodeData // 2019 COMPATIBILITY! TODO: GET RID OF THIS!
+      msg.put = nodeData // Compatibility with 2019 API: modify message.put for old callback style
       getOptions.ok.call(getOptions.as, msg, eve || listenerHandler) // is this the right
     }
     listenerHandler.at = currentContext
-    listenerId = String.random(7)
+    listenerId = String.random(LISTENER_ID_LENGTH)
     if (!currentContext.any) {
       currentContext.any = {}
     }
@@ -340,7 +346,7 @@
       (msg, eve) => {
         const peerCount = Object.keys(gunContext.root.opt.peers).length
         if (
-          undefinedValue === msg.put &&
+          UNDEFINED === msg.put &&
           !gunContext.root.opt.super &&
           peerCount &&
           ++ackCount <= peerCount
@@ -364,7 +370,7 @@
           cb?.(soulId, args, msg, eve)
         }
       },
-      { out: { get: { '.': true } } }
+      { out: { get: { [PATH_KEY]: true } } }
     )
     return gun
   }

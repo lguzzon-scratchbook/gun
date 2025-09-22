@@ -1,3 +1,16 @@
+Improve the following code from @/src/shim.js (e.g., suggest refactorings, optimizations, or better practices).
+After every refactored function or code section check and test.
+To lint/check file use command 'npm run check:file <filename>'
+To test completion and intermediate changes use 'npm test'.
+
+---
+
+Improve the following code from @/src/websocket.js (e.g., suggest refactorings, optimizations, or better practices)
+To lint/check file use command 'npm run check:file <filename>'
+To test completion and intermediate changes use 'npm test'
+
+---
+
 # JavaScript Code Refactoring Request
 
 Transform the provided JavaScript code into a modern, maintainable version compliant with ES2023+ standards, ensuring 100% preservation of original functionality while enhancing readability, performance, and robustness.
@@ -117,7 +130,7 @@ Follows the following constrains during refactoring:
 - Convert all var sections in code to appropriate let and cost using the right scope.
 - Simplify functions code splitting logic for functions bigger than 30-40 lines.
 - Update/Create JSDoc for each function
-- Update/Create documentation for the code in particulara for each decision point (if, case, loop, exception management, ...)
+- Update/Create documentation for the code in particular for each decision point (if, case, loop, exception management, ...)
 
 ---
 

@@ -4,8 +4,9 @@
     var s = ''
     l = l || 24 // you are not going to make a 0 length random number, so no need to check type
     c = c || '0123456789ABCDEFGHIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz'
-    while (l-- > 0) {
+    while (l > 0) {
       s += c.charAt(Math.floor(Math.random() * c.length))
+      l--
     }
     return s
   }
@@ -33,7 +34,7 @@
       return false
     }
     if (u !== o['>'] && u !== o['<']) {
-      return t >= o['>'] && t <= o['<'] ? true : false
+      return !!(t >= o['>'] && t <= o['<'])
     }
     if (u !== o['>'] && t >= o['>']) {
       return true
@@ -86,17 +87,17 @@
       return l
     })
   ;(() => {
-    var u,
-      sT = setTimeout,
+    var sT = setTimeout,
       l = 0,
       c = 0,
       sI =
-        (typeof setImmediate !== '' + u && setImmediate) ||
+        (typeof setImmediate !== 'undefined' && setImmediate) ||
         ((c, f) => {
-          if (typeof MessageChannel === `${u}`) {
+          if (typeof MessageChannel === `undefined`) {
             return sT
           }
-          ;(c = new MessageChannel()).port1.onmessage = (e) => {
+          c = new MessageChannel()
+          c.port1.onmessage = (e) => {
             '' === e.data && f()
           }
           return (q) => {
@@ -104,64 +105,75 @@
             c.port2.postMessage('')
           }
         })(),
-      check = (sT.check = sT.check ||
-        (typeof performance !== '' + u && performance) || {
-          now: () => Date.now()
-        })
+      check
+    if (!sT.check) {
+      sT.check = (typeof performance !== 'undefined' && performance) || {
+        now: () => Date.now()
+      }
+    }
+    check = sT.check
     sT.hold = sT.hold || 9 // half a frame benchmarks faster than < 1ms?
     sT.poll =
       sT.poll ||
       ((f) => {
-        if (sT.hold >= check.now() - l && c++ < 3333) {
+        if (sT.hold >= check.now() - l && c < 3333) {
+          c++
           f()
           return
         }
-        sI(
-          () => {
-            l = check.now()
-            f()
-          },
-          (c = 0)
-        )
+        c = 0
+        sI(() => {
+          l = check.now()
+          f()
+        }, c)
       })
   })()
   ;(() => {
     // Too many polls block, this "threads" them in turns over a single thread in time.
     var sT = setTimeout,
-      t = (sT.turn =
-        sT.turn ||
-        ((f) => {
-          1 === s.push(f) && p(T)
-        })),
-      s = (t.s = []),
-      p = sT.poll,
-      i = 0,
-      f,
-      T = () => {
-        if ((f = s[i++])) {
-          f()
-        }
-        if (i === s.length || 99 === i) {
-          s = t.s = s.slice(i)
-          i = 0
-        }
-        if (s.length) {
-          p(T)
-        }
+      t,
+      s
+    if (!sT.turn) {
+      sT.turn = (f) => {
+        1 === s.push(f) && p(T)
       }
+    }
+    t = sT.turn
+    if (!t.s) t.s = []
+    s = t.s
+    p = sT.poll
+    i = 0
+    let f
+    T = () => {
+      f = s[i]
+      i++
+      if (f) {
+        f()
+      }
+      if (i === s.length || 99 === i) {
+        s = s.slice(i)
+        t.s = s
+        i = 0
+      }
+      if (s.length) {
+        p(T)
+      }
+    }
   })()
   ;(() => {
     var u,
       sT = setTimeout,
       T = sT.turn
-    ;(sT.each =
-      sT.each ||
-      ((l, f, e, S) => {
-        S = S || 9
+    if (!sT.each) {
+      sT.each = (l, f, e, S) => {
+        if (!S) S = 9
         ;(function t(s, L, r) {
-          if ((L = (s = (l || []).splice(0, S)).length)) {
+          s = (l || []).splice(0, S)
+          L = s.length
+          if (L) {
             for (let i = 0; i < L; i++) {
-              if (u !== (r = f(s[i]))) {
+              r = f(s[i])
+              if (u !== r) {
                 break
               }
             }
@@ -173,6 +185,8 @@
           // biome-ignore lint/complexity/useOptionalChain: TODO: Investigate better... odd cases
           e && e(r)
         })()
-      }))()
+      }
+    }
+    sT.each()
   })()
 })()
