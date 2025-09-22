@@ -1,22 +1,32 @@
-;(() => {
+; (() => {
+  'use strict'
+
   const Gun = require('./root')
   const u = undefined
   const empty = Object.freeze({})
-  const _noop = () => {}
+  const _noop = () => { }
 
   /**
    * Subscribe to events on a Gun chain reference
+   * 
+   * This method provides two modes of operation:
+   * 1. String-based event subscription with named events and callbacks
+   * 2. Function-based subscription for data changes with options
    *
-   * @param {string|Function} tag - Event name or callback function
-   * @param {Function|Object} [arg] - Callback function or options
-   * @param {Object} [eas] - Event aggregation scope
+   * @param {string|Function} tag - Event name (string) or data retrieval function
+   * @param {Function|Object} [arg] - Callback function for string events, or options for function events
+   * @param {Object} [eas] - Event aggregation scope for subscription tracking
    * @param {*} [as] - Context for callback execution
    * @returns {Gun} Returns the Gun chain for method chaining
    *
-   * Flow:
-   * 1. Handle string-based event subscriptions with callbacks
-   * 2. Handle function-based subscriptions with options
-   * 3. Set up event listening with proper context and cleanup
+   * @example
+   * // String-based event subscription
+   * gun.on('change', (data) => console.log('Data changed:', data));
+   * 
+   * // Function-based data subscription
+   * gun.on(function(data, key) { 
+   *   console.log('Got data:', data, 'for key:', key); 
+   * }, { change: true });
    */
   Gun.chain.on = function (tag, arg, eas, as) {
     const cat = this._
@@ -29,10 +39,10 @@
         return cat.on(tag)
       }
 
-      // Create new subscription
+      // Create new subscription with proper context
       const act = cat.on(tag, arg, eas || cat, as)
 
-      // Track subscription for cleanup if eas context provided
+      // Track subscription for cleanup if event aggregation scope provided
       if (eas?.$ && Array.isArray(eas.subs)) {
         eas.subs.push(act)
       }
@@ -42,155 +52,186 @@
 
     // Handle function-based subscription with options
     let opt = arg
-    opt = opt === true ? { change: true } : opt || {}
-    opt.not = 1
-    opt.on = 1
 
-    // Track waiting state for event handling
-    const _wait = {}
+    // Normalize options - convert boolean true to change options
+    if (opt === true) {
+      opt = { change: true }
+    } else {
+      opt = opt || {}
+    }
 
-    // Subscribe to data changes
+    // Set internal flags for event handling
+    opt.not = 1 // Enable "not found" events
+    opt.on = 1  // Enable continuous listening
+
+    // Subscribe to data changes using the function as a getter
     this.get(tag, opt)
 
     return this
   }
 
   /**
-   * Subscribe to a single occurrence of an event
+   * Subscribe to a single occurrence of an event or data retrieval
+   * 
+   * This method follows specific rules:
+   * 1. If data is cached, retrieval should be fast but not interfere with writes
+   * 2. Should not retrigger other listeners, fires even if no data found
+   * 3. Multiple callbacks resolve independently with their own timeouts
+   * 4. Handles data validation and link resolution automatically
    *
-   * Rules:
-   * 1. If cached, should be fast, but not read while write
-   * 2. Should not retrigger other listeners, should get triggered even if nothing found
-   * 3. Multiple callbacks should resolve independently
+   * @param {Function} [cb] - Callback function to execute once when data is available
+   * @param {Object} [opt={}] - Configuration options
+   * @param {number} [opt.wait=99] - Timeout in milliseconds before resolving with undefined
+   * @returns {Gun} Returns the Gun chain or a new chainable interface if no callback
    *
-   * @param {Function} [cb] - Callback function to execute once
-   * @param {Object} [opt={}] - Options object
-   * @param {number} [opt.wait=99] - Timeout in milliseconds
-   * @returns {Gun} Returns the Gun chain or a new chain if no callback
-   *
-   * Flow:
-   * 1. Generate unique ID for this subscription
-   * 2. Set up timeout-based resolution mechanism
-   * 3. Handle data validation and link resolution
-   * 4. Execute callback once and clean up
+   * @example
+   * // With callback
+   * gun.get('user').once((data, key) => {
+   *   console.log('User data:', data);
+   * });
+   * 
+   * // Chainable without callback (experimental)
+   * gun.get('user').once().get('name').on(callback);
    */
   Gun.chain.once = function (cb, opt = {}) {
-    // Return chainable promise-like interface if no callback
+    // Return chainable promise-like interface if no callback provided
     if (!cb) {
       return createOnceChain(this, opt)
     }
 
     const cat = this._
     const root = cat.root
-    const id = String.random(7)
+    const subscriptionId = String.random(7)
 
+    // Set up the one-time data listener
     this.get(
-      function (data, key, msg, eve) {
+      function handleOnceData(data, key, msg, eve) {
         const $ = this
         const at = $._
-        if (!at.one) at.one = {}
-        const one = at.one
 
-        // Skip if event is stunned or already resolved
-        if (eve.stun || one[id] === '') {
+        // Initialize once tracking object
+        at.one ??= {}
+        const onceTracker = at.one
+
+        // Skip if event is stunned or already resolved for this subscription
+        if (eve.stun || onceTracker[subscriptionId] === '') {
           return
         }
 
-        const tmp = Gun.valid(data)
+        const validationResult = Gun.valid(data)
 
-        // Handle valid data immediately
-        if (tmp === true) {
-          executeOnce()
+        // Handle immediately valid data
+        if (validationResult === true) {
+          executeOnceCallback()
           return
         }
 
-        // Skip if validation error
-        if (typeof tmp === 'string') {
+        // Skip if data validation failed with error
+        if (typeof validationResult === 'string') {
           return
         }
 
-        // Clear existing timeouts and set new one
-        clearTimeout(cat.one?.[id])
-        clearTimeout(one[id])
-        one[id] = setTimeout(executeOnce, opt.wait || 99)
+        // Set up timeout for data resolution
+        clearTimeout(cat.one?.[subscriptionId])
+        clearTimeout(onceTracker[subscriptionId])
+        onceTracker[subscriptionId] = setTimeout(executeOnceCallback, opt.wait || 99)
 
         /**
-         * Execute the callback once with proper data resolution
-         * @param {boolean} [force] - Force execution even without data
+         * Execute the callback once with properly resolved data
+         * Handles data resolution, link following, and cleanup
+         * 
+         * @param {boolean} [forceExecution=false] - Force execution even if data is undefined
          */
-        function executeOnce(force = false) {
-          let resolvedAt = at
+        function executeOnceCallback(forceExecution = false) {
+          let resolvedContext = at
 
-          // Handle non-core messages
+          // Handle non-core messages by creating context
           if (!at.has && !at.soul) {
-            resolvedAt = { get: key, put: data }
+            resolvedContext = {
+              get: key,
+              put: data
+            }
           }
 
-          let resolvedData = resolvedAt.put
+          let resolvedData = resolvedContext.put
 
-          // Fallback data resolution
+          // Fallback data resolution from message
           if (resolvedData === u) {
             resolvedData = msg.$$?._.put
           }
 
           // Handle linked data resolution
-          if (typeof Gun.valid(resolvedData) === 'string') {
+          const linkValidation = Gun.valid(resolvedData)
+          if (typeof linkValidation === 'string') {
+            // Follow the link to get actual data
             resolvedData = root.$.get(resolvedData)._.put
 
-            // Retry if linked data not yet available
-            if (resolvedData === u && !force) {
-              one[id] = setTimeout(() => executeOnce(true), opt.wait || 99)
+            // Retry if linked data not yet available and not forcing
+            if (resolvedData === u && !forceExecution) {
+              onceTracker[subscriptionId] = setTimeout(
+                () => executeOnceCallback(true),
+                opt.wait || 99
+              )
               return
             }
           }
 
-          // Skip if event stunned or already resolved
-          if (eve.stun || one[id] === '') {
+          // Skip if event stunned or already resolved during async operations
+          if (eve.stun || onceTracker[subscriptionId] === '') {
             return
           }
 
-          // Mark as resolved and clean up
-          one[id] = ''
+          // Mark as resolved to prevent duplicate execution
+          onceTracker[subscriptionId] = ''
 
-          // Unsubscribe if this is a soul or hash-based chain
+          // Unsubscribe if this is a soul or hash-based chain to prevent memory leaks
           if (cat.soul || cat.has) {
             eve.off()
           }
 
-          // Execute callback with resolved data
-          cb.call($, resolvedData, resolvedAt.get)
+          // Execute callback with resolved data and context
+          try {
+            cb.call($, resolvedData, resolvedContext.get)
+          } catch (error) {
+            Gun.log('Error in once callback:', error)
+          }
 
           // Final cleanup
-          clearTimeout(one[id])
+          clearTimeout(onceTracker[subscriptionId])
         }
       },
-      { on: 1 }
+      { on: 1 } // Enable continuous listening until resolved
     )
 
     return this
   }
 
   /**
-   * Create a chainable once interface without callback
-   * @param {Gun} gun - Gun instance
-   * @param {Object} opt - Options
-   * @returns {Gun} New Gun chain
+   * Create a chainable once interface without immediate callback execution
+   * This is an experimental feature that allows chaining after once()
+   * 
+   * @param {Gun} gun - Gun instance to create chain from
+   * @param {Object} opt - Options object
+   * @returns {Gun} New Gun chain that resolves once
+   * 
+   * @private
    */
-  function createOnceChain(gun, _opt) {
+  function createOnceChain(gun, opt) {
+    // Log experimental feature warning
     Gun.log.once(
       'valonce',
       'Chainable val is experimental, its behavior and API may change moving forward. ' +
-        'Please play with it and report bugs and ideas on how to improve it.'
+      'Please play with it and report bugs and ideas on how to improve it.'
     )
 
     const chain = gun.chain()
 
-    // Set up chain cleanup
-    chain._.nix = gun.once(function (_data, _key) {
+    // Set up chain cleanup mechanism
+    chain._.nix = gun.once(function handleChainData(data, key) {
       chain._.on('in', this._)
     })
 
-    // Copy lexical context for proper chaining
+    // Copy lexical context for proper chaining behavior
     chain._.lex = gun._.lex
 
     return chain
@@ -198,55 +239,59 @@
 
   /**
    * Unsubscribe from events and clean up all related resources
+   * 
+   * This method performs comprehensive cleanup:
+   * 1. Resets acknowledgment state to allow resubscription
+   * 2. Cleans up chain references and caches
+   * 3. Removes from graph storage if has soul
+   * 4. Recursively cleans up mapped and nested references
+   * 5. Emits cleanup event for other listeners
    *
    * @returns {Gun} Returns the Gun chain for method chaining
    *
-   * Flow:
-   * 1. Reset acknowledgment state for resubscription capability
-   * 2. Clean up next/previous chain references
-   * 3. Remove from caches and indexes
-   * 4. Recursively clean up linked and mapped references
-   * 5. Emit cleanup event
+   * @example
+   * const ref = gun.get('user').on(callback);
+   * // Later...
+   * ref.off(); // Clean up subscription and resources
    */
   Gun.chain.off = function () {
     const at = this._
     const cat = at.back
 
+    // Early return if no parent context
     if (!cat) {
       return this
     }
 
-    // Reset acknowledgment for potential resubscription
+    // Reset acknowledgment state to allow resubscription
     at.ack = 0
 
     // Clean up next chain references
     const next = cat.next
-    if (next) {
-      if (next[at.get]) {
-        delete next[at.get]
-      }
+    if (next && at.get && next[at.get]) {
+      delete next[at.get]
     }
 
-    // Clean up any cache
+    // Clear any cached data
     if (cat.any) {
       cat.any = {}
     }
 
-    // Clean up ask queue
+    // Clean up pending requests queue
     const ask = cat.ask
-    if (ask) {
+    if (ask && at.get) {
       delete ask[at.get]
     }
 
-    // Clean up put cache
+    // Clean up put operation cache
     const put = cat.put
-    if (put) {
+    if (put && at.get) {
       delete put[at.get]
     }
 
-    // Remove from graph if has soul
+    // Remove from graph storage if this has a soul (persistent identifier)
     const soul = at.soul
-    if (soul) {
+    if (soul && cat.root?.graph) {
       delete cat.root.graph[soul]
     }
 
@@ -255,22 +300,25 @@
     if (map) {
       Object.keys(map).forEach((key) => {
         const mapAt = map[key]
-        if (mapAt?.link) {
+        if (mapAt?.link && cat.root?.$) {
+          // Clean up linked references
           cat.root.$.get(mapAt.link).off()
         }
       })
     }
 
-    // Recursively clean up nested chains
+    // Recursively clean up nested chain references
     const atNext = at.next
     if (atNext) {
       Object.keys(atNext).forEach((key) => {
-        const neat = atNext[key]
-        neat?.$?.off()
+        const nestedChain = atNext[key]
+        if (nestedChain?.$?.off) {
+          nestedChain.$.off()
+        }
       })
     }
 
-    // Emit cleanup event
+    // Emit cleanup event to notify other components
     at.on('off', empty)
 
     return this
