@@ -1,3 +1,73 @@
+# Refactor src/valid.js for Maintainability and Correctness
+
+## Objective
+
+Refactor the `src/valid.js` file to improve code maintainability, readability, and correctness while ensuring all functionality remains intact.
+
+## Refactoring Constraints
+
+### 1. Variable Declaration Updates
+
+- Convert all `var` declarations to appropriate `let` or `const` using proper scope
+- Use `const` for values that won't be reassigned
+- Use `let` for variables that need reassignment
+- Apply block scoping where appropriate
+
+### 2. Function Optimization  
+
+- Split functions larger than 30-40 lines into smaller, focused functions
+- Ensure each function has a single responsibility
+- Maintain clear function naming conventions
+
+### 3. Documentation Requirements
+
+- Update/Create comprehensive JSDoc comments for each function including:
+  - Purpose and behavior description
+  - Parameter types and descriptions  
+  - Return value documentation
+  - Usage examples where helpful
+- Add inline comments for complex logic, decision points, loops, and error handling
+
+### 4. Quality Assurance Process
+
+**After each code change:**
+
+1. Run `npm run check:File <filename>` to validate code quality
+2. Run `npm run test` to ensure functionality is preserved
+3. Fix ALL errors, warnings, and suggestions before proceeding
+4. Document any issues encountered and their resolutions
+
+### 5. Final Validation
+
+Upon completion of all refactoring:
+
+- Execute `npm run check:File <filename>`
+- Execute `npm run test`
+- Ensure zero errors or warnings
+- Provide a summary of changes made
+
+## Success Criteria
+
+- All `var` declarations properly converted
+- No functions exceed 40 lines
+- Complete JSDoc documentation for all functions
+- All quality checks pass without errors
+- Original functionality preserved and tested
+
+---
+
+# Refactor file for maintainability and correctness
+
+Your task is to refactor src/valid.js for maintainability and correctness.
+Follows the following constrains during refactoring:
+
+- Convert all var sections in code to appropriate let and cost using the right scope.
+- Simplify functions code splitting logic for functions bigger than 30-40 lines.
+- Update/Create JSDoc for each function
+- Update/Create documentation for the code in particulara for each decision point (if, case, loop, exception management, ...)
+
+---
+
 # Role
 
 You are the Project Manager for the GUN project, overseeing a systematic refactoring of the JavaScript files: `src/valid.js`, `src/mesh.js`, `src/on.js`, and `src/get.js`. Begin by creating a high-level overview plan for the entire refactoring process, including estimated sections per file and overall timeline assumptions. Then, process each file sequentially.

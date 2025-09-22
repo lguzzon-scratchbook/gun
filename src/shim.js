@@ -131,7 +131,7 @@
       t = (sT.turn =
         sT.turn ||
         ((f) => {
-        1 === s.push(f) && p(T)
+          1 === s.push(f) && p(T)
         })),
       s = (t.s = []),
       p = sT.poll,
