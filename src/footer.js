@@ -56,7 +56,7 @@
     Type.text.random ||
     ((l, c) => {
       DEP('text.random')
-      var s = ''
+      let s = ''
       l = l || 24 // you are not going to make a 0 length random number, so no need to check type
       c = c || '0123456789ABCDEFGHIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz'
       while (l > 0) {
@@ -215,7 +215,7 @@
       return o
     })
   ;(() => {
-    var u
+    const u = undefined
     function map(v, k) {
       if (obj_has(this, k) && u !== this[k]) {
         return
@@ -239,8 +239,8 @@
     })
   ;(() => {
     function empty(_v, i) {
-      var n = this.n,
-        u
+      let n = this.n,
+        u = undefined
       if (n && (i === n || (obj_is(n) && obj_has(n, i)))) {
         return
       }
@@ -270,9 +270,9 @@
       t.r = t.r || []
       t.r.push(k)
     }
-    var keys = Object.keys,
-      map,
-      _u
+    const keys = Object.keys
+    let map,
+      _u = undefined
     Object.keys =
       Object.keys ||
       ((o) =>
@@ -490,7 +490,7 @@
   }
   State.to = (from, k, to) => {
     DEP('state.to')
-    var val = from?.[k]
+    let val = from?.[k]
     if (obj_is(val)) {
       val = obj_copy(val)
     }
@@ -563,7 +563,7 @@
   ;(() => {
     Graph.ify = (obj, env, as) => {
       DEP('graph.ify')
-      var at = { obj: obj, path: [] }
+      let at = { obj: obj, path: [] }
       if (!env) {
         env = {}
       } else if (typeof env === 'string') {
@@ -587,7 +587,7 @@
       return env.graph
     }
     function node(env, at) {
-      var tmp
+      let tmp
       tmp = seen(env, at)
       if ((tmp)) {
         return tmp
@@ -603,9 +603,9 @@
       return at
     }
     function map(v, k, n) {
-      var env = this.env,
-        is,
-        tmp
+      const env = this.env;
+      let is;
+      let tmp;
       if (Node._ === k && obj_has(v, Val.link._)) {
         return n._ // TODO: Bug?
       }
@@ -651,7 +651,7 @@
       return tmp.link //{'#': Node.soul(tmp.node)};
     }
     function soul(id) {
-      var prev = Val.link.is(this.link),
+      let prev = Val.link.is(this.link),
         graph = this.env.graph
       this.link = this.link || Val.link.ify(id)
       this.link[Val.link._] = id
@@ -664,7 +664,7 @@
       }
     }
     function valid(v, k, n, at, env) {
-      var tmp
+      let tmp
       if (Val.is(v)) {
         return true
       }
@@ -682,7 +682,7 @@
       }
     }
     function seen(env, at) {
-      var arr = env.seen,
+      let arr = env.seen,
         i = arr.length,
         has
       while (i--) {
@@ -696,7 +696,7 @@
   })()
   Graph.node = (node) => {
     DEP('graph.node')
-    var soul = Node.soul(node)
+    let soul = Node.soul(node)
     if (!soul) {
       return
     }
@@ -708,13 +708,13 @@
       if (!graph) {
         return
       }
-      var obj = {}
+      let obj = {}
       opt = opt || { seen: {} }
       obj_map(graph[root], map, { graph: graph, obj: obj, opt: opt })
       return obj
     }
     function map(v, k) {
-      var tmp, obj
+      let tmp, obj
       if (Node._ === k) {
         if (obj_empty(v, Val.link._)) {
           return
