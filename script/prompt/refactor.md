@@ -1,3 +1,94 @@
+Task: Improve the code in "@/src/footer.js".
+
+Objectives:
+
+1. Resolve all VS Code problems, warnings, and errors.
+1. Apply modern ECMAScript standards (ES2025 and beyond where stable), including:
+   - Optional Chaining (`?.`)
+   - Nullish Coalescing (`??`)
+   - Nullish Coalescing Assignment (`??=`)
+   - Modern variable declarations (`let`, `const`)
+   - Block scoping and variable lifetime optimization
+1. Remove unnecessary hoisting by properly scoping variables.
+1. Suggest and apply performance optimizations and best practices.
+1. Preserve the existing outer IIFE if present.
+
+Process:
+
+- Work incrementally.
+- After completing each change or section, run:
+  - check - `npm run check:file <filename>`
+  - test - `npm test`.
+- Fix up all the checks
+- Only proceed to the next step if tests pass.
+
+Output Requirements:
+
+- For each change:
+  - Show **Before → After** code snippet.
+  - Explain the **reason** for the change and its benefits.
+- Deliver final complete updated file when all changes are finished.
+
+Constraints:
+
+- Do not modify unrelated code.
+- Maintain functional equivalence unless optimization explicitly requires change.
+
+---
+
+- Task: Refactor and modernize the code in "@/src/footer.js".
+
+Objectives:
+
+1. Resolve all VS Code problems, warnings, and errors.
+2. Apply modern ECMAScript standards (ES2025 and beyond where stable), including:
+   - Optional Chaining (`?.`)
+   - Nullish Coalescing (`??`)
+   - Nullish Coalescing Assignment (`??=`)
+   - Modern variable declarations (`let`, `const`)
+   - Block scoping and variable lifetime optimization
+3. Remove unnecessary hoisting by properly scoping variables.
+4. Suggest and apply performance optimizations and best practices.
+5. Preserve the existing outer IIFE if present.
+
+Process:
+
+- Work incrementally.
+- After completing each change or section, run:
+  - check - `npm run check:file <filename>`
+  - test - `npm test`.
+- Fix up all the checks
+- Only proceed to the next step if tests pass.
+
+Output Requirements:
+
+- For each change:
+  - Show **Before → After** code snippet.
+  - Explain the **reason** for the change and its benefits.
+- Deliver final complete updated file when all changes are finished.
+
+Constraints:
+
+- Do not modify unrelated code.
+- Maintain functional equivalence unless optimization explicitly requires change.
+
+---
+
+ Nullish Coalescing Assignment Operator (??=),  Nullish Coalescing Assignment Operator (??=), Optional Chaining,
+
+---
+
+Improve the code in file @/src/footer.js (e.g. fix vscode Problems, use ES2025 construct and patterns, Coalescing Operators, Nullish Coalescing Assignment Operator (??=), Nullish Coalescing Assignment Operator (??=), Optional Chaining,optimize variable life line (remove hoisting in a proper way) suggest refactorings, optimizations, or better practices),
+Constraints
+-presencve outer IIFE if present.
+After each step/section of improvement use command 'npm test' until test is passed.
+
+---
+Improve the code from @/src/footer.js (e.g. fix vscode Problems, use ES2025 construct and patterns, suggest refactorings, optimizations, or better practices),
+After each step/section of improvement use command 'npm test' until test is passed
+
+---
+
 Improve the following code from @/src/shim.js (e.g., suggest refactorings, optimizations, or better practices).
 After every refactored function or code section check and test.
 To lint/check file use command 'npm run check:file <filename>'

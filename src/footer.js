@@ -1,11 +1,13 @@
-/* BELOW IS TEMPORARY FOR OLD INTERNAL COMPATIBILITY, THEY ARE IMMEDIATELY DEPRECATED AND WILL BE REMOVED IN NEXT VERSION */
 ;(() => {
+  /* BELOW IS TEMPORARY FOR OLD INTERNAL COMPATIBILITY, THEY ARE IMMEDIATELY DEPRECATED AND WILL BE REMOVED IN NEXT VERSION */
+  const u = undefined
   if (typeof Gun === 'undefined') {
     return
   }
   const DEP = (n) => {
     console.warn(
-      `Warning! Deprecated internal utility will break in next version: ${n}`
+      'Warning! Deprecated internal utility will break in next version:',
+      n
     )
   }
   // Generic javascript utilities.
@@ -33,27 +35,14 @@
     }
   }
   Type.text = Type.text || {
-    hash: (s, c) => {
-      // via SO
-      DEP('text.hash')
-      if (typeof s !== 'string') {
-        return
-      }
-      c = c || 0
-      if (!s.length) {
-        return c
-      }
-      let i
-      let l
-      let n
-      for (i = 0, l = s.length, void 0; i < l; ++i) {
-        n = s.charCodeAt(i)
-        c = (c << 5) - c + n
-        c |= 0
-      }
-      return c
-    },
-    ify: (t) => {
+    is: (t) => {
+      DEP('text')
+      return typeof t === 'string'
+    }
+  }
+  Type.text.ify =
+    Type.text.ify ||
+    ((t) => {
       DEP('text.ify')
       if (Type.text.is(t)) {
         return t
@@ -62,15 +51,26 @@
         return JSON.stringify(t)
       }
       return t?.toString?.() ?? t
-    },
-    is: (t) => {
-      DEP('text')
-      return typeof t === 'string'
-    },
-    match: (t, o) => {
-      let tmp
+    })
+  Type.text.random =
+    Type.text.random ||
+    ((l, c) => {
+      DEP('text.random')
+      var s = ''
+      l = l || 24 // you are not going to make a 0 length random number, so no need to check type
+      c = c || '0123456789ABCDEFGHIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz'
+      while (l > 0) {
+        s += c.charAt(Math.floor(Math.random() * c.length))
+        l--
+      }
+      return s
+    })
+  Type.text.match =
+    Type.text.match ||
+    ((t, o) => {
+      let tmp, u
       DEP('text.match')
-      if ('string' !== typeof t) {
+      if (typeof t !== 'string') {
         return false
       }
       if (typeof o === 'string') {
@@ -81,51 +81,59 @@
       if (t === tmp) {
         return true
       }
-      if (undefined !== o['=']) {
+      if (u !== o['=']) {
         return false
       }
       tmp = o['*'] || o['>'] || o['<']
       if (t.slice(0, (tmp || '').length) === tmp) {
         return true
       }
-      if (undefined !== o['*']) {
+      if (u !== o['*']) {
         return false
       }
-      if (undefined !== o['>'] && undefined !== o['<']) {
-        return t >= o['>'] && t <= o['<']
+      if (u !== o['>'] && u !== o['<']) {
+        return !!(t >= o['>'] && t <= o['<'])
       }
-      if (undefined !== o['>'] && t >= o['>']) {
+      if (u !== o['>'] && t >= o['>']) {
         return true
       }
-      if (undefined !== o['<'] && t <= o['<']) {
+      if (u !== o['<'] && t <= o['<']) {
         return true
       }
       return false
-    },
-    random: (l, c) => {
-      DEP('text.random')
-      let s = ''
-      l = l || 24 // you are not going to make a 0 length random number, so no need to check type
-      c = c || '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-      while (l > 0) {
-        s += c.charAt(Math.floor(Math.random() * c.length))
-        l--
+    })
+  Type.text.hash =
+    Type.text.hash ||
+    ((s, c) => {
+      // via SO
+      DEP('text.hash')
+      if (typeof s !== 'string') {
+        return
       }
-      return s
-    }
-  }
+      c ??= 0
+      if (!s.length) {
+        return c
+      }
+      let i = 0
+      const l = s.length
+      let n
+      for (; i < l; ++i) {
+        n = s.charCodeAt(i)
+        c = (c << 5) - c + n
+        c |= 0
+      }
+      return c
+    })
   Type.list = Type.list || {
-    index: 1, // change this to 0 if you want non-logical, non-mathematical, non-matrix, non-convenient array notation
     is: (l) => {
       DEP('list')
       return Array.isArray(l)
-    },
-    map: (l, c, _) => {
-      DEP('list.map')
-      return obj_map(l, c, _)
-    },
-    slit: Array.prototype.slice,
-    sort: (k) => {
+    }
+  }
+  Type.list.slit = Type.list.slit || Array.prototype.slice
+  Type.list.sort =
+    Type.list.sort ||
+    ((k) => {
       // creates a new sort function based off some key
       DEP('list.sort')
       return (A, B) => {
@@ -142,19 +150,41 @@
           return 0
         }
       }
+    })
+  Type.list.map =
+    Type.list.map ||
+    ((l, c, _) => {
+      DEP('list.map')
+      return obj_map(l, c, _)
+    })
+  Type.list.index = 1 // change this to 0 if you want non-logical, non-mathematical, non-matrix, non-convenient array notation
+  Type.obj = Type.boj || {
+    is: (o) => {
+      DEP('obj')
+      return o
+        ? (o instanceof Object && o.constructor === Object) ||
+            Object.prototype.toString.call(o).match(/^\[object (\w+)\]$/)[1] ===
+              'Object'
+        : false
     }
   }
-  Type.obj = Type.boj || {
-    as: (o, k, v, u) => {
-      DEP('obj.as')
-      o[k] = o[k] || (u === v ? {} : v)
-      return o[k]
-    },
-    copy: (o) => {
-      DEP('obj.copy') // because http://web.archive.org/web/20140328224025/http://jsperf.com/cloning-an-object/2
-      return !o ? o : JSON.parse(JSON.stringify(o)) // is shockingly faster than anything else, and our data has to be a subset of JSON anyways!
-    },
-    del: (o, k) => {
+  Type.obj.put =
+    Type.obj.put ||
+    ((o, k, v) => {
+      DEP('obj.put')
+      const target = o || {}
+      target[k] = v
+      return target
+    })
+  Type.obj.has =
+    Type.obj.has ||
+    ((o, k) => {
+      DEP('obj.has')
+      return o && Object.hasOwn(o, k)
+    })
+  Type.obj.del =
+    Type.obj.del ||
+    ((o, k) => {
       DEP('obj.del')
       if (!o) {
         return
@@ -162,80 +192,106 @@
       o[k] = null
       delete o[k]
       return o
-    },
-    empty: (() => {
-      function empty(_v, i) {
-        const n = this.n
-        if (n && (i === n || (obj_is(n) && Object.hasOwn(n, i)))) {
-          return
-        }
-        if (undefined !== i) {
-          return true
-        }
-      }
-      return (o, n) => {
-        DEP('obj.empty')
-        if (!o) {
-          return true
-        }
-        return !obj_map(o, empty, { n: n })
-      }
-    })(),
-    has: (o, k) => {
-      DEP('obj.has')
-      return Object.hasOwn(o, k)
-    },
-    ify: (o) => {
+    })
+  Type.obj.as =
+    Type.obj.as ||
+    ((o, k, v, u) => {
+      DEP('obj.as')
+      o[k] = o[k] || (u === v ? {} : v)
+      return o[k]
+    })
+  Type.obj.ify =
+    Type.obj.ify ||
+    ((o) => {
       DEP('obj.ify')
       if (obj_is(o)) {
         return o
       }
       try {
         o = JSON.parse(o)
-      } catch {
+      } catch (_e) {
         o = {}
       }
       return o
-    },
-    is: (o) => {
-      DEP('obj')
-      return o
-        ? (o instanceof Object && o.constructor === Object) ||
-            Object.prototype.toString
-              .call(o)
-              .match(/^\[object (\w+)\]$/)?.[1] === 'Object'
-        : false
-    },
-    map: (() => {
-      function t(...args) {
-        if (args.length === 2) {
-          const [k, v] = args
-          t.r = t.r || {}
-          t.r[k] = v
-          return
-        }
-        const [k] = args
-        t.r = t.r || []
-        t.r.push(k)
+    })
+  ;(() => {
+    var u
+    function map(v, k) {
+      if (obj_has(this, k) && u !== this[k]) {
+        return
       }
-      const keys = Object.keys
-      let map
-      Object.keys =
-        Object.keys ||
-        ((o) =>
-          map(o, (_v, k, t) => {
-            t(k)
-          }))
-      return (l, c, _) => {
+      this[k] = v
+    }
+    Type.obj.to =
+      Type.obj.to ||
+      ((from, to) => {
+        DEP('obj.to')
+        to = to || {}
+        obj_map(from, map, to)
+        return to
+      })
+  })()
+  Type.obj.copy =
+    Type.obj.copy ||
+    ((o) => {
+      DEP('obj.copy') // because http://web.archive.org/web/20140328224025/http://jsperf.com/cloning-an-object/2
+      return !o ? o : JSON.parse(JSON.stringify(o)) // is shockingly faster than anything else, and our data has to be a subset of JSON anyways!
+    })
+  ;(() => {
+    function empty(_v, i) {
+      var n = this.n,
+        u
+      if (n && (i === n || (obj_is(n) && obj_has(n, i)))) {
+        return
+      }
+      if (u !== i) {
+        return true
+      }
+    }
+    Type.obj.empty =
+      Type.obj.empty ||
+      ((o, n) => {
+        DEP('obj.empty')
+        if (!o) {
+          return true
+        }
+        return !obj_map(o, empty, { n: n })
+      })
+  })()
+  ;(() => {
+    function t(...args) {
+      if (args.length === 2) {
+        const [k, v] = args
+        t.r = t.r || {}
+        t.r[k] = v
+        return
+      }
+      const [k] = args
+      t.r = t.r || []
+      t.r.push(k)
+    }
+    var keys = Object.keys,
+      map,
+      _u
+    Object.keys =
+      Object.keys ||
+      ((o) =>
+        map(o, (_v, k, t) => {
+          t(k)
+        }))
+    Type.obj.map = map =
+      Type.obj.map ||
+      ((l, c, _) => {
         DEP('obj.map')
-        let i = 0
-        let x
-        let r
-        let ll
-        let lle
-        let ii
-        const f = typeof c === 'function'
-        t.r = undefined
+        const u = undefined
+        let i = 0,
+          x,
+          r,
+          ll,
+          lle,
+          ii,
+          f = 'function' === typeof c
+        t.r = u
         if (keys && obj_is(l)) {
           ll = keys(l)
           lle = true
@@ -247,7 +303,7 @@
             ii = i + Type.list.index
             if (f) {
               r = lle ? c.call(_, l[ll[i]], ll[i], t) : c.call(_, l[i], ii, t)
-              if (r !== undefined) {
+              if (r !== u) {
                 return r
               }
             } else {
@@ -262,7 +318,7 @@
             if (f) {
               if (obj_has(l, i)) {
                 r = _ ? c.call(_, l[i], i, t) : c(l[i], i, t)
-                if (r !== undefined) {
+                if (r !== u) {
                   return r
                 }
               }
@@ -275,75 +331,47 @@
           }
         }
         return f ? t.r : Type.list.index ? 0 : -1
-      }
-    })(),
-    put: (o, k, v) => {
-      DEP('obj.put')
-      const temp = o || {}
-      temp[k] = v
-      return temp
-    },
-    to: (() => {
-      function map(v, k) {
-        if (obj_has(this, k) && undefined !== this[k]) {
-          return
-        }
-        this[k] = v
-      }
-      return (from, to) => {
-        DEP('obj.to')
-        to = to || {}
-        obj_map(from, map, to)
-        return to
-      }
-    })()
-  }
+      })
+  })()
   Type.time = Type.time || {}
   Type.time.is =
     Type.time.is ||
     ((t) => {
       DEP('time')
-      return t ? t instanceof Date : Date.now()
+      return t ? t instanceof Date : +Date.now()
     })
 
+  const fn_is = Type.fn.is
   const list_is = Type.list.is
-  const obj = Type.obj
-  const obj_is = obj.is
-  const obj_has = obj.has
-  const obj_map = obj.map
-
-  var Val = {
-    is: (v) => {
-      DEP('val.is') // Valid values are a subset of JSON: null, binary, number (!Infinity), text, or a soul relation. Arrays need special algorithms to handle concurrency, so they are not supported directly. Use an extension that supports them if needed but research their problems first.
-      if (v === undefined) {
-        return false
-      }
-      if (v === null) {
-        return true
-      } // "deletes", nulling out keys.
-      if (v === Infinity) {
-        return false
-      } // we want this to be, but JSON does not support it, sad face.
-      if (
-        text_is(v) || // by "text" we mean strings.
-        bi_is(v) || // by "binary" we mean boolean.
-        num_is(v)
-      ) {
-        // by "number" we mean integers or decimals.
-        return true // simple values are valid.
-      }
-      return Val.link.is(v) || false // is the value a soul relation? Then it is valid and return it. If not, everything else remaining is an invalid data type. Custom extensions can be built on top of these primitives to support other types.
-    },
-    link: { _: '#' }
+  const Val = {}
+  Val.is = (v) => {
+    DEP('val.is') // Valid values are a subset of JSON: null, binary, number (!Infinity), text, or a soul relation. Arrays need special algorithms to handle concurrency, so they are not supported directly. Use an extension that supports them if needed but research their problems first.
+    if (v === u) {
+      return false
+    }
+    if (v === null) {
+      return true
+    } // "deletes", nulling out keys.
+    if (v === Infinity) {
+      return false
+    } // we want this to be, but JSON does not support it, sad face.
+    if (
+      text_is(v) || // by "text" we mean strings.
+      bi_is(v) || // by "binary" we mean boolean.
+      num_is(v)
+    ) {
+      // by "number" we mean integers or decimals.
+      return true // simple values are valid.
+    }
+    return Val.link.is(v) || false // is the value a soul relation? Then it is valid and return it. If not, everything else remaining is an invalid data type. Custom extensions can be built on top of these primitives to support other types.
   }
-  Val.rel = Val.link
+  Val.link = Val.rel = { _: '#' }
   ;(() => {
     Val.link.is = (v) => {
       DEP('val.link.is') // this defines whether an object is a soul relation or not, they look like this: {'#': 'UUID'}
-      let o
-      if (v?.[rel_] && !v?._ && obj_is(v)) {
+      if (v?.[rel_] && !v._ && obj_is(v)) {
         // must be an object.
-        o = {}
+        const o = {}
         obj_map(v, map, o)
         if (o.id) {
           // a valid id was found.
@@ -355,14 +383,13 @@
     function map(s, k) {
       if (this.id) {
         this.id = false
-        return this.id
+        return
       } // if ID is already defined AND we're still looping through the object, it is considered invalid.
       if (k === rel_ && text_is(s)) {
         // the key should be '#' and have a text value.
         this.id = s // we found the soul!
       } else {
-        this.id = false
-        return this.id // if there exists anything else on the object that isn't the soul, then it is considered invalid.
+        this.id = false // if there exists anything else on the object that isn't the soul, then it is considered invalid.
       }
     }
   })()
@@ -372,14 +399,10 @@
   } // convert a soul into a relation and return it.
   Type.obj.has._ = '.'
   const rel_ = Val.link._
-  var bi_is = Type.bi.is
-  var num_is = Type.num.is
-  var text_is = Type.text.is
-  const obj_put = obj.put
 
   Type.val = Type.val || Val
 
-  var Node = { _: '_' }
+  const Node = { _: '_' }
   Node.soul = (n, o) => {
     DEP('node.soul')
     return n?._?.[o || soul_]
@@ -396,14 +419,14 @@
   ;(() => {
     Node.is = (n, cb, as) => {
       DEP('node.is')
-      let s // checks to see if an object is a valid node.
-      if (!obj_is2(n)) {
+      // checks to see if an object is a valid node.
+      if (!obj_is(n)) {
         return false
       } // must be an object.
-      s = Node.soul(n)
+      const s = Node.soul(n)
       if (s) {
         // must have a soul on it.
-        return !obj_map2(n, map, { as: as, cb: cb, n: n, s: s })
+        return !obj_map(n, map, { as: as, cb: cb, n: n, s: s })
       }
       return false // nope! This was not a valid node.
     }
@@ -427,15 +450,15 @@
         o = {}
       } else if (typeof o === 'string') {
         o = { soul: o }
-      } else if (typeof o === 'function') {
+      } else if ('function' === typeof o) {
         o = { map: o }
       }
       if (o.map) {
-        o.node = o.map.call(as, obj, undefined, o.node || {})
+        o.node = o.map.call(as, obj, u, o.node || {})
       }
       o.node = Node.soul.ify(o.node || {}, o)
       if (o.node) {
-        obj_map2(obj, map, { as: as, o: o })
+        obj_map(obj, map, { as: as, o: o })
       }
       return o.node // This will only be a valid node if the object wasn't already deep!
     }
@@ -444,8 +467,8 @@
       let tmp
       if (o.map) {
         tmp = o.map.call(this.as, v, `${k}`, o.node)
-        if (undefined === tmp) {
-          obj_del2(o.node, k)
+        if (u === tmp) {
+          obj_del(o.node, k)
         } else if (o.node) {
           o.node[k] = tmp
         }
@@ -456,16 +479,11 @@
       }
     }
   })()
-  const obj2 = Type.obj
-  const obj_is2 = obj2.is
-  const obj_del2 = obj2.del
-  const obj_map2 = obj2.map
-  var text = Type.text
-  var text_random = text.random
-  var soul_ = Node.soul._
+  const soul_ = Node.soul._
+  const _u = undefined
   Type.node = Type.node || Node
 
-  var State = Type.state
+  const State = Type.state
   State.lex = () => {
     DEP('state.lex')
     return State().toString(36).replace('.', '')
@@ -473,34 +491,33 @@
   State.to = (from, k, to) => {
     DEP('state.to')
     var val = from?.[k]
-    if (obj_is3(val)) {
-      val = obj_copy3(val)
+    if (obj_is(val)) {
+      val = obj_copy(val)
     }
     return State.ify(to, k, State.is(from, k), val, Node.soul(from))
   }
   ;(() => {
     State.map = (cb, s, as) => {
       DEP('state.map')
-
+      const u = undefined
       const temp = cb || s
-      const o = obj_is3(temp) ? temp : null
-      const temp2 = cb || s
-      cb = fn_is3(temp2) ? temp2 : null
+      const o = obj_is(temp) ? temp : null
+      cb = fn_is(temp) ? temp : null
       if (o && !cb) {
-        s = num_is3(s) ? s : State()
+        s = num_is(s) ? s : State()
         o[N_] = o[N_] || {}
-        obj_map3(o, map, { o: o, s: s })
+        obj_map(o, map, { o: o, s: s })
         return o
       }
-      as = as || obj_is3(s) ? s : undefined
-      s = num_is3(s) ? s : State()
+      as = as || obj_is(s) ? s : u
+      s = num_is(s) ? s : State()
       return function (v, k, o, opt) {
         if (!cb) {
           map.call({ o: o, s: s }, v, k)
           return v
         }
         cb.call(as || this || {}, v, k, o, opt)
-        if (obj_has3(o, k) && undefined === o[k]) {
+        if (obj_has(o, k) && u === o[k]) {
           return
         }
         map.call({ o: o, s: s }, v, k)
@@ -513,25 +530,16 @@
       State.ify(this.o, k, this.s)
     }
   })()
-  const obj3 = Type.obj
-  const obj_has3 = obj3.has
-  const obj_is3 = obj3.is
-  const obj_map3 = obj3.map
-  const obj_copy3 = obj3.copy
-  var num3 = Type.num
-  var num_is3 = num3.is
-  var fn3 = Type.fn
-  var fn_is3 = fn3.is
-  var N_ = Node._
+  const N_ = Node._
 
-  var Graph = {}
+  const Graph = {}
   ;(() => {
     Graph.is = (g, cb, fn, as) => {
       DEP('graph.is') // checks to see if an object is a valid graph.
-      if (!g || !obj_is4(g) || obj_empty4(g)) {
+      if (!g || !obj_is(g) || obj_empty(g)) {
         return false
       } // must be an object.
-      return !obj_map4(g, map, { as: as, cb: cb, fn: fn }) // makes sure it wasn't an empty object.
+      return !obj_map(g, map, { as: as, cb: cb, fn: fn }) // makes sure it wasn't an empty object.
     }
     function map(n, s) {
       // we invert this because the way'? we check for this is via a negation.
@@ -560,12 +568,12 @@
         env = {}
       } else if (typeof env === 'string') {
         env = { soul: env }
-      } else if (typeof env === 'function') {
+      } else if ('function' === typeof env) {
         env.map = env
       }
       if (typeof as === 'string') {
         env.soul = env.soul || as
-        as = undefined
+        as = u
       }
       if (env.soul) {
         at.link = Val.link.ify(env.soul)
@@ -579,9 +587,9 @@
       return env.graph
     }
     function node(env, at) {
-      let tmp
+      var tmp
       tmp = seen(env, at)
-      if (tmp) {
+      if ((tmp)) {
         return tmp
       }
       at.env = env
@@ -595,19 +603,19 @@
       return at
     }
     function map(v, k, n) {
-      var env = this.env
-      var is
-      let tmp
-      if (Node._ === k && Object.hasOwn(v, Val.link._)) {
+      var env = this.env,
+        is,
+        tmp
+      if (Node._ === k && obj_has(v, Val.link._)) {
         return n._ // TODO: Bug?
       }
       is = valid(v, k, n, this, env)
-      if (!is) {
+      if (!(is)) {
         return
       }
       if (!k) {
         this.node = this.node || n || {}
-        if (Object.hasOwn(v, Node._) && Node.soul(v)) {
+        if (obj_has(v, Node._) && Node.soul(v)) {
           // ? for safety ?
           this.node._ = obj_copy(v._)
         }
@@ -615,16 +623,17 @@
         this.link = this.link || Val.link.ify(Node.soul(this.node))
       }
       tmp = env.map
-      if (tmp) {
+      if ((tmp)) {
         tmp.call(env.as || {}, v, k, n, this)
-        if (Object.hasOwn(n, k)) {
+        if (obj_has(n, k)) {
           v = n[k]
-          if (undefined === v) {
+          if (u === v) {
             obj_del(n, k)
             return
           }
+
           is = valid(v, k, n, this, env)
-          if (!is) {
+          if (!(is)) {
             return
           }
         }
@@ -632,7 +641,7 @@
       if (!k) {
         return this.node
       }
-      if (is) {
+      if (true === is) {
         return v
       }
       tmp = node(env, { obj: v, path: this.path.concat(k) })
@@ -642,20 +651,20 @@
       return tmp.link //{'#': Node.soul(tmp.node)};
     }
     function soul(id) {
-      var prev = Val.link.is(this.link)
-      var graph = this.env.graph
+      var prev = Val.link.is(this.link),
+        graph = this.env.graph
       this.link = this.link || Val.link.ify(id)
       this.link[Val.link._] = id
       if (this.node?.[Node._]) {
         this.node[Node._][Val.link._] = id
       }
-      if (Object.hasOwn(graph, prev)) {
+      if (obj_has(graph, prev)) {
         graph[id] = graph[prev]
         obj_del(graph, prev)
       }
     }
     function valid(v, k, n, at, env) {
-      let tmp
+      var tmp
       if (Val.is(v)) {
         return true
       }
@@ -663,19 +672,19 @@
         return 1
       }
       tmp = env.invalid
-      if (tmp) {
+      if ((tmp)) {
         v = tmp.call(env.as || {}, v, k, n)
         return valid(v, k, n, at, env)
       }
       env.err = `Invalid value at '${at.path.concat(k).join('.')}'!`
       if (Type.list.is(v)) {
-        env.err = `${env.err} Use \`.set(item)\` instead of an Array.`
+        env.err += ' Use `.set(item)` instead of an Array.'
       }
     }
     function seen(env, at) {
-      var arr = env.seen
-      var i = arr.length
-      var has
+      var arr = env.seen,
+        i = arr.length,
+        has
       while (i--) {
         has = arr[i]
         if (at.obj === has.obj) {
@@ -699,31 +708,30 @@
       if (!graph) {
         return
       }
-      const obj = {}
+      var obj = {}
       opt = opt || { seen: {} }
-      obj_map4(graph[root], map, { graph: graph, obj: obj, opt: opt })
+      obj_map(graph[root], map, { graph: graph, obj: obj, opt: opt })
       return obj
     }
     function map(v, k) {
-      let tmp
-      let obj
+      var tmp, obj
       if (Node._ === k) {
-        if (obj_empty4(v, Val.link._)) {
+        if (obj_empty(v, Val.link._)) {
           return
         }
-        this.obj[k] = obj_copy4(v)
+        this.obj[k] = obj_copy(v)
         return
       }
       tmp = Val.link.is(v)
-      if (!tmp) {
-        this.obj[k] = v
-        return
-      }
-      obj = this.opt.seen[tmp]
-      if (obj) {
-        this.obj[k] = obj
-        return
-      }
+    if (!(tmp)) {
+      this.obj[k] = v
+      return
+    }
+    obj = this.opt.seen[tmp]
+    if (obj) {
+      this.obj[k] = obj
+      return
+    }
       this.obj[k] = this.opt.seen[tmp] = Graph.to(this.graph, tmp, this.opt)
     }
   })()
