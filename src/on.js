@@ -220,7 +220,7 @@
   function createOnceChain(gun, _opt) {
     // Log experimental feature warning
     Gun.log.once(
-      'valonce',
+      'valOnce',
       'Chainable val is experimental, its behavior and API may change moving forward. ' +
         'Please play with it and report bugs and ideas on how to improve it.'
     )

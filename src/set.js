@@ -25,11 +25,11 @@
       return this.get(soul || root.back('opt.uuid')(7)).put(item, cb, opt)
     }
     this.put((go) => {
-      item.get((soul, o, msg) => {
+      item.get((soul, _o, msg) => {
         // TODO: BUG! We no longer have this option? & go error not handled?
         if (!soul) {
           return cb.call(this, {
-            err: Gun.log('Only a node can be linked! Not "' + msg.put + '"!')
+            err: Gun.log(`Only a node can be linked! Not "${msg.put}"!`)
           })
         }
         tmp = {}
