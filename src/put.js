@@ -268,8 +268,10 @@
         return
       }
       ran.end(stun, root)
-      setTimeout.each(Object.keys((stun = stun.add || '')), (cb) => {
-        if ((cb = stun[cb])) {
+      const stunAdd = stun.add || ''
+      setTimeout.each(Object.keys(stunAdd), (key) => {
+        const cb = stunAdd[key]
+        if (cb) {
           cb()
         }
       }) // resume the stunned reads // Any perf reasons to CPU schedule this .keys( ?
