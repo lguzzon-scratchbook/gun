@@ -1,8 +1,8 @@
-Process JavaScript file `src/mesh.js` as follows:
+Process JavaScript file `src/put.js` as follows:
 
 1. Execute `npm run check:file <filepath>` to identify any warnings or errors.
 
-2. If warnings or errors are detected, systematically fix them one by one until the check passes without issues. Ensure all fixes maintain code functionality and best practices.
+2. If warnings or errors are detected, systematically optimize and simplify ONLY the function that contains them one by one until the check passes without issues. Ensure all fixes maintain code functionality and best practices.
 
 3. After implementing each individual fix, run `npm run test` to verify that the changes do not introduce regressions or break existing tests. Only proceed to the next fix or file once tests pass successfully.
 

@@ -62,17 +62,15 @@
       g = Gun.is(d)
       if (!v && !g) {
         if (!Object.plain(d)) {
+          tmp = []
           ran.err(
             as,
             'Invalid data: ' +
               check(d) +
               ' at ' +
-              (as.via.back(
-                (at) => {
-                  at.get && tmp.push(at.get)
-                },
-                (tmp = [])
-              ) || tmp.join('.')) +
+              (as.via.back((at) => {
+                at.get && tmp.push(at.get)
+              }, tmp) || tmp.join('.')) +
               '.' +
               (to.path || []).join('.')
           )
@@ -97,22 +95,24 @@
           ran.err(as, 'Data at root of graph must be a node (an object).')
           return
         }
-        as.seen.push(
-          (cat = {
-            it: d,
-            link: {},
-            path: (to.path || []).slice(),
-            todo: g ? [] : Object.keys(d).sort().reverse(),
-            up: at
-          })
-        ) // Any perf reasons to CPU schedule this .keys( ?
+        cat = {
+          it: d,
+          link: {},
+          path: (to.path || []).slice(),
+          todo: g ? [] : Object.keys(d).sort().reverse(),
+          up: at
+        }
+        as.seen.push(cat) // Any perf reasons to CPU schedule this .keys( ?
         at.node = state_ify(at.node, k, as.state, cat.link)
         !g && cat.todo.length && to.push(cat)
         // ---------------
         id = as.seen.length
-        ;(as.wait || (as.wait = {}))[id] = ''
-        tmp = (cat.ref = g ? d : k ? at.ref.get(k) : at.ref)._
-        ;(tmp = (d && (d._ || '')['#']) || tmp.soul || tmp.link)
+        if (!as.wait) as.wait = {}
+        as.wait[id] = ''
+        cat.ref = g ? d : k ? at.ref.get(k) : at.ref
+        tmp = cat.ref._
+        tmp = (d && (d._ || '')['#']) || tmp.soul || tmp.link
+        tmp
           ? resolve({ soul: tmp })
           : cat.ref.get(resolve, {
               out: { get: { '.': ' ' } },
@@ -127,20 +127,34 @@
             eve.rid(msg)
           } // TODO: Too early! Check all peers ack not found.
           // TODO: BUG maybe? Make sure this does not pick up a link change wipe, that it uses the changing link instead.
-          var soul =
-            end ||
-            msg.soul ||
-            (tmp = (msg.$$ || msg.$)._ || '').soul ||
-            tmp.link ||
-            ((tmp = tmp.put || '')._ || '')['#'] ||
-            tmp['#'] ||
-            ((tmp = msg.put || '') && msg.$$
-              ? tmp['#']
-              : (tmp['='] || tmp[':'] || '')['#'])
+          var soul = end || msg.soul
+          var tmp
+          var node
+          if (!soul) {
+            tmp = (msg.$$ || msg.$)._ || ''
+            soul = tmp.soul
+          }
+          if (!soul) {
+            soul = tmp.link
+          }
+          if (!soul) {
+            tmp = tmp.put || ''
+            soul = (tmp._ || '')['#']
+          }
+          if (!soul) {
+            soul = tmp['#']
+          }
+          if (!soul) {
+            tmp = msg.put || ''
+            soul = tmp && msg.$$ ? tmp['#'] : (tmp['='] || tmp[':'] || '')['#']
+          }
           !end && stun(as, msg.$)
           if (!soul && !at.link['#']) {
             // check soul link above us
-            ;(at.wait || (at.wait = [])).push(() => {
+            if (!at.wait) {
+              at.wait = []
+            }
+            at.wait.push(() => {
               resolve(msg, eve)
             }) // wait
             return
@@ -148,7 +162,8 @@
           if (!soul) {
             soul = []
             ;(msg.$$ || msg.$).back((at) => {
-              if ((tmp = at.soul || at.link)) {
+              tmp = at.soul || at.link
+              if (tmp) {
                 return soul.push(tmp)
               }
               soul.push(at.get)
@@ -156,9 +171,17 @@
             soul = soul.reverse().join('/')
           }
           cat.link['#'] = soul
-          !g &&
-            (((as.graph || (as.graph = {}))[soul] =
-              cat.node || (cat.node = { _: {} }))._['#'] = soul)
+          if (!g) {
+            if (!as.graph) {
+              as.graph = {}
+            }
+            node = cat.node
+            if (!node) {
+              node = cat.node = { _: {} }
+            }
+            as.graph[soul] = node
+            node._['#'] = soul
+          }
           delete as.wait[id]
           cat.wait &&
             setTimeout.each(cat.wait, (cb) => {
@@ -181,8 +204,12 @@
       return
     }
     id = (id._ || '').id || id
-    var run = as.root.stun || (as.root.stun = { on: Gun.on }),
-      test = {},
+    var run
+    if (!as.root.stun) {
+      as.root.stun = { on: Gun.on }
+    }
+    run = as.root.stun
+    var test = {},
       tmp
     if (!as.stun) {
       as.stun = run.on('stun', () => {})
@@ -267,19 +294,21 @@
     stun.off()
   }
   ran.err = (as, err) => {
-    ;(as.ack || noop).call(as, (as.out = { err: (as.err = Gun.log(err)) }))
+    as.err = Gun.log(err)
+    as.out = { err: as.err }
+    ;(as.ack || noop).call(as, as.out)
     as.ran(as)
   }
 
   function get(as) {
-    var at = as.via._,
-      tmp
+    const at = as.via._
     as.via = as.via.back((at) => {
       if (at.soul || !at.get) {
         return at.$
       }
-      tmp = as.data
-      ;(as.data = {})[at.get] = tmp
+      const tmp = as.data
+      as.data = {}
+      as.data[at.get] = tmp
     })
     if (!as.via || !as.via._.soul) {
       as.via = at.root.$.get(
@@ -290,8 +319,8 @@
 
     return
   }
-  function check(d, tmp) {
-    return (d && (tmp = d.constructor) && tmp.name) || typeof d
+  function check(d) {
+    return d?.constructor?.name || typeof d
   }
 
   var u,
