@@ -6,7 +6,7 @@
       root = at.root
     as = as || {}
     as.root = at.root
-    // biome-ignore lint/suspicious/noAssignInExpressions: <explanation>
+    // biome-ignore lint/suspicious/noAssignInExpressions: Assigning default value for as.run if not set
     as.run || (as.run = root.once)
     stun(as, at.id) // set a flag for reads to check if this chain is writing.
     as.ack = as.ack || cb
@@ -24,7 +24,8 @@
       return this
     }
     if (!as.soul) {
-      return get(as), this
+      get(as)
+      return this
     }
     as.$ = root.$.get(as.soul) // TODO: This may not allow user chaining and similar?
     as.todo = [{ it: as.data, ref: as.$ }]
@@ -36,12 +37,14 @@
       var to = as.todo,
         at = to.pop(),
         d = at.it,
-        cid = at.ref?._.id,
+        _cid = at.ref?._.id,
         v,
         k,
         cat,
         tmp,
-        g
+        g,
+        seen,
+        id
       stun(as, at.ref)
       tmp = at.todo
       if (tmp) {
@@ -51,7 +54,10 @@
           to.push(at)
         }
       }
-      k && (to.path || (to.path = [])).push(k)
+      if (k) {
+        if (!to.path) to.path = []
+        to.path.push(k)
+      }
       v = valid(d)
       g = Gun.is(d)
       if (!v && !g) {
@@ -72,8 +78,9 @@
           )
           return
         }
-        var seen = as.seen || (as.seen = []),
-          i = seen.length
+        if (!as.seen) as.seen = []
+        seen = as.seen
+        i = seen.length
         while (i--) {
           tmp = seen[i]
           if (d === tmp.it) {
@@ -102,7 +109,7 @@
         at.node = state_ify(at.node, k, as.state, cat.link)
         !g && cat.todo.length && to.push(cat)
         // ---------------
-        var id = as.seen.length
+        id = as.seen.length
         ;(as.wait || (as.wait = {}))[id] = ''
         tmp = (cat.ref = g ? d : k ? at.ref.get(k) : at.ref)._
         ;(tmp = (d && (d._ || '')['#']) || tmp.soul || tmp.link)
@@ -119,7 +126,7 @@
             eve.off()
             eve.rid(msg)
           } // TODO: Too early! Check all peers ack not found.
-          // TODO: BUG maybe? Make sure this does not pick up a link change wipe, that it uses the changign link instead.
+          // TODO: BUG maybe? Make sure this does not pick up a link change wipe, that it uses the changing link instead.
           var soul =
             end ||
             msg.soul ||
@@ -196,11 +203,6 @@
       test.run = test.run || as.run
       test.stun = test.stun || as.stun
       return
-      if (this.to.to) {
-        this.the.last.next(test)
-        return
-      }
-      test.stun = as.stun
     })
   }
 
@@ -287,13 +289,6 @@
     as.via.put(as.data, as.ack, as)
 
     return
-    if (at.get && at.back.soul) {
-      tmp = as.data
-      as.via = at.back.$
-      ;(as.data = {})[at.get] = tmp
-      as.via.put(as.data, as.ack, as)
-      return
-    }
   }
   function check(d, tmp) {
     return (d && (tmp = d.constructor) && tmp.name) || typeof d
@@ -305,7 +300,7 @@
     turn = setTimeout.turn,
     valid = Gun.valid,
     state_ify = Gun.state.ify
-  var iife = (fn, as) => {
+  var _iife = (fn, as) => {
     fn.call(as || empty)
   }
 })()

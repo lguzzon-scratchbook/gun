@@ -1,3 +1,15 @@
+Process JavaScript file `src/mesh.js` as follows:
+
+1. Execute `npm run check:file <filepath>` to identify any warnings or errors.
+
+2. If warnings or errors are detected, systematically fix them one by one until the check passes without issues. Ensure all fixes maintain code functionality and best practices.
+
+3. After implementing each individual fix, run `npm run test` to verify that the changes do not introduce regressions or break existing tests. Only proceed to the next fix or file once tests pass successfully.
+
+Continue this process until the file is error-free and warning-free, with all tests passing at the end.
+
+---
+
 Process each JavaScript file in the `src/*.js` directory sequentially as follows:
 
 1. For each file `<filepath>`, execute `npm run check:file <filepath>` to identify any warnings or errors.

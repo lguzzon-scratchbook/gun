@@ -96,8 +96,6 @@
     const dup_check = dup.check
     const dup_track = dup.track
 
-    const _ST = Date.now()
-
     mesh.hear = function (raw, peer) {
       if (!raw) return
       if (opt.max <= raw.length) {
@@ -162,46 +160,52 @@
         DBG.h = S
         DBG.hp = Date.now()
       }
-      if (!(id = msg['#'])) id = msg['#'] = String.random(9)
-      if ((tmp = dup_check(id))) return
-      if (!(hash = msg['##']) && false && u !== msg.put) {
+      id = msg['#']
+      if (!id) id = msg['#'] = String.random(9)
+      tmp = dup_check(id)
+      if (tmp) return
+      if (hash) {
+        tmp = msg['@'] || (msg.get && id)
+        ash = tmp + hash
+        if (dup.check(ash)) {
+          return
+        }
       }
-      if (
-        hash &&
-        (tmp = msg['@'] || (msg.get && id)) &&
-        dup.check((ash = tmp + hash))
-      )
-        return
-      ;(msg._ = () => {}).via = mesh.leap = peer
-      if ((tmp = msg['><']) && typeof tmp === 'string') {
+      msg._ = () => {}
+      msg._.via = mesh.leap = peer
+      tmp = msg['><']
+      if (tmp && typeof tmp === 'string') {
+        msg._.yo = {}
         tmp
           .slice(0, 99)
           .split(',')
-          .forEach(
-            function (k) {
-              this[k] = 1
-            },
-            (msg._.yo = {})
-          )
+          .forEach(function (k) {
+            this[k] = 1
+          }, msg._.yo)
       }
-      if ((tmp = msg.dam)) {
+      tmp = msg.dam
+      if (tmp) {
         ;(dup_track(id) || {}).via = peer
-        if ((tmp = mesh.hear[tmp])) tmp(msg, peer, root)
+        tmp = mesh.hear[tmp]
+        if (tmp) tmp(msg, peer, root)
         return
       }
-      if ((tmp = msg.ok)) msg._.near = tmp['/']
+      tmp = msg.ok
+      if (tmp) msg._.near = tmp['/']
       const SS = Date.now()
-      DBG && (DBG.is = SS)
+      if (DBG) DBG.is = SS
       peer.SI = id
       dup_track.ed = (d) => {
         if (id !== d) return
         dup_track.ed = 0
-        if (!(d = dup.s[id])) return
+        d = dup.s[id]
+        if (!d) return
         d.via = peer
         if (msg.get) d.it = msg
       }
-      root.on('in', (mesh.last = msg))
-      DBG && (DBG.hd = Date.now())
+      mesh.last = msg
+      root.on('in', mesh.last)
+      if (DBG) DBG.hd = Date.now()
       console.STAT?.(
         SS,
         Date.now() - SS,
@@ -212,13 +216,10 @@
       mesh.leap = mesh.last = null
     }
 
-    const _tomap = (k, _i, m) => {
-      m(k, true)
-    }
     hear.c = hear.d = 0
 
     ;(() => {
-      let SMIA = 0
+      let noPeerAckCount = 0
       let loop
 
       mesh.hash = (msg, peer) => {
@@ -227,7 +228,11 @@
         json(
           msg.put,
           function hash(_err, text) {
-            const ss = (s || (s = t = text || '')).slice(0, 32768)
+            if (!s) {
+              t = text || ''
+              s = t
+            }
+            const ss = s.slice(0, 32768)
             h = String.hash(ss, h)
             s = s.slice(32768)
             if (s) {
@@ -245,12 +250,10 @@
       }
 
       function sort(_k, v) {
-        let tmp
         if (!(v instanceof Object)) return v
-        Object.keys(v)
-          .sort()
-          .forEach(sorta, { on: v, to: (tmp = {}) })
-        return tmp
+        const sorted = {}
+        Object.keys(v).sort().forEach(sorta, { on: v, to: sorted })
+        return sorted
       }
       function sorta(k) {
         this.to[k] = this.on[k]
@@ -258,52 +261,62 @@
 
       mesh.say = function (msg, peer) {
         let tmp
-        if ((tmp = this) && (tmp = tmp.to) && tmp.next) tmp.next(msg)
+        tmp = this
+        const to = tmp ? tmp.to : null
+        if (tmp && to && to.next) to.next(msg)
         if (!msg) return false
         let id,
           hash,
           raw,
           ack = msg['@']
-        const meta = msg._ || (msg._ = () => {})
+        let meta = msg._
+        if (!meta) meta = msg._ = () => {}
         const DBG = msg.DBG
         const S = Date.now()
         meta.y = meta.y || S
         if (!peer) {
-          DBG && (DBG.y = S)
+          if (DBG) DBG.y = S
         }
-        if (!(id = msg['#'])) id = msg['#'] = String.random(9)
+        id = msg['#']
+        if (!id) id = msg['#'] = String.random(9)
         !loop && dup_track(id)
-        if (!(hash = msg['##']) && u !== msg.put && !meta.via && ack) {
+        hash = msg['##']
+        if (!hash && u !== msg.put && !meta.via && ack) {
           mesh.hash(msg, peer)
           return
         }
         if (!peer && ack) {
-          peer =
-            ((tmp = dup.s[ack]) &&
-              (tmp.via || ((tmp = tmp.it) && (tmp = tmp._) && tmp.via))) ||
-            ((tmp = mesh.last) && ack === tmp['#'] && mesh.leap)
+          const leftTmp = dup.s[ack]
+          const left = leftTmp && (leftTmp.via || leftTmp.it?._?.via)
+          const rightTmp = mesh.last
+          const right = rightTmp && ack === rightTmp['#'] && mesh.leap
+          peer = left || right
         }
         if (!peer && ack) {
           if (dup.s[ack]) return
-          console.STAT?.(Date.now(), ++SMIA, 'total no peer to ack to')
+          console.STAT?.(
+            Date.now(),
+            ++noPeerAckCount,
+            'total no peer to ack to'
+          )
           return false
         }
         if (ack && !msg.put && !hash && ((dup.s[ack] || '').it || '')['##'])
           return false
         if (!peer && mesh.way) return mesh.way(msg)
-        DBG && (DBG.yh = Date.now())
-        if (!(raw = meta.raw)) {
+        if (DBG) DBG.yh = Date.now()
+        raw = meta.raw
+        if (!raw) {
           mesh.raw(msg, peer)
           return
         }
-        DBG && (DBG.yr = Date.now())
+        if (DBG) DBG.yr = Date.now()
 
         if (!peer || !peer.id) {
           if (!Object.plain(peer || opt.peers)) return false
           const SS = Date.now()
-          let _P = opt.puff,
-            ps = opt.peers,
-            pl = Object.keys(peer || opt.peers || {})
+          ps = opt.peers
+          pl = Object.keys(peer || opt.peers || {})
           console.STAT?.(SS, Date.now() - SS, 'peer keys')
           ;(function go() {
             const SS = Date.now()
@@ -312,9 +325,15 @@
             meta.raw = raw
             let i = 0,
               p
-            while (i < 9 && (p = (pl || '')[i++])) {
-              if (!(p = ps[p] || (peer || '')[p])) continue
+            p = (pl || '')[i++]
+            while (i < 9 && p) {
+              p = ps[p] || (peer || '')[p]
+              if (!p) {
+                p = (pl || '')[i++]
+                continue
+              }
               mesh.say(msg, p)
+              p = (pl || '')[i++]
             }
             meta.raw = wr
             loop = 0
@@ -331,7 +350,8 @@
         if (id === peer.last) return
         peer.last = id
         if (peer === meta.via) return false
-        if ((tmp = meta.yo) && (tmp[peer.url] || tmp[peer.pid] || tmp[peer.id]))
+        tmp = meta.yo
+        if (tmp && (tmp[peer.url] || tmp[peer.pid] || tmp[peer.id]))
           return false
         ;(DBG || meta).yp = Date.now()
         console.STAT?.(S, (DBG || meta).yp - (meta.y || S), 'say prep')
@@ -392,14 +412,18 @@
           if (i > 1) msg['><'] = to.join()
         }
 
-        if (msg.put && (tmp = msg.ok)) {
-          msg.ok = {
-            '@': (tmp['@'] || 1) - 1,
-            '/': tmp['/'] === msg._.near ? mesh.near : tmp['/']
+        if (msg.put) {
+          tmp = msg.ok
+          if (tmp) {
+            msg.ok = {
+              '@': (tmp['@'] || 1) - 1,
+              '/': tmp['/'] === msg._.near ? mesh.near : tmp['/']
+            }
           }
         }
 
-        if ((put = meta.$put)) {
+        put = meta.$put
+        if (put) {
           tmp = {}
           Object.keys(msg).forEach((k) => {
             tmp[k] = msg[k]
@@ -409,7 +433,8 @@
             if (err) return
             const S = Date.now()
             tmp = raw.indexOf('"put":":])([:"')
-            res(u, (raw = raw.slice(0, tmp + 6) + put + raw.slice(tmp + 14)))
+            const newRaw = raw.slice(0, tmp + 6) + put + raw.slice(tmp + 14)
+            res(u, newRaw)
             console.STAT?.(S, Date.now() - S, 'say slice')
           })
           return
@@ -453,7 +478,8 @@
         mesh.say.d += raw.length || 0
         ++mesh.say.c
       } catch (_e) {
-        ;(peer.queue = peer.queue || []).push(raw)
+        peer.queue = peer.queue || []
+        peer.queue.push(raw)
       }
     }
 
@@ -469,7 +495,8 @@
         opt.peers[peer.url || peer.id] = peer
       } else {
         tmp = peer.id = peer.id || peer.url || String.random(9)
-        mesh.say({ dam: '?', pid: root.opt.pid }, (opt.peers[tmp] = peer))
+        opt.peers[tmp] = peer
+        mesh.say({ dam: '?', pid: root.opt.pid }, opt.peers[tmp])
         delete dup.s[peer.last]
       }
       if (!peer.met) {
@@ -528,7 +555,12 @@
     root.on('bye', function (peer, tmp) {
       peer = opt.peers[peer.id || peer] || peer
       this.to.next(peer)
-      peer.bye ? peer.bye() : (tmp = peer.wire) && tmp.close && tmp.close()
+      if (peer.bye) {
+        peer.bye()
+      } else {
+        tmp = peer.wire
+        if (tmp?.close) tmp.close()
+      }
       delete opt.peers[peer.id]
       peer.wire = null
     })
@@ -536,8 +568,10 @@
     const gets = {}
     root.on('bye', function (peer, tmp) {
       this.to.next(peer)
-      if ((tmp = console.STAT)) tmp.peers = mesh.near
-      if (!(tmp = peer.url)) return
+      tmp = console.STAT
+      if (tmp) tmp.peers = mesh.near
+      tmp = peer.url
+      if (!tmp) return
       gets[tmp] = true
       setTimeout(() => {
         delete gets[tmp]
@@ -546,13 +580,13 @@
 
     root.on('hi', function (peer, tmp) {
       this.to.next(peer)
-      if ((tmp = console.STAT)) tmp.peers = mesh.near
+      tmp = console.STAT
+      if (tmp) tmp.peers = mesh.near
       if (opt.super) return
       const souls = Object.keys(root.next || '')
       if (souls.length > 9999 && !console.SUBS) {
-        console.log(
-          (console.SUBS = 'Warning: You have more than 10K live GETs...')
-        )
+        console.SUBS = 'Warning: You have more than 10K live GETs...'
+        console.log(console.SUBS)
       }
       setTimeout.each(souls, (soul) => {
         const node = root.next[soul]
