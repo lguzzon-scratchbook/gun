@@ -2,7 +2,7 @@
 
 ## Overview
 
-Transform legacy JavaScript codebase in `src/` directory ONLY (NO SUB DIRS) to ES2025 perfection with modern features and best practices
+Transform legacy JavaScript codebase in `src/` directory to ES2025 perfection with modern features and best practices
 
 ## Prerequisites
 

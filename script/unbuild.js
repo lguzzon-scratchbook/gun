@@ -11,7 +11,7 @@ var write = function(path, data){
 	return fs.writeFileSync(nodePath.join(dir, path), data);
 }
 
-var rm = require('./fsrm');
+var rm = require('../lib/fsrm');
 
 var mk = function(path){
 	path = nodePath.join(dir, path);

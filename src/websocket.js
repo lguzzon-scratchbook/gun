@@ -131,7 +131,10 @@
       peer.attempts = (peer.attempts || 0) + 1
 
       if (peer.attempts > this.maxRetries) {
-        this.logger.log('Max reconnection attempts exceeded for peer:', peer.url)
+        this.logger.log(
+          'Max reconnection attempts exceeded for peer:',
+          peer.url
+        )
         return
       }
 
@@ -183,7 +186,7 @@
     }
 
     const env = Gun.window || {}
-    let websocket =
+    const websocket =
       opt.WebSocket || env.WebSocket || env.webkitWebSocket || env.mozWebSocket
     if (!websocket) {
       return

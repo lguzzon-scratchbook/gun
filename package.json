@@ -54,6 +54,7 @@
   },
   "scripts": {
     "build": "node script/build.js",
+    "build:unbuild": "npm run build && npm run unbuild:script",
     "check": "bunx @biomejs/biome check --write ./src/*.js ./src/**/*.js package.json",
     "check:file": "bunx @biomejs/biome check --write",
     "debug": "node --prof-process --preprocess -j isolate*.log > v8data.json && rm isolate*.log && echo 'drag & drop ./v8data.json into https://mapbox.github.io/flamebearer/'",
@@ -71,9 +72,10 @@
     "test": "echo 'Did you run PANIC holy-grail, 1~X, on-recover, etc.?' && npm run test:reset && npm run build && mocha --bail",
     "test:reset": "(rm -rf radatatest/ >/dev/null 2>&1 || true)",
     "testsea": "mocha test/sea/sea.js",
-    "unbuild": "node lib/unbuild.js & npm run minify",
-    "unbuildMeta": "node lib/unbuild.js lib/meta",
-    "unbuildSea": "node lib/unbuild.js sea"
+    "unbuild": "npm run unbuild:script && npm run minify",
+    "unbuild:script": "mv src/footer.js . && node script/unbuild.js && mv footer.js src/ && npm run check",
+    "unbuildMeta": "node script/unbuild.js lib/meta",
+    "unbuildSea": "node script/unbuild.js sea"
   },
   "tsd": {
     "directory": "types"

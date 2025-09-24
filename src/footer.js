@@ -240,7 +240,7 @@
   ;(() => {
     function empty(_v, i) {
       let n = this.n,
-        u = undefined
+        u
       if (n && (i === n || (obj_is(n) && obj_has(n, i)))) {
         return
       }
@@ -271,8 +271,7 @@
       t.r.push(k)
     }
     const keys = Object.keys
-    let map,
-      _u = undefined
+    let map, _u
     Object.keys =
       Object.keys ||
       ((o) =>
@@ -563,7 +562,7 @@
   ;(() => {
     Graph.ify = (obj, env, as) => {
       DEP('graph.ify')
-      let at = { obj: obj, path: [] }
+      const at = { obj: obj, path: [] }
       if (!env) {
         env = {}
       } else if (typeof env === 'string') {
@@ -589,7 +588,7 @@
     function node(env, at) {
       let tmp
       tmp = seen(env, at)
-      if ((tmp)) {
+      if (tmp) {
         return tmp
       }
       at.env = env
@@ -603,14 +602,14 @@
       return at
     }
     function map(v, k, n) {
-      const env = this.env;
-      let is;
-      let tmp;
+      const env = this.env
+      let is
+      let tmp
       if (Node._ === k && obj_has(v, Val.link._)) {
         return n._ // TODO: Bug?
       }
       is = valid(v, k, n, this, env)
-      if (!(is)) {
+      if (!is) {
         return
       }
       if (!k) {
@@ -623,7 +622,7 @@
         this.link = this.link || Val.link.ify(Node.soul(this.node))
       }
       tmp = env.map
-      if ((tmp)) {
+      if (tmp) {
         tmp.call(env.as || {}, v, k, n, this)
         if (obj_has(n, k)) {
           v = n[k]
@@ -633,7 +632,7 @@
           }
 
           is = valid(v, k, n, this, env)
-          if (!(is)) {
+          if (!is) {
             return
           }
         }
@@ -651,7 +650,7 @@
       return tmp.link //{'#': Node.soul(tmp.node)};
     }
     function soul(id) {
-      let prev = Val.link.is(this.link),
+      const prev = Val.link.is(this.link),
         graph = this.env.graph
       this.link = this.link || Val.link.ify(id)
       this.link[Val.link._] = id
@@ -672,7 +671,7 @@
         return 1
       }
       tmp = env.invalid
-      if ((tmp)) {
+      if (tmp) {
         v = tmp.call(env.as || {}, v, k, n)
         return valid(v, k, n, at, env)
       }
@@ -696,7 +695,7 @@
   })()
   Graph.node = (node) => {
     DEP('graph.node')
-    let soul = Node.soul(node)
+    const soul = Node.soul(node)
     if (!soul) {
       return
     }
@@ -708,7 +707,7 @@
       if (!graph) {
         return
       }
-      let obj = {}
+      const obj = {}
       opt = opt || { seen: {} }
       obj_map(graph[root], map, { graph: graph, obj: obj, opt: opt })
       return obj
@@ -723,15 +722,15 @@
         return
       }
       tmp = Val.link.is(v)
-    if (!(tmp)) {
-      this.obj[k] = v
-      return
-    }
-    obj = this.opt.seen[tmp]
-    if (obj) {
-      this.obj[k] = obj
-      return
-    }
+      if (!tmp) {
+        this.obj[k] = v
+        return
+      }
+      obj = this.opt.seen[tmp]
+      if (obj) {
+        this.obj[k] = obj
+        return
+      }
       this.obj[k] = this.opt.seen[tmp] = Graph.to(this.graph, tmp, this.opt)
     }
   })()
