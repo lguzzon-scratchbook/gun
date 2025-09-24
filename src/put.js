@@ -250,7 +250,8 @@
         if (ack.err && !ack.lack) {
           Gun.log(ack)
         }
-        if (++acks > (as.acks || 0)) {
+        acks++
+        if (acks > (as.acks || 0)) {
           this.off()
         } // Adjustable ACKs! Only 1 by default.
         if (!as.ack) {
@@ -277,12 +278,13 @@
     if (as.ack && !as.ok) {
       as.ok = as.acks || 9
     } // TODO: In future! Remove this! This is just old API support.
+    as.out = as.graph
     as.via._.on('out', {
       _: tmp,
       '#': ask,
       ok: as.ok && { '@': as.ok + 1 },
       opt: as.opt,
-      put: (as.out = as.graph)
+      put: as.out
     })
     //})();
   }
