@@ -7,15 +7,20 @@
     cb = cb || (() => {})
     opt = opt || {}
     opt.item = opt.item || item
-    if ((soul = ((item || '')._ || '')['#'])) {
-      ;(item = {})['#'] = soul
+    soul = ((item || '')._ || '')['#']
+    if (soul) {
+      item = {}
+      item['#'] = soul
     } // check if node, make link.
-    if ('string' == typeof (tmp = Gun.valid(item))) {
-      return this.get((soul = tmp)).put(item, cb, opt)
+    tmp = Gun.valid(item)
+    if (typeof tmp === 'string') {
+      soul = tmp
+      return this.get(soul).put(item, cb, opt)
     } // check if link
     if (!Gun.is(item)) {
       if (Object.plain(item)) {
-        item = root.get((soul = this.back('opt.uuid')())).put(item)
+        soul = this.back('opt.uuid')()
+        item = root.get(soul).put(item)
       }
       return this.get(soul || root.back('opt.uuid')(7)).put(item, cb, opt)
     }
@@ -27,7 +32,8 @@
             err: Gun.log('Only a node can be linked! Not "' + msg.put + '"!')
           })
         }
-        ;(tmp = {})[soul] = { '#': soul }
+        tmp = {}
+        tmp[soul] = { '#': soul }
         go(tmp)
       }, true)
     })
