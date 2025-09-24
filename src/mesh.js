@@ -96,10 +96,9 @@
     const dup_check = dup.check
     const dup_track = dup.track
 
-    const ST = Date.now()
-    const LT = ST
+    const _ST = Date.now()
 
-    const hear = (mesh.hear = function (raw, peer) {
+    mesh.hear = function (raw, peer) {
       if (!raw) return
       if (opt.max <= raw.length) {
         return mesh.say({ dam: '!', err: 'Message too big!' }, peer)
@@ -108,7 +107,8 @@
         hear.d += raw.length || 0
         ++hear.c
       }
-      const S = (peer.SH = Date.now())
+      peer.SH = Date.now()
+      const S = peer.SH
       const tmp = raw[0]
       let msg
 
@@ -120,9 +120,11 @@
           const P = opt.puff
           ;(function go() {
             const S = Date.now()
-            let i = 0,
-              m
-            while (i < P && (m = msg[i++])) {
+            let i = 0
+
+            while (i < P) {
+              const m = msg[i++]
+              if (!m) break
               mesh.hear(m, peer)
             }
             msg = msg.slice(i)
@@ -136,8 +138,7 @@
         return
       }
 
-      if ('{' === tmp || ((raw['#'] || Object.plain(raw)) && (msg = raw))) {
-        if (msg) return hear.one(msg, peer, S)
+      if ('{' === tmp) {
         parse(raw, (err, msg) => {
           if (err || !msg)
             return mesh.say({ dam: '!', err: 'DAM JSON parse error.' }, peer)
@@ -145,13 +146,22 @@
         })
         return
       }
-    })
+
+      if (raw['#'] || Object.plain(raw)) {
+        msg = raw
+        return hear.one(msg, peer, S)
+      }
+    }
+
+    const hear = mesh.hear
 
     hear.one = (msg, peer, S) => {
       let id, hash, tmp, ash, DBG
       if (msg.DBG) msg.DBG = DBG = { DBG: msg.DBG }
-      DBG && (DBG.h = S)
-      DBG && (DBG.hp = Date.now())
+      if (DBG) {
+        DBG.h = S
+        DBG.hp = Date.now()
+      }
       if (!(id = msg['#'])) id = msg['#'] = String.random(9)
       if ((tmp = dup_check(id))) return
       if (!(hash = msg['##']) && false && u !== msg.put) {
@@ -202,7 +212,7 @@
       mesh.leap = mesh.last = null
     }
 
-    const tomap = (k, i, m) => {
+    const _tomap = (k, _i, m) => {
       m(k, true)
     }
     hear.c = hear.d = 0
@@ -216,7 +226,7 @@
         const S = Date.now()
         json(
           msg.put,
-          function hash(err, text) {
+          function hash(_err, text) {
             const ss = (s || (s = t = text || '')).slice(0, 32768)
             h = String.hash(ss, h)
             s = s.slice(32768)
@@ -234,7 +244,7 @@
         )
       }
 
-      function sort(k, v) {
+      function sort(_k, v) {
         let tmp
         if (!(v instanceof Object)) return v
         Object.keys(v)
@@ -275,8 +285,7 @@
         }
         if (!peer && ack) {
           if (dup.s[ack]) return
-          console.STAT &&
-            console.STAT(Date.now(), ++SMIA, 'total no peer to ack to')
+          console.STAT?.(Date.now(), ++SMIA, 'total no peer to ack to')
           return false
         }
         if (ack && !msg.put && !hash && ((dup.s[ack] || '').it || '')['##'])
@@ -292,7 +301,7 @@
         if (!peer || !peer.id) {
           if (!Object.plain(peer || opt.peers)) return false
           const SS = Date.now()
-          let P = opt.puff,
+          let _P = opt.puff,
             ps = opt.peers,
             pl = Object.keys(peer || opt.peers || {})
           console.STAT?.(SS, Date.now() - SS, 'peer keys')
@@ -324,15 +333,13 @@
         if (peer === meta.via) return false
         if ((tmp = meta.yo) && (tmp[peer.url] || tmp[peer.pid] || tmp[peer.id]))
           return false
-        console.STAT?.(
-          S,
-          ((DBG || meta).yp = Date.now()) - (meta.y || S),
-          'say prep'
-        )
+        ;(DBG || meta).yp = Date.now()
+        console.STAT?.(S, (DBG || meta).yp - (meta.y || S), 'say prep')
         !loop && ack && dup_track(ack)
 
         if (peer.batch) {
-          peer.tail = (tmp = peer.tail || 0) + raw.length
+          tmp = peer.tail || 0
+          peer.tail = tmp + raw.length
           if (peer.tail <= opt.pack) {
             peer.batch += (tmp ? ',' : '') + raw
             return
@@ -358,14 +365,16 @@
         if (!msg) return ''
         const meta = msg._ || {}
         let put, tmp
-        if ((tmp = meta.raw)) return tmp
+        tmp = meta.raw
+        if (tmp) return tmp
         if (typeof msg === 'string') return msg
         const hash = msg['##'],
           ack = msg['@']
 
         if (hash && ack) {
           if (!meta.via && dup_check(ack + hash)) return false
-          if ((tmp = (dup.s[ack] || '').it)) {
+          tmp = (dup.s[ack] || '').it
+          if (tmp) {
             if (hash === tmp['##']) return false
             if (!tmp['##']) tmp['##'] = hash
           }
@@ -443,7 +452,7 @@
         }
         mesh.say.d += raw.length || 0
         ++mesh.say.c
-      } catch (e) {
+      } catch (_e) {
         ;(peer.queue = peer.queue || []).push(raw)
       }
     }
@@ -489,7 +498,7 @@
       mesh.bye.time = ((mesh.bye.time || tmp) + tmp) / 2
     }
 
-    mesh.hear['!'] = (msg, peer) => {
+    mesh.hear['!'] = (msg, _peer) => {
       opt.log('Error:', msg.err)
     }
     mesh.hear['?'] = (msg, peer) => {
@@ -501,7 +510,7 @@
       delete dup.s[peer.last]
     }
 
-    mesh.hear['mob'] = (msg, peer) => {
+    mesh.hear.mob = (msg, peer) => {
       if (!msg.peers) return
       const peers = Object.keys(msg.peers)
       const one = peers[(Math.random() * peers.length) >> 0]
@@ -569,5 +578,5 @@
 
   try {
     module.exports = Mesh
-  } catch (e) {}
+  } catch (_e) {}
 })()

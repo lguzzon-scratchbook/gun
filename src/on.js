@@ -217,7 +217,7 @@
    *
    * @private
    */
-  function createOnceChain(gun, opt) {
+  function createOnceChain(gun, _opt) {
     // Log experimental feature warning
     Gun.log.once(
       'valonce',
@@ -228,7 +228,7 @@
     const chain = gun.chain()
 
     // Set up chain cleanup mechanism
-    chain._.nix = gun.once(function handleChainData(data, key) {
+    chain._.nix = gun.once(function handleChainData(_data, _key) {
       chain._.on('in', this._)
     })
 

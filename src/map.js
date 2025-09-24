@@ -113,8 +113,8 @@
   }
   /** @function isValidMapNode @param {object} at - Gun at object. @param {object} msg - Message. @returns {boolean} True if valid node. */
   const isValidMapNode = (at, msg) => at.soul || msg.$$
-  /** @function handleMapCallbackResult @param {object} chain - Chain. @param {*} data - Data. @param {string} key - Key. @param {object} msg - Message. @param {object} eve - Event. @param {*} next - Next value. */
-  const handleMapCallbackResult = (chain, data, key, msg, eve, next) => {
+  /** @function handleMapCallbackResult @param {object} chain - Chain. @param {*} data - Data. @param {string} key - Key. @param {object} msg - Message. @param {object} _eve - Event. @param {*} next - Next value. */
+  const handleMapCallbackResult = (chain, data, key, msg, _eve, next) => {
     if (u === next) return
     if (data === next) return chain._.on('in', msg)
     if (Gun.is(next)) return chain._.on('in', next._)
