@@ -2,12 +2,11 @@
   var Gun = require('./root')
   Gun.chain.put = function (data, cb, as) {
     // I rewrote it :)
-    var at = this._,
-      root = at.root
+    const at = this._
+    const root = at.root
     as = as || {}
     as.root = at.root
-    // biome-ignore lint/suspicious/noAssignInExpressions: Assigning default value for as.run if not set
-    as.run || (as.run = root.once)
+    as.run ||= root.once
     stun(as, at.id) // set a flag for reads to check if this chain is writing.
     as.ack = as.ack || cb
     as.via = as.via || this
@@ -19,7 +18,7 @@
     if ('function' === typeof data) {
       data((d) => {
         as.data = d
-        this.put(u, u, as)
+        this.put(undefined, undefined, as)
       })
       return this
     }
@@ -31,13 +30,11 @@
     as.todo = [{ it: as.data, ref: as.$ }]
     as.turn = as.turn || turn
     as.ran = as.ran || ran
-    //var path = []; as.via.back(at => { at.get && path.push(at.get.slice(0,9)) }); path = path.reverse().join('.');
     // TODO: Perf! We only need to stun chains that are being modified, not necessarily written to.
     ;(function walk() {
-      var to = as.todo,
+      let to = as.todo,
         at = to.pop(),
         d = at.it,
-        _cid = at.ref?._.id,
         v,
         k,
         cat,
@@ -65,20 +62,17 @@
           tmp = []
           ran.err(
             as,
-            'Invalid data: ' +
-              check(d) +
-              ' at ' +
-              (as.via.back((at) => {
+            `Invalid data: ${check(d)} at ${
+              as.via.back((at) => {
                 at.get && tmp.push(at.get)
-              }, tmp) || tmp.join('.')) +
-              '.' +
-              (to.path || []).join('.')
+              }, tmp) || tmp.join('.')
+            }.${(to.path || []).join('.')}`
           )
           return
         }
         if (!as.seen) as.seen = []
         seen = as.seen
-        i = seen.length
+        let i = seen.length
         while (i--) {
           tmp = seen[i]
           if (d === tmp.it) {
@@ -119,34 +113,26 @@
               run: as.run,
               /*hatch: 0,*/ v2020: 1
             }) // TODO: BUG! This should be resolve ONLY soul to prevent full data from being loaded. // Fixed now?
-        //setTimeout(function(){ if(F){ return } console.log("I HAVE NOT BEEN CALLED!", path, id, cat.ref._.id, k) }, 9000); var F; // MAKE SURE TO ADD F = 1 below!
         function resolve(msg, eve) {
-          var end = cat.link['#']
+          const end = cat.link['#']
           if (eve) {
             eve.off()
             eve.rid(msg)
           } // TODO: Too early! Check all peers ack not found.
           // TODO: BUG maybe? Make sure this does not pick up a link change wipe, that it uses the changing link instead.
-          var soul = end || msg.soul
-          var tmp
-          var node
+          let soul = end || msg.soul
+          let tmp
+          let node
           if (!soul) {
-            tmp = (msg.$$ || msg.$)._ || ''
-            soul = tmp.soul
-          }
-          if (!soul) {
-            soul = tmp.link
-          }
-          if (!soul) {
-            tmp = tmp.put || ''
-            soul = (tmp._ || '')['#']
-          }
-          if (!soul) {
-            soul = tmp['#']
-          }
-          if (!soul) {
-            tmp = msg.put || ''
-            soul = tmp && msg.$$ ? tmp['#'] : (tmp['='] || tmp[':'] || '')['#']
+            tmp = (msg.$$ || msg.$)?._ || {}
+            soul =
+              tmp.soul ||
+              tmp.link ||
+              tmp.put?._?.['#'] ||
+              tmp['#'] ||
+              (msg.put && msg.$$
+                ? msg.put['#']
+                : (msg.put?.['='] || msg.put?.[':'] || '')['#'])
           }
           !end && stun(as, msg.$)
           if (!soul && !at.link['#']) {
@@ -203,13 +189,13 @@
     if (!id) {
       return
     }
-    id = (id._ || '').id || id
-    var run
+    id = id?._?.id || id
+    let run
     if (!as.root.stun) {
       as.root.stun = { on: Gun.on }
     }
     run = as.root.stun
-    var test = {},
+    let test = {},
       tmp
     if (!as.stun) {
       as.stun = run.on('stun', () => {})
@@ -242,27 +228,25 @@
       return
     }
     as.end = 1
-    //(as.retry = function(){ as.acks = 0;
-    var cat = as.$.back(-1)._,
-      root = cat.root,
-      ask = cat.ask(function (ack) {
-        root.on('ack', ack)
-        if (ack.err && !ack.lack) {
-          Gun.log(ack)
-        }
-        acks++
-        if (acks > (as.acks || 0)) {
-          this.off()
-        } // Adjustable ACKs! Only 1 by default.
-        if (!as.ack) {
-          return
-        }
-        as.ack(ack, this)
-      }, as.opt),
-      acks = 0,
-      stun = as.stun,
-      tmp
-    ;(tmp = () => {
+    const cat = as.$.back(-1)._
+    const root = cat.root
+    const ask = cat.ask(function (ack) {
+      root.on('ack', ack)
+      if (ack.err && !ack.lack) {
+        Gun.log(ack)
+      }
+      acks++
+      if (acks > (as.acks || 0)) {
+        this.off()
+      } // Adjustable ACKs! Only 1 by default.
+      if (!as.ack) {
+        return
+      }
+      as.ack(ack, this)
+    }, as.opt)
+    let acks = 0
+    const stun = as.stun
+    const tmp = () => {
       // this is not official yet, but quick solution to hack in for now.
       if (!stun) {
         return
@@ -275,8 +259,8 @@
           cb()
         }
       }) // resume the stunned reads // Any perf reasons to CPU schedule this .keys( ?
-    }).hatch = tmp // this is not official yet ^
-    //console.log(1, "PUT", as.run, as.graph);
+    }
+    tmp.hatch = tmp // this is not official yet ^
     if (as.ack && !as.ok) {
       as.ok = as.acks || 9
     } // TODO: In future! Remove this! This is just old API support.
@@ -288,7 +272,6 @@
       opt: as.opt,
       put: as.out
     })
-    //})();
   }
   ran.end = (stun, root) => {
     stun.end = noop // like with the earlier id, cheaper to make this flag a function so below callbacks do not have to do an extra type check.
@@ -314,10 +297,8 @@
       as.data = {}
       as.data[at.get] = tmp
     })
-    if (!as.via || !as.via._.soul) {
-      as.via = at.root.$.get(
-        ((as.data || '')._ || '')['#'] || at.$.back('opt.uuid')()
-      )
+    if (!as.via || !as.via?._.soul) {
+      as.via = at.root.$.get(as.data?._?.['#'] || at.$.back('opt.uuid')())
     }
     as.via.put(as.data, as.ack, as)
 
@@ -327,13 +308,12 @@
     return d?.constructor?.name || typeof d
   }
 
-  var u,
-    empty = {},
-    noop = () => {},
-    turn = setTimeout.turn,
-    valid = Gun.valid,
-    state_ify = Gun.state.ify
-  var _iife = (fn, as) => {
+  const empty = {}
+  const noop = () => {}
+  const turn = setTimeout.turn
+  const valid = Gun.valid
+  const state_ify = Gun.state.ify
+  const _iife = (fn, as) => {
     fn.call(as || empty)
   }
 })()
