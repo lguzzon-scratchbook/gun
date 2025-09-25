@@ -419,6 +419,13 @@
     return f
   }
 
+  /**
+   * Encodes a value into a serialized string format.
+   * @param {*} d - The value to encode.
+   * @param {string} [s='|'] - The separator character.
+   * @param {string} [u=' '] - The unit separator character.
+   * @returns {string} The encoded string.
+   */
   B.encode = (d, s, u) => {
     const sStr = s || '|'
     const uStr = u || String.fromCharCode(32)
@@ -451,6 +458,11 @@
       }
     }
   }
+  /**
+   * Decodes a serialized string back into its original value.
+   * @param {string} t - The encoded string to decode.
+   * @returns {*} The decoded value.
+   */
   B.decode = (t) => {
     if ('string' !== typeof t) {
       return
@@ -473,6 +485,12 @@
     return t.slice(t.indexOf('"') + 1)
   }
 
+  /**
+   * Computes a hash value for a string.
+   * @param {string} s - The string to hash.
+   * @param {number} [c=0] - Initial hash value.
+   * @returns {number} The computed hash.
+   */
   B.hash = (s, c) => {
     // via SO
     if (typeof s !== 'string') {

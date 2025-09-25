@@ -373,7 +373,7 @@
         const o = {}
         obj_map(v, map, o)
         if (o.id) {
-          // a valid id was found.
+          // we found an id.
           return o.id // yay! Return it.
         }
       }
@@ -541,7 +541,7 @@
       return !obj_map(g, map, { as: as, cb: cb, fn: fn }) // makes sure it wasn't an empty object.
     }
     function map(n, s) {
-      // we invert this because the way'? we check for this is via a negation.
+      // we invert this because the way we check for this is via a negation.
       if (!n || s !== Node.soul(n) || !Node.is(n, this.fn, this.as)) {
         return true
       } // it is true that this is an invalid graph.

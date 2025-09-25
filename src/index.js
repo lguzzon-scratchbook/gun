@@ -17,6 +17,7 @@
 
   /**
    * Main GUN module export.
+   * This file loads all core Gun modules and exports the Gun constructor.
    * @module Gun
    */
   module.exports = Gun

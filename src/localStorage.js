@@ -4,11 +4,10 @@
   }
 
   // Constants and utilities
-  const noop = () => {}
   let store
-  const u = undefined
+
   try {
-    store = (Gun.window || noop).localStorage
+    store = Gun.window?.localStorage
   } catch (_e) {}
   if (!store) {
     Gun.log('Warning: No localStorage exists to persist data to!')
@@ -30,7 +29,7 @@
     JSON.parseAsync ||
     ((t, cb, r) => {
       try {
-        cb(u, JSON.parse(t, r))
+        cb(undefined, JSON.parse(t, r))
       } catch (e) {
         cb(e)
       }
@@ -39,7 +38,7 @@
     JSON.stringifyAsync ||
     ((v, cb, r, s) => {
       try {
-        cb(u, JSON.stringify(v, r, s))
+        cb(undefined, JSON.stringify(v, r, s))
       } catch (e) {
         cb(e)
       }
@@ -65,7 +64,7 @@
     opt.prefix = opt.file || 'gun/'
     try {
       const item = store.getItem(opt.prefix)
-      disk = lg[opt.prefix] = lg[opt.prefix] || JSON.parse(item) || {} // TODO: Perf! This will block, should we care, since limited to 5MB anyways?
+      disk = lg[opt.prefix] = lg[opt.prefix] || JSON.parse(item) || {} // Load persisted data from localStorage (blocking, but limited to 5MB)
       size = (item || '').length
     } catch (_e) {
       disk = lg[opt.prefix] = {}
@@ -77,15 +76,15 @@
       const lex = msg.get
       const soul = lex?.['#']
       let data
-      const u = undefined
+
       if (!lex || !soul) {
         return
       }
       // Retrieve data from in-memory disk
-      data = disk[soul] || u
+      data = disk[soul] || undefined
       const tmp = lex?.['.']
       if (data && tmp && !Object.plain(tmp)) {
-        // Pluck specific field from the data
+        // Pluck specific field from the data using state management
         data = Gun.state.ify({}, tmp, Gun.state.is(data, tmp), data[tmp], soul)
       }
       //if(data){ (tmp = {})[soul] = data } // back into a graph.
@@ -101,26 +100,29 @@
       const key = put['.']
       const id = msg['#']
       const ok = msg.ok || ''
-      const _tmp = undefined // pull data off wire envelope
-      // Merge data into in-memory disk
+      // Merge data into in-memory disk using state management
       disk[soul] = Gun.state.ify(disk[soul], key, put['>'], put[':'], soul)
       if (stop && size > 4999880) {
-        // Check localStorage size limit (~5MB)
+        // Enforce localStorage size limit (~5MB) to prevent errors
         root.on('in', { '@': id, err: 'localStorage max!' })
         return
       }
-      // Probabilistic ack to avoid flooding (only for non-ack messages)
+      // Probabilistic ack to reduce network traffic for non-ack messages
       if (!msg['@'] && (!msg._.via || Math.random() < ok['@'] / ok['/'])) {
         acks.push(id)
       }
       if (to) {
         return
       }
-      // Schedule flush with delay based on data size
+      // Schedule flush with delay proportional to data size to balance performance
       to = setTimeout(flush, 9 + size / 333) // 0.1MB = 0.3s, 5MB = 15s
     })
+    /**
+     * Flushes the in-memory disk to localStorage with deferred execution.
+     * Handles size limits, probabilistic acks, and error reporting.
+     */
     function flush() {
-      // Defer flush if busy and no pending acks
+      // Defer flush if event loop is busy and no pending acks to avoid blocking
       if (!acks.length && ((setTimeout.turn || '').s || '').length) {
         setTimeout(flush, 99)
         return

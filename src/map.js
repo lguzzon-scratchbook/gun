@@ -115,7 +115,8 @@
   const isValidMapNode = (at, msg) => at.soul || msg.$$
   /** @function handleMapCallbackResult @param {object} chain - Chain. @param {*} data - Data. @param {string} key - Key. @param {object} msg - Message. @param {object} _eve - Event. @param {*} next - Next value. */
   const handleMapCallbackResult = (chain, data, key, msg, _eve, next) => {
-    if (u === next) return
+    // Handle different types of callback results: ignore undefined, pass through data, Gun instances, or transform to new put
+    if (undefined === next) return
     if (data === next) return chain._.on('in', msg)
     if (Gun.is(next)) return chain._.on('in', next._)
     const tmp = {}
@@ -138,8 +139,9 @@
     validateMapCallback(cb)
     let lex
     if (checkMapField(cb)) {
+      // If cb is a field, convert to lex query and set cb to undefined
       lex = cb['.'] ? cb : { '.': cb }
-      cb = u
+      cb = undefined
     }
     if (!cb) {
       const chain = cat.each
@@ -187,6 +189,5 @@
     if (!checkLex(cat, msg, put)) return
     Gun.on.link(msg, cat)
   }
-  const _event = { off: noop, stun: noop },
-    u = undefined
+  const _event = { off: noop, stun: noop }
 })()

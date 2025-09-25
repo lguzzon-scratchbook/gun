@@ -81,6 +81,11 @@
     }
   }
 
+  /**
+   * Creates a mesh instance for peer communication and message handling.
+   * @param {object} root - The Gun root instance.
+   * @returns {object} The mesh instance with hear, say, hi, bye methods.
+   */
   function Mesh(root) {
     const mesh = () => {}
     const opt = root.opt || {}
@@ -222,6 +227,11 @@
       let noPeerAckCount = 0
       let loop
 
+      /**
+       * Hashes the message put data and sends the message.
+       * @param {object} msg - The message to hash.
+       * @param {object} peer - The target peer.
+       */
       mesh.hash = (msg, peer) => {
         let h, s, t
         const S = Date.now()
@@ -281,7 +291,7 @@
         if (!id) id = msg['#'] = String.random(9)
         !loop && dup_track(id)
         hash = msg['##']
-        if (!hash && u !== msg.put && !meta.via && ack) {
+        if (!hash && undefined !== msg.put && !meta.via && ack) {
           mesh.hash(msg, peer)
           return
         }
@@ -434,7 +444,7 @@
             const S = Date.now()
             tmp = raw.indexOf('"put":":])([:"')
             const newRaw = raw.slice(0, tmp + 6) + put + raw.slice(tmp + 14)
-            res(u, newRaw)
+            res(undefined, newRaw)
             console.STAT?.(S, Date.now() - S, 'say slice')
           })
           return

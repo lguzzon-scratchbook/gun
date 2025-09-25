@@ -1,4 +1,8 @@
 ;(() => {
+  /**
+   * @module chain
+   * Gun chaining API module for handling chain operations, input/output, linking, and unlinking.
+   */
   // WARNING: GUN is very simple, but the JavaScript chaining API around GUN
   // is complicated and was extremely hard to build. If you port GUN to another
   // language, consider implementing an easier API to build.
@@ -239,10 +243,7 @@
 
     if (cat !== at) {
       // don't worry about this when first understanding the code, it handles changing contexts on a message. A soul chain will never have a different context.
-      tmp = {}
-      Object.keys(msg).forEach((k) => {
-        tmp[k] = msg[k]
-      }) // make copy of message
+      tmp = { ...msg } // make copy of message
       tmp.get = cat.get || tmp.get
       if (!cat.soul && !cat.has) {
         // if we do not recognize the chain type

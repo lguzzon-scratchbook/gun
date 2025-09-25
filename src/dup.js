@@ -1,4 +1,8 @@
 ;(() => {
+  /**
+   * @module dup
+   * Module for tracking duplicate IDs with automatic cleanup.
+   */
   require('./shim')
   /**
    * Creates a Dup instance for tracking duplicate IDs with automatic cleanup.
@@ -11,7 +15,7 @@
     const dup = { s: {} }
     const s = dup.s
     /**
-     * Checks if an ID is tracked, and tracks it if so.
+     * Checks if an ID is tracked, and updates its timestamp if so.
      * @param {string} id - The ID to check.
      * @returns {Object|boolean} The tracked item or false.
      */

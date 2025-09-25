@@ -92,6 +92,12 @@
     return id
   }
 
+  /**
+   * Sends a request and waits for acknowledgment, or acknowledges a received message.
+   * @param {Function|object|string} cb - Callback for ask operation, or message ID/data for ack.
+   * @param {object} [as] - Additional options or data for the operation.
+   * @returns {string|boolean|undefined} - Request ID for ask, true for successful ack, or undefined if no action.
+   */
   module.exports = function ask(cb, as) {
     if (!this.on) {
       throw new Error('Context must have an "on" method.')

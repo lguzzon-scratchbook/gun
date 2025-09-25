@@ -8,9 +8,6 @@
   const CORE_KEY_COLON = ':'
   const PATH_KEY = '.'
 
-  // Redefine undefined for clarity and to avoid potential issues (though unnecessary)
-  const UNDEFINED = undefined
-
   /**
    * Handles retrieval for string keys.
    * @param {string} key - The string key to retrieve.
@@ -35,16 +32,23 @@
     }
     return nodeChain?.$
   }
+  /**
+   * Processes message data for get operations, handling links and not options.
+   * @param {object} msg - The message object.
+   * @param {object} getOptions - Options for the get operation.
+   * @param {object} rootContext - The root context.
+   * @returns {object} Processed data with at, nodeData, sat, and shouldSkip.
+   */
   function processMessageData(msg, getOptions, rootContext) {
     const at = msg.$._
     const sat = (msg.$$ || '')._
     let nodeData = (sat || at).put
-    if ((!at.has && !at.soul) || UNDEFINED === nodeData) {
-      // handles non-core
+    if ((!at.has && !at.soul) || undefined === nodeData) {
+      // Handle non-core data: extract from msg.put using core keys
       const passData = msg.put
       nodeData =
-        UNDEFINED === (passData || '')[CORE_KEY_EQUALS]
-          ? UNDEFINED === (passData || '')[CORE_KEY_COLON]
+        undefined === (passData || '')[CORE_KEY_EQUALS]
+          ? undefined === (passData || '')[CORE_KEY_COLON]
             ? passData
             : passData[CORE_KEY_COLON]
           : passData[CORE_KEY_EQUALS]
@@ -54,13 +58,13 @@
     if (isLink) {
       passData = rootContext.$.get(passData)._.put
       nodeData =
-        UNDEFINED === passData
+        undefined === passData
           ? getOptions.not
-            ? UNDEFINED
+            ? undefined
             : nodeData
           : passData
     }
-    const shouldSkip = getOptions.not && UNDEFINED === nodeData
+    const shouldSkip = getOptions.not && undefined === nodeData
     return { at, nodeData, sat, shouldSkip }
   }
 
@@ -101,7 +105,8 @@
       )
       if (shouldSkip) return
       let stunCheck = {}
-      if (UNDEFINED === getOptions.stun) {
+      if (undefined === getOptions.stun) {
+        // Stun mechanism: pauses listeners during concurrent writes to ensure data consistency
         const stunData = rootContext.stun
         if (stunData?.on) {
           currentContext.$.back((a) => {
@@ -126,8 +131,8 @@
               stunCheck.stun = stunCheck.stun?.last
             }
             if (stunCheck.stun && !stunCheck.stun.end) {
-              //if(isOddNode && UNDEFINED === nodeData){ return }
-              //if(UNDEFINED === msg.put){ return } // "not found" acks will be found if there is stun, so ignore these.
+              //if(isOddNode && undefined === nodeData){ return }
+              //if(undefined === msg.put){ return } // "not found" acks will be found if there is stun, so ignore these.
               if (!stunCheck.stun.add) {
                 stunCheck.stun.add = {}
               }
@@ -138,10 +143,10 @@
             }
           }
         }
-        if (/*isOddNode &&*/ UNDEFINED === nodeData) {
+        if (/*isOddNode &&*/ undefined === nodeData) {
           f = 0
         } // if data not found, keep waiting/trying.
-        /*if(f && UNDEFINED === nodeData){
+        /*if(f && undefined === nodeData){
     currentContext.on('out', getOptions.out);
     return;
   }*/
@@ -149,10 +154,10 @@
         if (
           hatchData &&
           !hatchData.end &&
-          UNDEFINED === getOptions.hatch &&
+          undefined === getOptions.hatch &&
           !f
         ) {
-          // quick hack! // What's going on here? Because data is streamed, we get things one by one, but a lot of developers would rather get a callback after each batch instead, so this does that by creating a wait list per chain id that is then called at the end of the batch by the hatch code in the root put listener.
+          // Hatch: batches listener callbacks to fire after a complete batch of data is streamed, improving performance for bulk updates
           if (waitList[at.$._.id]) {
             return
           }
@@ -164,7 +169,7 @@
         }
         waitList = {} // end quick hack.
       }
-      // call:
+      // Call listener: prevent recursion with pass tracking
       if (rootContext.pass) {
         if (rootContext.pass[listenerId + at.id]) {
           return
@@ -308,10 +313,8 @@
    */
   function createCachedChain(key, back) {
     const backContext = back._
-    let nextChains = backContext.next
-    if (!nextChains) {
-      nextChains = backContext.next = {}
-    }
+    backContext.next ??= {}
+    const nextChains = backContext.next
     const newChain = back.chain()
     const newChainContext = newChain._
     newChainContext.get = key
@@ -346,12 +349,12 @@
       (msg, eve) => {
         const peerCount = Object.keys(gunContext.root.opt.peers).length
         if (
-          UNDEFINED === msg.put &&
+          undefined === msg.put &&
           !gunContext.root.opt.super &&
           peerCount &&
           ++ackCount <= peerCount
         ) {
-          // Wait for all peers to respond before processing, to get the soul.
+          // Wait for acknowledgments from all peers before extracting soul to ensure data consistency across the network
           return
         }
         eve.rid(msg)
