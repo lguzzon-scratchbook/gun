@@ -1,20 +1,26 @@
 ;(function(){
 
   /* UNBUILD */
+// biome-ignore lint/correctness/noUnusedVariables: Odd case to be maintained
 function USE(arg, req) {
   return req
     ? require(arg)
     : arg.slice
       ? USE[R(arg)]
       : (mod, path) => {
-          arg((mod = { exports: {} }))
+          mod = { exports: {} }
+          arg(mod)
           USE[R(path)] = mod.exports
         }
   function R(p) {
-    return p.split('/').slice(-1).toString().replace('.js', '')
+    const lastSlash = p.lastIndexOf('/')
+    const filename = lastSlash === -1 ? p : p.substring(lastSlash + 1)
+    return filename.replace('.js', '')
   }
 }
 if (typeof module !== 'undefined') {
+  // biome-ignore lint/correctness/noInnerDeclarations: Odd case to be maintained
+  // biome-ignore lint/correctness/noUnusedVariables: Odd case to be maintained
   var MODULE = module
 }
 
@@ -22,391 +28,293 @@ if (typeof module !== 'undefined') {
 
 	;USE(function(module){
 		/**
-		   * JavaScript Utilities Library
+		   * Generates a random string of specified length using the given character set.
+		   * @param {number} [length=24] - The length of the random string.
+		   * @param {string} [chars='0123456789ABCDEFGHIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz'] - The character set to use.
+		   * @returns {string} The generated random string.
 		   *
-		   * A comprehensive collection of utility functions extending native JavaScript objects
-		   * and providing enhanced scheduling capabilities. This library adds methods to String
-		   * and Object prototypes while implementing advanced asynchronous execution patterns.
-		   *
-		   * @version 1.0.0
-		   * @author JavaScript Utilities Team
-		   */
-
-		  // ===== STRING UTILITIES =====
-
-		  /**
-		   * Generates a random string of specified length using provided character set
-		   *
-		   * @param {number} [length=24] - Length of the random string to generate
-		   * @param {string} [charset='0123456789ABCDEFGHIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz'] - Character set to use
-		   * @returns {string} Generated random string
-		   *
-		   * @example
-		   * String.random(8) // Returns: 'aB3xY9mK'
-		   * String.random(4, '0123456789') // Returns: '7421'
+		   * Flow: Initializes an empty string, sets default length and charset if not provided,
+		   * then appends random characters from the charset in a decrementing loop until length is reached.
 		   */
 		  String.random = (
 		    length = 24,
-		    charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz'
+		    chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz'
 		  ) => {
-		    let result = ''
-		    const charsetLength = charset.length
-
-		    for (let i = 0; i < length; i++) {
-		      result += charset.charAt(Math.floor(Math.random() * charsetLength))
-		    }
-
-		    return result
+		    return Array.from({ length }, () =>
+		      chars.charAt(Math.floor(Math.random() * chars.length))
+		    ).join('')
 		  }
 
 		  /**
-		   * Advanced string matching utility supporting multiple comparison operators
+		   * Custom matching function for strings against various criteria.
+		   * Supports exact match ('='), prefix match ('*'), greater than ('>'), less than ('<'), or range.
+		   * @param {string} text - The string to match.
+		   * @param {object|string} options - Matching criteria (object with keys '=', '*', '>', '<' or a string for exact match).
+		   * @returns {boolean} True if the text matches the criteria, false otherwise.
 		   *
-		   * @param {string} target - The string to test
-		   * @param {string|Object} options - Matching criteria
-		   * @param {string} [options['=']] - Exact match
-		   * @param {string} [options['*']] - Starts with match
-		   * @param {string} [options['>']] - Greater than or starts with
-		   * @param {string} [options['<']] - Less than
-		   * @returns {boolean} True if target matches any of the specified criteria
-		   *
-		   * @example
-		   * String.match('hello', 'hello') // Returns: true (exact match)
-		   * String.match('hello world', {'*': 'hello'}) // Returns: true (starts with)
-		   * String.match('zebra', {'>': 'apple', '<': 'zoo'}) // Returns: true (between range)
+		   * Flow:
+		   * 1. Validate input types.
+		   * 2. Normalize options to an object if it's a string.
+		   * 3. Check for exact match using a fallback tmp value.
+		   * 4. Handle cases where exact match is defined (early return false if mismatched).
+		   * 5. Check for prefix match.
+		   * 6. Handle range or inequality checks if applicable.
+		   * Note: This function uses 'undefined' checks implicitly via 'u' to determine presence of options.
 		   */
-		  String.match = (target, options) => {
-		    if (typeof target !== 'string') {
+		  String.match = (text, options) => {
+		    let tmp
+		    const u = undefined // Explicitly set for clarity in undefined checks
+		    if (typeof text !== 'string') {
 		      return false
 		    }
-
-		    // Convert string option to exact match object
 		    if (typeof options === 'string') {
 		      options = { '=': options }
 		    }
-
 		    options = options || {}
-
-		    // Check exact match first
-		    if (options['='] !== undefined) {
-		      return target === options['=']
+		    tmp = options['='] || options['*'] || options['>'] || options['<']
+		    if (text === tmp) {
+		      return true
 		    }
-
-		    // Check starts with pattern
-		    if (options['*'] !== undefined) {
-		      const prefix = options['*']
-		      return target.startsWith(prefix)
+		    if (u !== options['=']) {
+		      return false
 		    }
-
-		    // Check range comparisons
-		    const hasGreaterThan = options['>'] !== undefined
-		    const hasLessThan = options['<'] !== undefined
-
-		    if (hasGreaterThan && hasLessThan) {
-		      return target >= options['>'] && target <= options['<']
-		    } else if (hasGreaterThan) {
-		      return target >= options['>']
-		    } else if (hasLessThan) {
-		      return target <= options['<']
+		    tmp = options['*'] || options['>']
+		    if (text.slice(0, (tmp || '').length) === tmp) {
+		      return true
 		    }
-
+		    if (u !== options['*']) {
+		      return false
+		    }
+		    if (u !== options['>'] && u !== options['<']) {
+		      return !!(text >= options['>'] && text <= options['<'])
+		    }
+		    if (u !== options['>'] && text >= options['>']) {
+		      return true
+		    }
+		    if (u !== options['<'] && text <= options['<']) {
+		      return true
+		    }
 		    return false
 		  }
 
 		  /**
-		   * Generates a hash code for a string using a simple hash algorithm
-		   * Based on Java's String.hashCode() implementation
+		   * Computes a simple hash for a string.
+		   * @param {string} str - The input string.
+		   * @param {number} [seed=0] - Initial seed value for hashing.
+		   * @returns {number|undefined} The hash value or undefined if input is not a string.
 		   *
-		   * @param {string} str - The string to hash
-		   * @param {number} [seed=0] - Initial seed value for the hash
-		   * @returns {number|undefined} Hash code as 32-bit integer, undefined for non-strings
-		   *
-		   * @example
-		   * String.hash('hello') // Returns: 99162322
-		   * String.hash('world', 12345) // Returns: hash with seed
+		   * Flow: Validates input, iterates over each character, updates the hash using bit shifts and addition.
 		   */
 		  String.hash = (str, seed = 0) => {
 		    if (typeof str !== 'string') {
-		      return undefined
+		      return
 		    }
-
-		    if (str.length === 0) {
+		    if (!str.length) {
 		      return seed
 		    }
-
-		    let hash = seed
-		    for (let i = 0; i < str.length; i++) {
-		      const char = str.charCodeAt(i)
-		      hash = (hash << 5) - hash + char
-		      hash = hash & hash // Convert to 32-bit integer
+		    for (let i = 0, len = str.length; i < len; ++i) {
+		      const charCode = str.charCodeAt(i)
+		      seed = (seed << 5) - seed + charCode
+		      seed |= 0 // Convert to 32-bit integer
 		    }
-
-		    return hash
+		    return seed
 		  }
 
-		  // ===== OBJECT UTILITIES =====
-
-		  const hasOwnProperty = Object.prototype.hasOwnProperty
+		  const hasOwn = Object.prototype.hasOwnProperty
 
 		  /**
-		   * Determines if an object is a plain object (created by {} or new Object())
+		   * Checks if an object is a plain object (not an instance of a custom class or other types).
+		   * @param {any} obj - The object to check.
+		   * @returns {boolean} True if it's a plain object, false otherwise.
 		   *
-		   * @param {*} obj - Value to test
-		   * @returns {boolean} True if the value is a plain object
-		   *
-		   * @example
-		   * Object.plain({}) // Returns: true
-		   * Object.plain([]) // Returns: false
-		   * Object.plain(new Date()) // Returns: false
+		   * Flow: Checks constructor and uses toString for confirmation.
 		   */
 		  Object.plain = (obj) => {
-		    if (!obj || typeof obj !== 'object') {
-		      return false
-		    }
+		    return obj
+		      ? (obj instanceof Object && obj.constructor === Object) ||
+		          Object.prototype.toString
+		            .call(obj)
+		            .match(/^\[object (\w+)\]$/)?.[1] === 'Object'
+		      : false
+		  }
 
-		    // Check if it's a plain object created by {} or new Object()
-		    return (
-		      obj.constructor === Object ||
-		      Object.prototype.toString.call(obj) === '[object Object]'
+		  /**
+		   * Checks if an object is empty, optionally ignoring specified keys.
+		   * @param {object} obj - The object to check.
+		   * @param {string[]} [ignoreKeys] - Array of keys to ignore.
+		   * @returns {boolean} True if empty (considering ignored keys), false otherwise.
+		   *
+		   * Flow: Iterates over own properties, returns false if any non-ignored key is found.
+		   */
+		  Object.empty = (obj, ignoreKeys) => {
+		    if (!obj) return true
+		    return !Object.keys(obj).some(
+		      (key) => !ignoreKeys || ignoreKeys.indexOf(key) === -1
 		    )
 		  }
 
 		  /**
-		   * Checks if an object is empty (has no own enumerable properties)
+		   * Polyfill for Object.keys if not available.
+		   * @param {object} obj - The object whose keys to retrieve.
+		   * @returns {string[]} Array of own enumerable keys.
 		   *
-		   * @param {Object} obj - Object to check
-		   * @param {string[]} [excludeKeys] - Keys to exclude from the emptiness check
-		   * @returns {boolean} True if object has no own properties (excluding specified keys)
-		   *
-		   * @example
-		   * Object.empty({}) // Returns: true
-		   * Object.empty({a: 1}) // Returns: false
-		   * Object.empty({a: 1, b: 2}, ['a']) // Returns: false (b still exists)
+		   * Flow: Uses native if available, otherwise iterates and collects keys.
 		   */
-		  Object.empty = (obj, excludeKeys) => {
-		    if (!obj || typeof obj !== 'object') {
-		      return true
-		    }
-
-		    for (const key in obj) {
-		      if (hasOwnProperty.call(obj, key)) {
-		        if (!excludeKeys || !excludeKeys.includes(key)) {
-		          return false
-		        }
-		      }
-		    }
-
-		    return true
-		  }
-
-		  /**
-		   * Polyfill for Object.keys() - returns array of object's own enumerable property names
-		   * Only adds the method if it doesn't already exist (for older browsers)
-		   */
-		  if (!Object.keys) {
-		    Object.keys = (obj) => {
+		  Object.keys =
+		    Object.keys ||
+		    ((obj) => {
 		      const keys = []
 		      for (const key in obj) {
-		        if (hasOwnProperty.call(obj, key)) {
+		        if (hasOwn.call(obj, key)) {
 		          keys.push(key)
 		        }
 		      }
 		      return keys
-		    }
-		  }
-		  // ===== ADVANCED SCHEDULING UTILITIES =====
+		    })
 
-		  /**
-		   * Enhanced setTimeout with polling capabilities and performance optimization
-		   * Implements frame-aware scheduling to prevent blocking
-		   */
+		  // Enhanced setTimeout utilities for polling and efficient asynchronous execution.
 		  ;(() => {
-		    const originalSetTimeout = setTimeout
+		    const setT = setTimeout
 		    let lastTime = 0
 		    let counter = 0
 
-		    // Create setImmediate polyfill using MessageChannel for better performance
-		    const setImmediatePolyfill = (() => {
-		      if (typeof setImmediate !== 'undefined') {
-		        return setImmediate
-		      }
-
-		      if (typeof MessageChannel !== 'undefined') {
+		    // Use MessageChannel for microtask-like behavior if available, fallback to setTimeout.
+		    const scheduleImmediate =
+		      (typeof setImmediate !== 'undefined' && setImmediate) ||
+		      (() => {
+		        if (typeof MessageChannel === 'undefined') {
+		          return setT
+		        }
 		        const channel = new MessageChannel()
 		        let callback
-
 		        channel.port1.onmessage = (event) => {
-		          if (event.data === 'trigger' && callback) {
-		            callback()
-		          }
+		          if (event.data === '') callback()
 		        }
-
 		        return (fn) => {
 		          callback = fn
-		          channel.port2.postMessage('trigger')
+		          channel.port2.postMessage('')
 		        }
+		      })()
+
+		    // Performance.now fallback to Date.now.
+		    let perf
+		    if (!setT.check) {
+		      setT.check = (typeof performance !== 'undefined' && performance) || {
+		        now: () => Date.now()
 		      }
+		    }
+		    perf = setT.check
 
-		      return originalSetTimeout
-		    })()
-
-		    // Performance timing utility
-		    const performanceTimer = (() => {
-		      if (typeof performance !== 'undefined' && performance.now) {
-		        return performance
-		      }
-		      return { now: () => Date.now() }
-		    })()
+		    // Minimum hold time for polling (e.g., half a frame).
+		    setT.hold = setT.hold || 9
 
 		    /**
-		     * Frame hold time - minimum time to hold before yielding control
-		     * @type {number}
-		     */
-		    originalSetTimeout.hold = originalSetTimeout.hold || 9
-
-		    /**
-		     * Performance check utility
-		     * @type {Object}
-		     */
-		    originalSetTimeout.check = originalSetTimeout.check || performanceTimer
-
-		    /**
-		     * Intelligent polling function that yields control when necessary
-		     * Prevents blocking by limiting consecutive executions
+		     * Polls a function efficiently, batching if within hold time.
+		     * @param {Function} fn - The function to poll/execute.
 		     *
-		     * @param {Function} fn - Function to execute
+		     * Flow: If within hold time and under counter limit, execute immediately and increment counter.
+		     * Otherwise, reset counter and schedule via scheduleImmediate, updating lastTime.
 		     */
-		    originalSetTimeout.poll =
-		      originalSetTimeout.poll ||
+		    setT.poll =
+		      setT.poll ||
 		      ((fn) => {
-		        const now = performanceTimer.now()
-
-		        // If we haven't held long enough and haven't exceeded max consecutive runs
-		        if (now - lastTime >= originalSetTimeout.hold && counter++ < 3333) {
+		        if (setT.hold >= perf.now() - lastTime && counter < 3333) {
+		          counter++
 		          fn()
 		          return
 		        }
-
-		        // Yield control and reset
-		        setImmediatePolyfill(() => {
-		          lastTime = performanceTimer.now()
-		          counter = 0
+		        counter = 0
+		        scheduleImmediate(() => {
+		          lastTime = perf.now()
 		          fn()
 		        })
 		      })
 		  })()
 
-		  /**
-		   * Turn-based execution system for managing multiple polling operations
-		   * Prevents overwhelming the event loop by scheduling functions in turns
-		   */
+		  // Turn-based threading over a single thread to avoid blocking with too many polls.
 		  ;(() => {
-		    const originalSetTimeout = setTimeout
-		    const pollFunction = originalSetTimeout.poll
-		    let currentIndex = 0
-		    let currentFunction
-
-		    /**
-		     * Queue for turn-based function execution
-		     * @type {Function[]}
-		     */
-		    const executionQueue = []
-
-		    /**
-		     * Main execution loop for turn-based processing
-		     * Processes functions in queue with automatic cleanup
-		     */
-		    const executeNextTurn = () => {
-		      // Execute current function if available
-		      if ((currentFunction = executionQueue[currentIndex++])) {
-		        currentFunction()
-		      }
-
-		      // Clean up queue when reaching end or batch limit
-		      if (currentIndex === executionQueue.length || currentIndex === 99) {
-		        executionQueue.splice(0, currentIndex)
-		        currentIndex = 0
-		      }
-
-		      // Continue processing if queue has items
-		      if (executionQueue.length > 0) {
-		        pollFunction(executeNextTurn)
+		    const setT = setTimeout
+		    const poll = setT.poll
+		    let queue
+		    if (!setT.turn) {
+		      setT.turn = (fn) => {
+		        if (queue.push(fn) === 1) {
+		          poll(processQueue)
+		        }
 		      }
 		    }
+		    const turn = setT.turn
+		    if (!turn.s) turn.s = []
+		    queue = turn.s
+		    let index = 0
 
 		    /**
-		     * Adds a function to the turn-based execution queue
-		     * Starts processing if this is the first function in queue
+		     * Processes the queue in turns.
 		     *
-		     * @param {Function} fn - Function to add to execution queue
+		     * Flow: Executes the next function in queue, increments index.
+		     * If at end or 99 items, slices remaining queue and resets index.
+		     * Reschedules if more items remain.
 		     */
-		    const addToTurnQueue = (fn) => {
-		      const isFirstItem = executionQueue.push(fn) === 1
-		      if (isFirstItem) {
-		        pollFunction(executeNextTurn)
+		    const processQueue = () => {
+		      const fn = queue[index]
+		      index++
+		      if (fn) {
+		        fn()
+		      }
+		      if (index === queue.length || index === 99) {
+		        queue = queue.slice(index)
+		        turn.s = queue
+		        index = 0
+		      }
+		      if (queue.length) {
+		        poll(processQueue)
 		      }
 		    }
-
-		    // Expose turn queue functionality
-		    addToTurnQueue.s = executionQueue
-		    originalSetTimeout.turn = originalSetTimeout.turn || addToTurnQueue
 		  })()
 
-		  /**
-		   * Batch processing utility for handling large arrays without blocking
-		   * Processes arrays in chunks with configurable batch sizes
-		   */
+		  // Each utility for processing arrays in batches asynchronously.
 		  ;(() => {
-		    const originalSetTimeout = setTimeout
-		    const turnFunction = originalSetTimeout.turn
+		    const u = undefined
+		    const setT = setTimeout
+		    const turn = setT.turn
 
-		    /**
-		     * Processes an array in batches to prevent UI blocking
-		     *
-		     * @param {Array} list - Array to process
-		     * @param {Function} processor - Function to call for each item
-		     * @param {Function} [callback] - Function to call when processing completes
-		     * @param {number} [batchSize=9] - Number of items to process per batch
-		     *
-		     * @example
-		     * setTimeout.each(largeArray, (item) => {
-		     *   console.log(item);
-		     * }, () => {
-		     *   console.log('Processing complete');
-		     * }, 10);
-		     */
-		    const batchProcessor = (list, processor, callback, batchSize = 9) => {
-		      const processNextBatch = () => {
-		        const batch = (list || []).splice(0, batchSize)
-		        const batchLength = batch.length
-		        let result
-
-		        if (batchLength > 0) {
-		          // Process current batch
-		          for (let i = 0; i < batchLength; i++) {
-		            result = processor(batch[i])
-		            if (result !== undefined) {
-		              break // Stop processing if processor returns a value
+		    if (!setT.each) {
+		      /**
+		       * Processes an array in batches asynchronously.
+		       * @param {any[]} list - The array to process.
+		       * @param {Function} processFn - Function to apply to each item.
+		       * @param {Function} [callback] - Optional callback on completion or error.
+		       * @param {number} [batchSize=9] - Number of items per batch.
+		       *
+		       * Flow: Splices batches from the list, processes them synchronously in loop,
+		       * schedules next batch via turn if more remain and no early return, or calls callback.
+		       */
+		      setT.each = (list, processFn, callback, batchSize) => {
+		        if (!batchSize) batchSize = 9
+		        ;(function processBatch() {
+		          const batch = (list || []).splice(0, batchSize)
+		          const batchLen = batch.length
+		          if (batchLen) {
+		            let result
+		            for (const item of batch) {
+		              result = processFn(item)
+		              if (u !== result) {
+		                break
+		              }
 		            }
+		            if (u === result) {
+		              turn(processBatch)
+		              return
+		            }
+		            // biome-ignore lint/complexity/useOptionalChain: TODO: Investigate better... odd cases
+		            callback && callback(result)
+		          } else {
+		            // biome-ignore lint/complexity/useOptionalChain: TODO: Investigate better... odd cases
+		            callback && callback()
 		          }
-
-		          // Continue with next batch if no early termination
-		          if (result === undefined) {
-		            turnFunction(processNextBatch)
-		            return
-		          }
-		        }
-
-		        // Call completion callback if provided
-		        if (callback) {
-		          callback(result)
-		        }
+		        })()
 		      }
-
-		      processNextBatch()
 		    }
-
-		    originalSetTimeout.each = originalSetTimeout.each || batchProcessor
 		  })()
 	})(USE, './shim');
 
@@ -764,15 +672,12 @@ if (typeof module !== 'undefined') {
 		  function list(each) {
 		    each = each ?? ((x) => x)
 		    const l = sort(this)
-		    const r = []
 		    const p = this.book?.parse ?? (() => {})
 		    //while(w = l[i++]){ r.push(each(slot(w)[1], p(w)||w, this)) }
-		    for (let idx = 0; idx < l.length; idx++) {
-		      let w = l[idx]
-		      w = w.word || p(w) || w
-		      r.push(each(this.get(w), w, this))
-		    } // TODO: BUG! PERF?
-		    return r
+		    return l.map((item) => {
+		      const w = item.word || p(item) || item
+		      return each(this.get(w), w, this)
+		    }) // TODO: BUG! PERF?
 		  }
 
 		  /**
@@ -840,14 +745,11 @@ if (typeof module !== 'undefined') {
 		    }
 		    next.from = []
 		    const f = next.from
-		    let idx = 0
-		    while (idx < L.length) {
-		      const tmp = L[idx]
-		      idx++
+		    L.forEach((tmp) => {
 		      f.push(tmp)
 		      next.size += (tmp.is || '').length || 1
 		      tmp.page = next
-		    }
+		    })
 		    p.from = p.from.slice(0, j)
 		    p.size -= next.size
 		    b.list.splice(spot(next.first, b.list) + 1, 0, next) // TODO: BUG! Make sure next.first is decoded text. // TODO: BUG! spot may need parse too?
@@ -955,19 +857,24 @@ if (typeof module !== 'undefined') {
 		    // TODO: IMPROVE PERFORMANCE!!!! l[j] = i is 5X+ faster than .push(
 		    const limbo = l || p.limbo || []
 		    p.limbo = null
-		    let i
 		    const f = p.from
-		    for (let idx = 0; idx < limbo.length; idx++) {
-		      i = limbo[idx]
+		    limbo.forEach((i) => {
 		      if (got(i.word, p)) {
 		        f[got.i] = i // TODO: Trick: allow for a GUN'S HAM CRDT hook here.
 		      } else {
 		        f.push(i)
 		      }
-		    }
+		    })
 		    return f
 		  }
 
+		  /**
+		   * Encodes a value into a serialized string format.
+		   * @param {*} d - The value to encode.
+		   * @param {string} [s='|'] - The separator character.
+		   * @param {string} [u=' '] - The unit separator character.
+		   * @returns {string} The encoded string.
+		   */
 		  B.encode = (d, s, u) => {
 		    const sStr = s || '|'
 		    const uStr = u || String.fromCharCode(32)
@@ -991,15 +898,19 @@ if (typeof module !== 'undefined') {
 		          return ' '
 		        } // TODO: BUG!!! Nested objects don't slot correctly
 		        const l = Object.keys(d).sort()
-		        let t = sStr
-		        for (let idx = 0; idx < l.length; idx++) {
-		          const k = l[idx]
-		          t += `${uStr}${B.encode(k, sStr, uStr)}${uStr}${B.encode(d[k], sStr, uStr)}${uStr}${sStr}`
-		        }
-		        return t
+		        return l.reduce(
+		          (t, k) =>
+		            `${t}${uStr}${B.encode(k, sStr, uStr)}${uStr}${B.encode(d[k], sStr, uStr)}${uStr}${sStr}`,
+		          sStr
+		        )
 		      }
 		    }
 		  }
+		  /**
+		   * Decodes a serialized string back into its original value.
+		   * @param {string} t - The encoded string to decode.
+		   * @returns {*} The decoded value.
+		   */
 		  B.decode = (t) => {
 		    if ('string' !== typeof t) {
 		      return
@@ -1022,6 +933,12 @@ if (typeof module !== 'undefined') {
 		    return t.slice(t.indexOf('"') + 1)
 		  }
 
+		  /**
+		   * Computes a hash value for a string.
+		   * @param {string} s - The string to hash.
+		   * @param {number} [c=0] - Initial hash value.
+		   * @returns {number} The computed hash.
+		   */
 		  B.hash = (s, c) => {
 		    // via SO
 		    if (typeof s !== 'string') {
@@ -1079,13 +996,11 @@ if (typeof module !== 'undefined') {
 		      // Allow boolean values
 		      'boolean' === typeof v ||
 		      // Allow finite numbers (exclude Infinity and NaN)
-		      // we want +/- Infinity to be, but JSON does not support it, sad face.
-		      // can you guess what v === v checks for? ;)
-		      // biome-ignore lint/suspicious/noSelfCompare: old code works good like this ...
-		      ('number' === typeof v && v !== Infinity && v !== -Infinity && v === v) ||
+		      Number.isFinite(v) ||
 		      // Allow soul relations: objects with exactly one key '#' that is a non-empty string
 		      (!!v &&
-		        'string' === typeof v['#'] &&
+		        Object.hasOwn(v, '#') &&
+		        typeof v['#'] === 'string' &&
 		        Object.keys(v).length === 1 &&
 		        v['#'])
 		    )
@@ -1245,7 +1160,11 @@ if (typeof module !== 'undefined') {
 	})(USE, './state');
 
 	;USE(function(module){
-		USE('./shim')
+		/**
+		   * @module dup
+		   * Module for tracking duplicate IDs with automatic cleanup.
+		   */
+		  USE('./shim')
 		  /**
 		   * Creates a Dup instance for tracking duplicate IDs with automatic cleanup.
 		   * @param {Object} [opt] - Options object.
@@ -1254,15 +1173,15 @@ if (typeof module !== 'undefined') {
 		   * @returns {Object} Dup instance with check, track, drop methods.
 		   */
 		  function Dup(opt = { age: 1000 * 9, max: 999 }) {
-		    const dup = { s: {} }
+		    const dup = { s: new Map() }
 		    const s = dup.s
 		    /**
-		     * Checks if an ID is tracked, and tracks it if so.
+		     * Checks if an ID is tracked, and updates its timestamp if so.
 		     * @param {string} id - The ID to check.
 		     * @returns {Object|boolean} The tracked item or false.
 		     */
 		    dup.check = (id) => {
-		      if (!s[id]) return false
+		      if (!s.has(id)) return false
 		      return dt(id)
 		    }
 		    /**
@@ -1271,10 +1190,10 @@ if (typeof module !== 'undefined') {
 		     * @returns {Object} The tracked item.
 		     */
 		    dup.track = (id) => {
-		      if (!s[id]) {
-		        s[id] = {}
+		      if (!s.has(id)) {
+		        s.set(id, {})
 		      }
-		      const it = s[id]
+		      const it = s.get(id)
 		      const now = Date.now()
 		      it.was = now
 		      dup.now = now
@@ -1290,19 +1209,18 @@ if (typeof module !== 'undefined') {
 		     * @param {number} [age] - Optional age override.
 		     */
 		    dup.drop = (age) => {
-		      let it
 		      dup.to = null
 		      dup.now = Date.now()
-		      const l = Object.keys(s)
+		      const l = Array.from(s.keys())
 		      console.STAT?.(dup.now, Date.now() - dup.now, 'dup drop keys') // prev ~20% CPU 7% RAM 300MB // now ~25% CPU 7% RAM 500MB
 		      setTimeout.each(
 		        l,
 		        (id) => {
-		          it = s[id] // TODO: .keys( is slow?
+		          const it = s.get(id)
 		          if (it && (age || opt.age) > dup.now - it.was) {
 		            return
 		          }
-		          delete s[id]
+		          s.delete(id)
 		        },
 		        0,
 		        99
@@ -1407,6 +1325,12 @@ if (typeof module !== 'undefined') {
 		    return id
 		  }
 
+		  /**
+		   * Sends a request and waits for acknowledgment, or acknowledges a received message.
+		   * @param {Function|object|string} cb - Callback for ask operation, or message ID/data for ack.
+		   * @param {object} [as] - Additional options or data for the operation.
+		   * @returns {string|boolean|undefined} - Request ID for ask, true for successful ack, or undefined if no action.
+		   */
 		  module.exports = function ask(cb, as) {
 		    if (!this.on) {
 		      throw new Error('Context must have an "on" method.')
@@ -1856,16 +1780,16 @@ if (typeof module !== 'undefined') {
 		      // TODO: DAM's ## hash check, on same get ACK, producing multiple replies still, maybe JSON vs YSON?
 		      // TMP note for now: viMZq1slG was chat LEX query #.
 		      /*if(gun !== (tmp = msg.$) && (tmp = (tmp||'')._)){
-					if(tmp.Q){ tmp.Q[msg['#']] = ''; return } // chain does not need to ask for it again.
-					tmp.Q = {};
-				}*/
+		    if(tmp.Q){ tmp.Q[msg['#']] = ''; return } // chain does not need to ask for it again.
+		    tmp.Q = {};
+		   }*/
 		      /*if(u === has){
-					if(at.Q){
-						//at.Q[msg['#']] = '';
-						//return;
-					}
-					at.Q = {};
-				}*/
+		    if(at.Q){
+		     //at.Q[msg['#']] = '';
+		     //return;
+		    }
+		    at.Q = {};
+		   }*/
 		      const ctx = msg._ || {}
 		      ctx.DBG = msg.DBG
 		      const DBG = ctx.DBG
@@ -1897,7 +1821,7 @@ if (typeof module !== 'undefined') {
 		      const ctx = msg._ || {}
 		      ctx.DBG = msg.DBG
 		      const DBG = ctx.DBG
-		      let keys = Object.keys(node || '').sort()
+		      const keys = Object.keys(node || '').sort()
 		      const to = msg['#']
 		      let id = text_rand(9)
 		      const soul = ((node || '')._ || '')['#']
@@ -1912,15 +1836,11 @@ if (typeof module !== 'undefined') {
 		        (() => {
 		          const go = () => {
 		            S = Date.now()
-		            let i = 0
-		            let k
 		            let put = {}
-		            while (i < 9) {
-		              k = keys[i]
-		              i++
+		            const batch = keys.splice(0, 9)
+		            for (const k of batch) {
 		              state_ify(put, k, state_is(node, k), node[k], soul)
 		            }
-		            keys = keys.slice(i)
 		            const tmpObj = {}
 		            tmpObj[soul] = put
 		            put = tmpObj
@@ -2091,11 +2011,7 @@ if (typeof module !== 'undefined') {
 		      n = n.split('.')
 		    }
 		    if (Array.isArray(n)) {
-		      const l = n.length
-		      let tmp = at
-		      for (let i = 0; i < l; i++) {
-		        tmp = (tmp || empty)[n[i]]
-		      }
+		      const tmp = n.reduce((acc, key) => acc?.[key] ?? empty[key], at)
 		      if (undefined !== tmp) {
 		        return opt ? this : tmp
 		      } else {
@@ -2117,14 +2033,23 @@ if (typeof module !== 'undefined') {
 		      return yes
 		    }
 		    if (typeof n === 'number') {
-		      return (at.back || at).$.back(n - 1)
+		      let node = this
+		      for (let i = 0; i < n; i++) {
+		        const at = node._
+		        node = (at.back || at).$
+		      }
+		      return node
 		    }
 		    return this
 		  }
 	})(USE, './back');
 
 	;USE(function(module){
-		// WARNING: GUN is very simple, but the JavaScript chaining API around GUN
+		/**
+		   * @module chain
+		   * Gun chaining API module for handling chain operations, input/output, linking, and unlinking.
+		   */
+		  // WARNING: GUN is very simple, but the JavaScript chaining API around GUN
 		  // is complicated and was extremely hard to build. If you port GUN to another
 		  // language, consider implementing an easier API to build.
 		  const Gun = USE('./root')
@@ -2133,7 +2058,8 @@ if (typeof module !== 'undefined') {
 		  const u = undefined
 		  const text_rand = String.random
 		  const valid = Gun.valid
-		  const obj_has = (o, k) => o && Object.hasOwn(o, k)
+		  const obj_has = (o, k) =>
+		    o && (o instanceof Map ? o.has(k) : Object.hasOwn(o, k))
 		  const state = Gun.state
 		  const state_is = state.is
 		  const state_ify = state.ify
@@ -2187,9 +2113,7 @@ if (typeof module !== 'undefined') {
 		      } // will this make for buggy behavior elsewhere?
 		      if (at.lex) {
 		        tmp = msg.get = msg.get || {}
-		        Object.keys(at.lex).forEach((k) => {
-		          tmp[k] = at.lex[k]
-		        })
+		        Object.assign(tmp, at.lex)
 		      }
 		      if (get['#'] || at.soul) {
 		        get['#'] = get['#'] || at.soul
@@ -2201,11 +2125,11 @@ if (typeof module !== 'undefined') {
 		        get = get['.']
 		        if (!get) {
 		          // soul
-		          tmp = back.ask?.[''] // check if we have already asked for the full node
+		          tmp = back.ask?.get('') // check if we have already asked for the full node
 		          if (!back.ask) {
-		            back.ask = {}
+		            back.ask = new Map()
 		          }
-		          back.ask[''] = back // add a flag that we are now.
+		          back.ask.set('', back) // add a flag that we are now.
 		          if (u !== back.put) {
 		            // if we already have data,
 		            back.on('in', back) // send what is cached down the chain
@@ -2216,11 +2140,11 @@ if (typeof module !== 'undefined') {
 		          msg.$ = back.$
 		        } else if (obj_has(back.put, get)) {
 		          // TODO: support #LEX !
-		          tmp = back.ask?.[get]
+		          tmp = back.ask?.get(get)
 		          if (!back.ask) {
-		            back.ask = {}
+		            back.ask = new Map()
 		          }
-		          back.ask[get] = back.$.get(get)._
+		          back.ask.set(get, back.$.get(get)._)
 		          back.on('in', {
 		            get: get,
 		            put: {
@@ -2269,24 +2193,24 @@ if (typeof module !== 'undefined') {
 		        if (at.get) {
 		          msg = { $: at.$, get: { '.': at.get } }
 		          if (!back.ask) {
-		            back.ask = {}
+		            back.ask = new Map()
 		          }
-		          back.ask[at.get] = msg.$._ // TODO: PERFORMANCE? More elegant way?
+		          back.ask.set(at.get, msg.$._) // TODO: PERFORMANCE? More elegant way?
 		          return back.on('out', msg)
 		        }
 		        msg = { $: at.$, get: at.lex ? msg.get : {} }
 		        return back.on('out', msg)
 		      }
 		      if (!at.ask) {
-		        at.ask = {}
+		        at.ask = new Map()
 		      }
-		      at.ask[''] = at //at.ack = at.ack || -1;
+		      at.ask.set('', at) //at.ack = at.ack || -1;
 		      if (at.get) {
 		        get['.'] = at.get
 		        if (!back.ask) {
-		          back.ask = {}
+		          back.ask = new Map()
 		        }
-		        back.ask[at.get] = msg.$._ // TODO: PERFORMANCE? More elegant way?
+		        back.ask.set(at.get, msg.$._) // TODO: PERFORMANCE? More elegant way?
 		        return back.on('out', msg)
 		      }
 		    }
@@ -2364,10 +2288,7 @@ if (typeof module !== 'undefined') {
 
 		    if (cat !== at) {
 		      // don't worry about this when first understanding the code, it handles changing contexts on a message. A soul chain will never have a different context.
-		      tmp = {}
-		      Object.keys(msg).forEach((k) => {
-		        tmp[k] = msg[k]
-		      }) // make copy of message
+		      tmp = { ...msg } // make copy of message
 		      tmp.get = cat.get || tmp.get
 		      if (!cat.soul && !cat.has) {
 		        // if we do not recognize the chain type
@@ -2407,26 +2328,22 @@ if (typeof module !== 'undefined') {
 		    this.to?.next(msg) // 1st API job is to call all chain listeners.
 		    // TODO: Make input more reusable by only doing these (some?) calls if we are a chain we recognize? This means each input listener would be responsible for when listeners need to be called, which makes sense, as they might want to filter.
 		    if (cat.any) {
-		      setTimeout.each(
-		        Object.keys(cat.any),
-		        (any) => {
+		      void Promise.all(
+		        Object.keys(cat.any).map((any) => {
 		          const anyValue = cat.any[any]
-		          anyValue?.(msg)
-		        },
-		        0,
-		        99
-		      ) // 1st API job is to call all chain listeners. // TODO: .keys( is slow // BUG: Some re-in logic may depend on this being sync.
+		          return anyValue ? Promise.resolve(anyValue(msg)) : Promise.resolve()
+		        })
+		      )
 		    }
 		    if (cat.echo) {
-		      setTimeout.each(
-		        Object.keys(cat.echo),
-		        (lat) => {
+		      void Promise.all(
+		        Object.keys(cat.echo).map((lat) => {
 		          const latValue = cat.echo[lat]
-		          latValue?.on('in', msg)
-		        },
-		        0,
-		        99
-		      ) // & linked at chains // TODO: .keys( is slow // BUG: Some re-in logic may depend on this being sync.
+		          return latValue
+		            ? Promise.resolve(latValue.on('in', msg))
+		            : Promise.resolve()
+		        })
+		      )
 		    }
 
 		    if (((msg.$$ || '')._ || at).soul) {
@@ -2502,23 +2419,20 @@ if (typeof module !== 'undefined') {
 		      if (sat) sat.echo = {}
 		    }
 		    if (sat?.echo) sat.echo[tat.id] = tat // link it.
-		    tmp = cat.ask || '' // ask the chain for what needs to be loaded next!
-		    if (cat.ask?.[''] || cat.lex) {
+		    tmp = cat.ask || new Map() // ask the chain for what needs to be loaded next!
+		    if (cat.ask?.has('') || cat.lex) {
 		      // we might need to load the whole thing // TODO: cat.lex probably has edge case bugs to it, need more test coverage.
 		      sat?.on('out', { get: { '#': link } })
 		    }
-		    setTimeout.each(
-		      Object.keys(tmp),
-		      (get) => {
-		        // if sub chains are asking for data. // TODO: .keys( is slow // BUG? ?Some re-in logic may depend on this being sync?
-		        const sat = cat?.ask?.[get]
+		    void Promise.all(
+		      [...tmp.keys()].map((get) => {
+		        // if sub chains are asking for data.
+		        const sat = tmp.get(get)
 		        if (!get || !sat) {
-		          return
+		          return Promise.resolve()
 		        }
-		        sat.on('out', { get: { '.': get, '#': link } }) // go get it.
-		      },
-		      0,
-		      99
+		        return Promise.resolve(sat.on('out', { get: { '.': get, '#': link } })) // go get it.
+		      })
 		    )
 		  }
 
@@ -2557,22 +2471,19 @@ if (typeof module !== 'undefined') {
 		      }
 		      cat.put = u // empty out the cache if, for example, alice's car's color no longer exists (relative to alice) if alice no longer has a car.
 		      // TODO: BUG! For maps, proxy this so the individual sub is triggered, not all subs.
-		      setTimeout.each(
-		        Object.keys(cat.next || ''),
-		        (get) => {
-		          // empty out all sub chains. // TODO: .keys( is slow // BUG? ?Some re-in logic may depend on this being sync? // TODO: BUG? This will trigger deeper put first, does put logic depend on nested order? // TODO: BUG! For map, this needs to be the isolated child, not all of them.
+		      void Promise.all(
+		        Object.keys(cat.next || {}).map((get) => {
+		          // empty out all sub chains.
 		          const sat = cat.next?.[get]
 		          if (!sat) {
-		            return
+		            return Promise.resolve()
 		          }
 		          //if(cat.has && u === sat.put && !(root.pass||'')[sat.id]){ return } // if we are already unlinked, do not call again, unless edge case. // TODO: BUG! This line should be deleted for "unlink deeply nested".
 		          if (link) {
 		            delete root.$.get(link)?.get(get)?._?.echo?.[sat.id]
 		          }
-		          sat.on('in', { $: sat.$, get: get, put: u }) // TODO: BUG? Add recursive seen check?
-		        },
-		        0,
-		        99
+		          return Promise.resolve(sat.on('in', { $: sat.$, get: get, put: u })) // TODO: BUG? Add recursive seen check?
+		        })
 		      )
 		      return
 		    }
@@ -2653,9 +2564,12 @@ if (typeof module !== 'undefined') {
 	;USE(function(module){
 		const Gun = USE('./root')
 
-		  const emptyObject = {}
+		  const EMPTY_OBJECT = Object.create(null)
 		  const validate = Gun.valid
-		  const undefinedValue = undefined
+		  const LISTENER_ID_LENGTH = 7
+		  const CORE_KEY_EQUALS = '='
+		  const CORE_KEY_COLON = ':'
+		  const PATH_KEY = '.'
 
 		  /**
 		   * Handles retrieval for string keys.
@@ -2674,39 +2588,46 @@ if (typeof module !== 'undefined') {
 		      return nodeChain
 		    }
 		    const currentContext = context._
-		    const nextChains = currentContext.next || emptyObject
+		    const nextChains = currentContext.next || EMPTY_OBJECT
 		    let nodeChain = nextChains[key]
 		    if (!nodeChain) {
 		      nodeChain = key && createCachedChain(key, context)
 		    }
 		    return nodeChain?.$
 		  }
+		  /**
+		   * Processes message data for get operations, handling links and not options.
+		   * @param {object} msg - The message object.
+		   * @param {object} getOptions - Options for the get operation.
+		   * @param {object} rootContext - The root context.
+		   * @returns {object} Processed data with at, nodeData, sat, and shouldSkip.
+		   */
 		  function processMessageData(msg, getOptions, rootContext) {
 		    const at = msg.$._
 		    const sat = (msg.$$ || '')._
 		    let nodeData = (sat || at).put
-		    if ((!at.has && !at.soul) || undefinedValue === nodeData) {
-		      // handles non-core
+		    if ((!at.has && !at.soul) || undefined === nodeData) {
+		      // Handle non-core data: extract from msg.put using core keys
 		      const passData = msg.put
 		      nodeData =
-		        undefinedValue === (passData || '')['=']
-		          ? undefinedValue === (passData || '')[':']
+		        undefined === (passData || '')[CORE_KEY_EQUALS]
+		          ? undefined === (passData || '')[CORE_KEY_COLON]
 		            ? passData
-		            : passData[':']
-		          : passData['=']
+		            : passData[CORE_KEY_COLON]
+		          : passData[CORE_KEY_EQUALS]
 		    }
 		    let passData = Gun.valid(nodeData)
 		    const isLink = 'string' === typeof passData
 		    if (isLink) {
 		      passData = rootContext.$.get(passData)._.put
 		      nodeData =
-		        undefinedValue === passData
+		        undefined === passData
 		          ? getOptions.not
-		            ? undefinedValue
+		            ? undefined
 		            : nodeData
 		          : passData
 		    }
-		    const shouldSkip = getOptions.not && undefinedValue === nodeData
+		    const shouldSkip = getOptions.not && undefined === nodeData
 		    return { at, nodeData, sat, shouldSkip }
 		  }
 
@@ -2727,10 +2648,10 @@ if (typeof module !== 'undefined') {
 		    const currentContext = nodeChain._
 		    const getOptions = cb || {}
 		    const rootContext = currentContext.root
-		    let listenerId = String.random(7)
+		    let listenerId = String.random(LISTENER_ID_LENGTH)
 		    getOptions.at = currentContext
 		    getOptions.ok = key
-		    let waitList = {} // can we assign this to the at instead, like in once?
+		    const waitList = new Map() // can we assign this to the at instead, like in once?
 		    //var path = []; context.$.back(at => { at.get && path.push(at.get.slice(0,9))}); path = path.reverse().join('.');
 		    function listenerHandler(msg, eve, f) {
 		      if (listenerHandler.stun) {
@@ -2747,7 +2668,8 @@ if (typeof module !== 'undefined') {
 		      )
 		      if (shouldSkip) return
 		      let stunCheck = {}
-		      if (undefinedValue === getOptions.stun) {
+		      if (undefined === getOptions.stun) {
+		        // Stun mechanism: pauses listeners during concurrent writes to ensure data consistency
 		        const stunData = rootContext.stun
 		        if (stunData?.on) {
 		          currentContext.$.back((a) => {
@@ -2772,8 +2694,8 @@ if (typeof module !== 'undefined') {
 		              stunCheck.stun = stunCheck.stun?.last
 		            }
 		            if (stunCheck.stun && !stunCheck.stun.end) {
-		              //if(isOddNode && undefinedValue === nodeData){ return }
-		              //if(undefinedValue === msg.put){ return } // "not found" acks will be found if there is stun, so ignore these.
+		              //if(isOddNode && undefined === nodeData){ return }
+		              //if(undefined === msg.put){ return } // "not found" acks will be found if there is stun, so ignore these.
 		              if (!stunCheck.stun.add) {
 		                stunCheck.stun.add = {}
 		              }
@@ -2784,10 +2706,10 @@ if (typeof module !== 'undefined') {
 		            }
 		          }
 		        }
-		        if (/*isOddNode &&*/ undefinedValue === nodeData) {
+		        if (/*isOddNode &&*/ undefined === nodeData) {
 		          f = 0
 		        } // if data not found, keep waiting/trying.
-		        /*if(f && undefinedValue === nodeData){
+		        /*if(f && undefined === nodeData){
 		    currentContext.on('out', getOptions.out);
 		    return;
 		  }*/
@@ -2795,22 +2717,22 @@ if (typeof module !== 'undefined') {
 		        if (
 		          hatchData &&
 		          !hatchData.end &&
-		          undefinedValue === getOptions.hatch &&
+		          undefined === getOptions.hatch &&
 		          !f
 		        ) {
-		          // quick hack! // What's going on here? Because data is streamed, we get things one by one, but a lot of developers would rather get a callback after each batch instead, so this does that by creating a wait list per chain id that is then called at the end of the batch by the hatch code in the root put listener.
-		          if (waitList[at.$._.id]) {
+		          // Hatch: batches listener callbacks to fire after a complete batch of data is streamed, improving performance for bulk updates
+		          if (waitList.has(at.$._.id)) {
 		            return
 		          }
-		          waitList[at.$._.id] = 1
+		          waitList.set(at.$._.id, 1)
 		          hatchData.push(() => {
 		            listenerHandler(msg, eve, 1)
 		          })
 		          return
 		        }
-		        waitList = {} // end quick hack.
+		        waitList.clear() // end quick hack.
 		      }
-		      // call:
+		      // Call listener: prevent recursion with pass tracking
 		      if (rootContext.pass) {
 		        if (rootContext.pass[listenerId + at.id]) {
 		          return
@@ -2825,16 +2747,13 @@ if (typeof module !== 'undefined') {
 		        getOptions.ok(msg, eve || listenerHandler)
 		        return
 		      }
-		      const messageCopy = {}
-		      Object.keys(msg).forEach((k) => {
-		        messageCopy[k] = msg[k]
-		      })
+		      const messageCopy = { ...msg }
 		      msg = messageCopy
-		      msg.put = nodeData // 2019 COMPATIBILITY! TODO: GET RID OF THIS!
+		      msg.put = nodeData // Compatibility with 2019 API: modify message.put for old callback style
 		      getOptions.ok.call(getOptions.as, msg, eve || listenerHandler) // is this the right
 		    }
 		    listenerHandler.at = currentContext
-		    listenerId = String.random(7)
+		    listenerId = String.random(LISTENER_ID_LENGTH)
 		    if (!currentContext.any) {
 		      currentContext.any = {}
 		    }
@@ -2859,14 +2778,14 @@ if (typeof module !== 'undefined') {
 
 		      //if(!map || !(tempNode = map[at]) || !(tempNode = tempNode.at)){ return }
 		      if (!this.seen) {
-		        this.seen = {}
+		        this.seen = new Map()
 		      }
 		      const seenNodes = this.seen
-		      const tempNode = seenNodes[at]
+		      const tempNode = seenNodes.get(at)
 		      if (tempNode) {
 		        return true
 		      }
-		      seenNodes[at] = true
+		      seenNodes.set(at, true)
 		      //tempNode.echo[ridContext.id] = {}; // TODO: Warning: This unsubscribes ALL of this chain's listeners from this link, not just the one callback event.
 		      //obj.del(map, at); // TODO: Warning: This unsubscribes ALL of this chain's listeners from this link, not just the one callback event.
 		      return
@@ -2954,10 +2873,8 @@ if (typeof module !== 'undefined') {
 		   */
 		  function createCachedChain(key, back) {
 		    const backContext = back._
-		    let nextChains = backContext.next
-		    if (!nextChains) {
-		      nextChains = backContext.next = {}
-		    }
+		    backContext.next ??= {}
+		    const nextChains = backContext.next
 		    const newChain = back.chain()
 		    const newChainContext = newChain._
 		    newChainContext.get = key
@@ -2992,21 +2909,20 @@ if (typeof module !== 'undefined') {
 		      (msg, eve) => {
 		        const peerCount = Object.keys(gunContext.root.opt.peers).length
 		        if (
-		          undefinedValue === msg.put &&
+		          undefined === msg.put &&
 		          !gunContext.root.opt.super &&
 		          peerCount &&
 		          ++ackCount <= peerCount
 		        ) {
-		          // Wait for all peers to respond before processing, to get the soul.
+		          // Wait for acknowledgments from all peers before extracting soul to ensure data consistency across the network
 		          return
 		        }
 		        eve.rid(msg)
 		        const msgContext = msg.$ ? msg.$._ : {}
 		        const jamQueue = gunContext.jam
 		        delete gunContext.jam
-		        for (let index = 0; index < jamQueue.length; index++) {
-		          const callbackArgs = jamQueue[index]
-		          if (!callbackArgs) continue
+		        jamQueue.forEach((callbackArgs) => {
+		          if (!callbackArgs) return
 		          const [cb, args] = callbackArgs
 		          const soulId =
 		            msgContext.link ||
@@ -3014,9 +2930,9 @@ if (typeof module !== 'undefined') {
 		            Gun.valid(msg.put) ||
 		            msg.put?._?.['#']
 		          cb?.(soulId, args, msg, eve)
-		        }
+		        })
 		      },
-		      { out: { get: { '.': true } } }
+		      { out: { get: { [PATH_KEY]: true } } }
 		    )
 		    return gun
 		  }
@@ -3026,131 +2942,145 @@ if (typeof module !== 'undefined') {
 		var Gun = USE('./root')
 		  Gun.chain.put = function (data, cb, as) {
 		    // I rewrote it :)
-		    var at = this._,
-		      root = at.root
+		    const at = this._
+		    const root = at.root
 		    as = as || {}
 		    as.root = at.root
-		    as.run || (as.run = root.once)
+		    as.run ||= root.once
 		    stun(as, at.id) // set a flag for reads to check if this chain is writing.
 		    as.ack = as.ack || cb
 		    as.via = as.via || this
 		    as.data = as.data || data
-		    as.soul || (as.soul = at.soul || ('string' == typeof cb && cb))
-		    var s = (as.state = as.state || Gun.state())
-		    if ('function' == typeof data) {
+		    if (!as.soul) {
+		      as.soul = at.soul || ('string' === typeof cb && cb)
+		    }
+		    as.state = as.state || Gun.state()
+		    if ('function' === typeof data) {
 		      data((d) => {
 		        as.data = d
-		        this.put(u, u, as)
+		        this.put(undefined, undefined, as)
 		      })
 		      return this
 		    }
 		    if (!as.soul) {
-		      return get(as), this
+		      get(as)
+		      return this
 		    }
 		    as.$ = root.$.get(as.soul) // TODO: This may not allow user chaining and similar?
 		    as.todo = [{ it: as.data, ref: as.$ }]
 		    as.turn = as.turn || turn
 		    as.ran = as.ran || ran
-		    //var path = []; as.via.back(at => { at.get && path.push(at.get.slice(0,9)) }); path = path.reverse().join('.');
 		    // TODO: Perf! We only need to stun chains that are being modified, not necessarily written to.
 		    ;(function walk() {
-		      var to = as.todo,
+		      let to = as.todo,
 		        at = to.pop(),
 		        d = at.it,
-		        cid = at.ref && at.ref._.id,
 		        v,
 		        k,
 		        cat,
 		        tmp,
-		        g
+		        g,
+		        seen,
+		        id
 		      stun(as, at.ref)
-		      if ((tmp = at.todo)) {
+		      tmp = at.todo
+		      if (tmp) {
 		        k = tmp.pop()
 		        d = d[k]
 		        if (tmp.length) {
 		          to.push(at)
 		        }
 		      }
-		      k && (to.path || (to.path = [])).push(k)
-		      if (!(v = valid(d)) && !(g = Gun.is(d))) {
+		      if (k) {
+		        if (!to.path) to.path = []
+		        to.path.push(k)
+		      }
+		      v = valid(d)
+		      g = Gun.is(d)
+		      if (!v && !g) {
 		        if (!Object.plain(d)) {
+		          tmp = []
 		          ran.err(
 		            as,
-		            'Invalid data: ' +
-		              check(d) +
-		              ' at ' +
-		              (as.via.back(
-		                (at) => {
-		                  at.get && tmp.push(at.get)
-		                },
-		                (tmp = [])
-		              ) || tmp.join('.')) +
-		              '.' +
-		              (to.path || []).join('.')
+		            `Invalid data: ${check(d)} at ${
+		              as.via.back((at) => {
+		                at.get && tmp.push(at.get)
+		              }, tmp) || tmp.join('.')
+		            }.${(to.path || []).join('.')}`
 		          )
 		          return
 		        }
-		        var seen = as.seen || (as.seen = []),
-		          i = seen.length
+		        if (!as.seen) as.seen = []
+		        seen = as.seen
+		        let i = seen.length
 		        while (i--) {
-		          if (d === (tmp = seen[i]).it) {
+		          tmp = seen[i]
+		          if (d === tmp.it) {
 		            v = d = tmp.link
 		            break
 		          }
 		        }
 		      }
 		      if (k && v) {
-		        at.node = state_ify(at.node, k, s, d)
+		        at.node = state_ify(at.node, k, as.state, d)
 		      } // handle soul later.
 		      else {
 		        if (!as.seen) {
 		          ran.err(as, 'Data at root of graph must be a node (an object).')
 		          return
 		        }
-		        as.seen.push(
-		          (cat = {
-		            it: d,
-		            link: {},
-		            path: (to.path || []).slice(),
-		            todo: g ? [] : Object.keys(d).sort().reverse(),
-		            up: at
-		          })
-		        ) // Any perf reasons to CPU schedule this .keys( ?
-		        at.node = state_ify(at.node, k, s, cat.link)
+		        cat = {
+		          it: d,
+		          link: {},
+		          path: (to.path || []).slice(),
+		          todo: g ? [] : Object.keys(d).sort().reverse(),
+		          up: at
+		        }
+		        as.seen.push(cat) // Any perf reasons to CPU schedule this .keys( ?
+		        at.node = state_ify(at.node, k, as.state, cat.link)
 		        !g && cat.todo.length && to.push(cat)
 		        // ---------------
-		        var id = as.seen.length
-		        ;(as.wait || (as.wait = {}))[id] = ''
-		        tmp = (cat.ref = g ? d : k ? at.ref.get(k) : at.ref)._
-		        ;(tmp = (d && (d._ || '')['#']) || tmp.soul || tmp.link)
+		        id = as.seen.length
+		        if (!as.wait) as.wait = {}
+		        as.wait[id] = ''
+		        cat.ref = g ? d : k ? at.ref.get(k) : at.ref
+		        tmp = cat.ref._
+		        tmp = (d && (d._ || '')['#']) || tmp.soul || tmp.link
+		        tmp
 		          ? resolve({ soul: tmp })
 		          : cat.ref.get(resolve, {
 		              out: { get: { '.': ' ' } },
 		              run: as.run,
 		              /*hatch: 0,*/ v2020: 1
 		            }) // TODO: BUG! This should be resolve ONLY soul to prevent full data from being loaded. // Fixed now?
-		        //setTimeout(function(){ if(F){ return } console.log("I HAVE NOT BEEN CALLED!", path, id, cat.ref._.id, k) }, 9000); var F; // MAKE SURE TO ADD F = 1 below!
 		        function resolve(msg, eve) {
-		          var end = cat.link['#']
+		          const end = cat.link['#']
 		          if (eve) {
 		            eve.off()
 		            eve.rid(msg)
 		          } // TODO: Too early! Check all peers ack not found.
-		          // TODO: BUG maybe? Make sure this does not pick up a link change wipe, that it uses the changign link instead.
-		          var soul =
-		            end ||
-		            msg.soul ||
-		            (tmp = (msg.$$ || msg.$)._ || '').soul ||
-		            tmp.link ||
-		            ((tmp = tmp.put || '')._ || '')['#'] ||
-		            tmp['#'] ||
-		            ((tmp = msg.put || '') && msg.$$
-		              ? tmp['#']
-		              : (tmp['='] || tmp[':'] || '')['#'])
+		          // TODO: BUG maybe? Make sure this does not pick up a link change wipe, that it uses the changing link instead.
+		          let soul = end || msg.soul
+		          let tmp
+		          let node
+		          if (!soul) {
+		            tmp = (msg.$$ || msg.$)?._ || {}
+		            soul =
+		              tmp.soul ||
+		              tmp.link ||
+		              tmp.put?._?.['#'] ||
+		              tmp['#'] ||
+		              (msg.put && msg.$$
+		                ? msg.put['#']
+		                : (msg.put?.['='] || msg.put?.[':'] || '')['#'])
+		          }
 		          !end && stun(as, msg.$)
 		          if (!soul && !at.link['#']) {
 		            // check soul link above us
-		            ;(at.wait || (at.wait = [])).push(() => {
+		            if (!at.wait) {
+		              at.wait = []
+		            }
+		            at.wait.push(() => {
 		              resolve(msg, eve)
 		            }) // wait
 		            return
@@ -3158,7 +3088,8 @@ if (typeof module !== 'undefined') {
 		          if (!soul) {
 		            soul = []
 		            ;(msg.$$ || msg.$).back((at) => {
-		              if ((tmp = at.soul || at.link)) {
+		              tmp = at.soul || at.link
+		              if (tmp) {
 		                return soul.push(tmp)
 		              }
 		              soul.push(at.get)
@@ -3166,13 +3097,21 @@ if (typeof module !== 'undefined') {
 		            soul = soul.reverse().join('/')
 		          }
 		          cat.link['#'] = soul
-		          !g &&
-		            (((as.graph || (as.graph = {}))[soul] =
-		              cat.node || (cat.node = { _: {} }))._['#'] = soul)
+		          if (!g) {
+		            if (!as.graph) {
+		              as.graph = {}
+		            }
+		            node = cat.node
+		            if (!node) {
+		              node = cat.node = { _: {} }
+		            }
+		            as.graph[soul] = node
+		            node._['#'] = soul
+		          }
 		          delete as.wait[id]
 		          cat.wait &&
 		            setTimeout.each(cat.wait, (cb) => {
-		              cb && cb()
+		              cb?.()
 		            })
 		          as.ran(as)
 		        }
@@ -3190,18 +3129,25 @@ if (typeof module !== 'undefined') {
 		    if (!id) {
 		      return
 		    }
-		    id = (id._ || '').id || id
-		    var run = as.root.stun || (as.root.stun = { on: Gun.on }),
-		      test = {},
+		    id = id?._?.id || id
+		    let run
+		    if (!as.root.stun) {
+		      as.root.stun = { on: Gun.on }
+		    }
+		    run = as.root.stun
+		    let test = {},
 		      tmp
-		    as.stun || (as.stun = run.on('stun', () => {}))
-		    if ((tmp = run.on('' + id))) {
+		    if (!as.stun) {
+		      as.stun = run.on('stun', () => {})
+		    }
+		    tmp = run.on(`${id}`)
+		    if (tmp) {
 		      tmp.the.last.next(test)
 		    }
 		    if (test.run >= as.run) {
 		      return
 		    }
-		    run.on('' + id, function (test) {
+		    run.on(`${id}`, function (test) {
 		      if (as.stun.end) {
 		        this.off()
 		        this.to.next(test)
@@ -3210,11 +3156,6 @@ if (typeof module !== 'undefined') {
 		      test.run = test.run || as.run
 		      test.stun = test.stun || as.stun
 		      return
-		      if (this.to.to) {
-		        this.the.last.next(test)
-		        return
-		      }
-		      test.stun = as.stun
 		    })
 		  }
 
@@ -3227,49 +3168,50 @@ if (typeof module !== 'undefined') {
 		      return
 		    }
 		    as.end = 1
-		    //(as.retry = function(){ as.acks = 0;
-		    var cat = as.$.back(-1)._,
-		      root = cat.root,
-		      ask = cat.ask(function (ack) {
-		        root.on('ack', ack)
-		        if (ack.err && !ack.lack) {
-		          Gun.log(ack)
-		        }
-		        if (++acks > (as.acks || 0)) {
-		          this.off()
-		        } // Adjustable ACKs! Only 1 by default.
-		        if (!as.ack) {
-		          return
-		        }
-		        as.ack(ack, this)
-		      }, as.opt),
-		      acks = 0,
-		      stun = as.stun,
-		      tmp
-		    ;(tmp = () => {
+		    const cat = as.$.back(-1)._
+		    const root = cat.root
+		    const ask = cat.ask(function (ack) {
+		      root.on('ack', ack)
+		      if (ack.err && !ack.lack) {
+		        Gun.log(ack)
+		      }
+		      acks++
+		      if (acks > (as.acks || 0)) {
+		        this.off()
+		      } // Adjustable ACKs! Only 1 by default.
+		      if (!as.ack) {
+		        return
+		      }
+		      as.ack(ack, this)
+		    }, as.opt)
+		    let acks = 0
+		    const stun = as.stun
+		    const tmp = () => {
 		      // this is not official yet, but quick solution to hack in for now.
 		      if (!stun) {
 		        return
 		      }
 		      ran.end(stun, root)
-		      setTimeout.each(Object.keys((stun = stun.add || '')), (cb) => {
-		        if ((cb = stun[cb])) {
+		      const stunAdd = stun.add || ''
+		      setTimeout.each(Object.keys(stunAdd), (key) => {
+		        const cb = stunAdd[key]
+		        if (cb) {
 		          cb()
 		        }
 		      }) // resume the stunned reads // Any perf reasons to CPU schedule this .keys( ?
-		    }).hatch = tmp // this is not official yet ^
-		    //console.log(1, "PUT", as.run, as.graph);
+		    }
+		    tmp.hatch = tmp // this is not official yet ^
 		    if (as.ack && !as.ok) {
 		      as.ok = as.acks || 9
 		    } // TODO: In future! Remove this! This is just old API support.
+		    as.out = as.graph
 		    as.via._.on('out', {
 		      _: tmp,
 		      '#': ask,
 		      ok: as.ok && { '@': as.ok + 1 },
 		      opt: as.opt,
-		      put: (as.out = as.graph)
+		      put: as.out
 		    })
-		    //})();
 		  }
 		  ran.end = (stun, root) => {
 		    stun.end = noop // like with the earlier id, cheaper to make this flag a function so below callbacks do not have to do an extra type check.
@@ -3279,59 +3221,54 @@ if (typeof module !== 'undefined') {
 		    stun.off()
 		  }
 		  ran.err = (as, err) => {
-		    ;(as.ack || noop).call(as, (as.out = { err: (as.err = Gun.log(err)) }))
+		    as.err = Gun.log(err)
+		    as.out = { err: as.err }
+		    ;(as.ack || noop).call(as, as.out)
 		    as.ran(as)
 		  }
 
 		  function get(as) {
-		    var at = as.via._,
-		      tmp
+		    const at = as.via._
 		    as.via = as.via.back((at) => {
 		      if (at.soul || !at.get) {
 		        return at.$
 		      }
-		      tmp = as.data
-		      ;(as.data = {})[at.get] = tmp
+		      const tmp = as.data
+		      as.data = {}
+		      as.data[at.get] = tmp
 		    })
-		    if (!as.via || !as.via._.soul) {
-		      as.via = at.root.$.get(
-		        ((as.data || '')._ || '')['#'] || at.$.back('opt.uuid')()
-		      )
+		    if (!as.via || !as.via?._.soul) {
+		      as.via = at.root.$.get(as.data?._?.['#'] || at.$.back('opt.uuid')())
 		    }
 		    as.via.put(as.data, as.ack, as)
 
 		    return
-		    if (at.get && at.back.soul) {
-		      tmp = as.data
-		      as.via = at.back.$
-		      ;(as.data = {})[at.get] = tmp
-		      as.via.put(as.data, as.ack, as)
-		      return
-		    }
 		  }
-		  function check(d, tmp) {
-		    return (d && (tmp = d.constructor) && tmp.name) || typeof d
+		  function check(d) {
+		    return d?.constructor?.name || typeof d
 		  }
 
-		  var u,
-		    empty = {},
-		    noop = () => {},
-		    turn = setTimeout.turn,
-		    valid = Gun.valid,
-		    state_ify = Gun.state.ify
-		  var iife = (fn, as) => {
+		  const empty = {}
+		  const noop = () => {}
+		  const turn = setTimeout.turn
+		  const valid = Gun.valid
+		  const state_ify = Gun.state.ify
+		  const _iife = (fn, as) => {
 		    fn.call(as || empty)
 		  }
 	})(USE, './put');
 
 	;USE(function(module){
-		const Gun = USE('./root')
-		USE('./chain')
-		USE('./back')
-		USE('./put')
-		USE('./get')
-		module.exports = Gun
-
+		/**
+		   * @module core
+		   * Core module that loads all Gun components and exports the Gun constructor.
+		   */
+		  const Gun = USE('./root')
+		  USE('./chain')
+		  USE('./back')
+		  USE('./put')
+		  USE('./get')
+		  module.exports = Gun
 	})(USE, './core');
 
 	;USE(function(module){
@@ -3353,6 +3290,7 @@ if (typeof module !== 'undefined') {
 
 		  /**
 		   * Main GUN module export.
+		   * This file loads all core Gun modules and exports the Gun constructor.
 		   * @module Gun
 		   */
 		  module.exports = Gun
@@ -3577,10 +3515,10 @@ if (typeof module !== 'undefined') {
 		   *
 		   * @private
 		   */
-		  function createOnceChain(gun, opt) {
+		  function createOnceChain(gun, _opt) {
 		    // Log experimental feature warning
 		    Gun.log.once(
-		      'valonce',
+		      'valOnce',
 		      'Chainable val is experimental, its behavior and API may change moving forward. ' +
 		        'Please play with it and report bugs and ideas on how to improve it.'
 		    )
@@ -3588,7 +3526,7 @@ if (typeof module !== 'undefined') {
 		    const chain = gun.chain()
 
 		    // Set up chain cleanup mechanism
-		    chain._.nix = gun.once(function handleChainData(data, key) {
+		    chain._.nix = gun.once(function handleChainData(_data, _key) {
 		      chain._.on('in', this._)
 		    })
 
@@ -3693,14 +3631,14 @@ if (typeof module !== 'undefined') {
 		  /** @function getSoul @param {object|string} lex - Input lex. @returns {string} Soul if present. */
 		  const getSoul = (lex) => {
 		    if (!lex) return ''
-		    const tmp = lex['#'] || ''
+		    const tmp = lex?.['#'] || ''
 		    if (Array.isArray(tmp)) return tmp[0] || ''
-		    return tmp['='] || tmp
+		    return tmp?.['='] || tmp
 		  }
 		  /** @function getLexPattern @param {object|string} lex - Input lex. @returns {string} Lex pattern. */
 		  const getLexPattern = (lex) => {
 		    if (!lex) return ''
-		    return lex['.'] || lex['#'] || lex
+		    return lex?.['.'] || lex?.['#'] || lex
 		  }
 		  /** @function checkMapField @param {string|object} field - Field to check. @returns {boolean} True if valid map field. @throws {Error} For invalid inputs. */
 		  const checkMapField = (field) => {
@@ -3727,7 +3665,7 @@ if (typeof module !== 'undefined') {
 		  const validateLexInput = (node, lexQuery) => {
 		    if (!node || typeof node !== 'object')
 		      throw new Error('Invalid node: must be an object')
-		    if (!node._) throw new Error('Invalid node: missing _ property')
+		    if (!node?._) throw new Error('Invalid node: missing _ property')
 		    if (
 		      typeof lexQuery !== 'string' &&
 		      (!lexQuery || typeof lexQuery !== 'object' || Array.isArray(lexQuery))
@@ -3801,14 +3739,13 @@ if (typeof module !== 'undefined') {
 		  }
 		  /** @function isValidMapNode @param {object} at - Gun at object. @param {object} msg - Message. @returns {boolean} True if valid node. */
 		  const isValidMapNode = (at, msg) => at.soul || msg.$$
-		  /** @function handleMapCallbackResult @param {object} chain - Chain. @param {*} data - Data. @param {string} key - Key. @param {object} msg - Message. @param {object} eve - Event. @param {*} next - Next value. */
-		  const handleMapCallbackResult = (chain, data, key, msg, eve, next) => {
-		    if (u === next) return
+		  /** @function handleMapCallbackResult @param {object} chain - Chain. @param {*} data - Data. @param {string} key - Key. @param {object} msg - Message. @param {object} _eve - Event. @param {*} next - Next value. */
+		  const handleMapCallbackResult = (chain, data, key, msg, _eve, next) => {
+		    // Handle different types of callback results: ignore undefined, pass through data, Gun instances, or transform to new put
+		    if (undefined === next) return
 		    if (data === next) return chain._.on('in', msg)
 		    if (Gun.is(next)) return chain._.on('in', next._)
-		    const tmp = {}
-		    Object.assign(tmp, msg.put)
-		    tmp['='] = next
+		    const tmp = { ...msg.put, '=': next }
 		    chain._.on('in', { get: key, put: tmp })
 		  }
 		  /**
@@ -3826,8 +3763,9 @@ if (typeof module !== 'undefined') {
 		    validateMapCallback(cb)
 		    let lex
 		    if (checkMapField(cb)) {
+		      // If cb is a field, convert to lex query and set cb to undefined
 		      lex = cb['.'] ? cb : { '.': cb }
-		      cb = u
+		      cb = undefined
 		    }
 		    if (!cb) {
 		      const chain = cat.each
@@ -3859,7 +3797,9 @@ if (typeof module !== 'undefined') {
 		   */
 		  const checkLex = (cat, msg, put) => {
 		    const lex = cat.lex
-		    return !lex || String.match(msg.get || (put || '')['.'], getLexPattern(lex))
+		    return (
+		      !lex || String.match(msg?.get || (put || '')?.['.'], getLexPattern(lex))
+		    )
 		  }
 		  /**
 		   * Internal map function to handle messages.
@@ -3875,8 +3815,7 @@ if (typeof module !== 'undefined') {
 		    if (!checkLex(cat, msg, put)) return
 		    Gun.on.link(msg, cat)
 		  }
-		  const _event = { off: noop, stun: noop },
-		    u = undefined
+		  const _event = { off: noop, stun: noop }
 	})(USE, './map');
 
 	;USE(function(module){
@@ -3888,27 +3827,33 @@ if (typeof module !== 'undefined') {
 		    cb = cb || (() => {})
 		    opt = opt || {}
 		    opt.item = opt.item || item
-		    if ((soul = ((item || '')._ || '')['#'])) {
-		      ;(item = {})['#'] = soul
+		    soul = item?._?.['#']
+		    if (soul) {
+		      item = {}
+		      item['#'] = soul
 		    } // check if node, make link.
-		    if ('string' == typeof (tmp = Gun.valid(item))) {
-		      return this.get((soul = tmp)).put(item, cb, opt)
+		    tmp = Gun.valid(item)
+		    if (typeof tmp === 'string') {
+		      soul = tmp
+		      return this.get(soul).put(item, cb, opt)
 		    } // check if link
 		    if (!Gun.is(item)) {
 		      if (Object.plain(item)) {
-		        item = root.get((soul = this.back('opt.uuid')())).put(item)
+		        soul = this.back('opt.uuid')()
+		        item = root.get(soul).put(item)
 		      }
 		      return this.get(soul || root.back('opt.uuid')(7)).put(item, cb, opt)
 		    }
 		    this.put((go) => {
-		      item.get((soul, o, msg) => {
+		      item.get((soul, _o, msg) => {
 		        // TODO: BUG! We no longer have this option? & go error not handled?
 		        if (!soul) {
 		          return cb.call(this, {
-		            err: Gun.log('Only a node can be linked! Not "' + msg.put + '"!')
+		            err: Gun.log(`Only a node can be linked! Not "${msg.put}"!`)
 		          })
 		        }
-		        ;(tmp = {})[soul] = { '#': soul }
+		        tmp = {}
+		        tmp[soul] = { '#': soul }
 		        go(tmp)
 		      }, true)
 		    })
@@ -3999,6 +3944,11 @@ if (typeof module !== 'undefined') {
 		    }
 		  }
 
+		  /**
+		   * Creates a mesh instance for peer communication and message handling.
+		   * @param {object} root - The Gun root instance.
+		   * @returns {object} The mesh instance with hear, say, hi, bye methods.
+		   */
 		  function Mesh(root) {
 		    const mesh = () => {}
 		    const opt = root.opt || {}
@@ -4014,10 +3964,7 @@ if (typeof module !== 'undefined') {
 		    const dup_check = dup.check
 		    const dup_track = dup.track
 
-		    const ST = Date.now()
-		    const LT = ST
-
-		    const hear = (mesh.hear = function (raw, peer) {
+		    mesh.hear = function (raw, peer) {
 		      if (!raw) return
 		      if (opt.max <= raw.length) {
 		        return mesh.say({ dam: '!', err: 'Message too big!' }, peer)
@@ -4026,7 +3973,8 @@ if (typeof module !== 'undefined') {
 		        hear.d += raw.length || 0
 		        ++hear.c
 		      }
-		      const S = (peer.SH = Date.now())
+		      peer.SH = Date.now()
+		      const S = peer.SH
 		      const tmp = raw[0]
 		      let msg
 
@@ -4038,12 +3986,9 @@ if (typeof module !== 'undefined') {
 		          const P = opt.puff
 		          ;(function go() {
 		            const S = Date.now()
-		            let i = 0,
-		              m
-		            while (i < P && (m = msg[i++])) {
-		              mesh.hear(m, peer)
-		            }
-		            msg = msg.slice(i)
+		            msg.splice(0, P).forEach((m) => {
+		              if (m) mesh.hear(m, peer)
+		            })
 		            console.STAT?.(S, Date.now() - S, 'hear loop')
 		            flush(peer)
 		            if (!msg.length) return
@@ -4054,8 +3999,7 @@ if (typeof module !== 'undefined') {
 		        return
 		      }
 
-		      if ('{' === tmp || ((raw['#'] || Object.plain(raw)) && (msg = raw))) {
-		        if (msg) return hear.one(msg, peer, S)
+		      if ('{' === tmp) {
 		        parse(raw, (err, msg) => {
 		          if (err || !msg)
 		            return mesh.say({ dam: '!', err: 'DAM JSON parse error.' }, peer)
@@ -4063,53 +4007,65 @@ if (typeof module !== 'undefined') {
 		        })
 		        return
 		      }
-		    })
+
+		      if (raw['#'] || Object.plain(raw)) {
+		        msg = raw
+		        return hear.one(msg, peer, S)
+		      }
+		    }
+
+		    const hear = mesh.hear
 
 		    hear.one = (msg, peer, S) => {
 		      let id, hash, tmp, ash, DBG
 		      if (msg.DBG) msg.DBG = DBG = { DBG: msg.DBG }
-		      DBG && (DBG.h = S)
-		      DBG && (DBG.hp = Date.now())
-		      if (!(id = msg['#'])) id = msg['#'] = String.random(9)
-		      if ((tmp = dup_check(id))) return
-		      if (!(hash = msg['##']) && false && u !== msg.put) {
+		      if (DBG) {
+		        DBG.h = S
+		        DBG.hp = Date.now()
 		      }
-		      if (
-		        hash &&
-		        (tmp = msg['@'] || (msg.get && id)) &&
-		        dup.check((ash = tmp + hash))
-		      )
-		        return
-		      ;(msg._ = () => {}).via = mesh.leap = peer
-		      if ((tmp = msg['><']) && typeof tmp === 'string') {
-		        tmp
-		          .slice(0, 99)
-		          .split(',')
-		          .forEach(
-		            function (k) {
-		              this[k] = 1
-		            },
-		            (msg._.yo = {})
-		          )
+		      id = msg['#']
+		      if (!id) id = msg['#'] = String.random(9)
+		      tmp = dup_check(id)
+		      if (tmp) return
+		      if (hash) {
+		        tmp = msg['@'] || (msg.get && id)
+		        ash = tmp + hash
+		        if (dup.check(ash)) {
+		          return
+		        }
 		      }
-		      if ((tmp = msg.dam)) {
+		      msg._ = () => {}
+		      msg._.via = mesh.leap = peer
+		      tmp = msg['><']
+		      if (tmp && typeof tmp === 'string') {
+		        msg._.yo = {}
+		        for (const k of Iterator.from(tmp.slice(0, 99).split(',')).take(99)) {
+		          msg._.yo[k] = 1
+		        }
+		      }
+		      tmp = msg.dam
+		      if (tmp) {
 		        ;(dup_track(id) || {}).via = peer
-		        if ((tmp = mesh.hear[tmp])) tmp(msg, peer, root)
+		        tmp = mesh.hear[tmp]
+		        if (tmp) tmp(msg, peer, root)
 		        return
 		      }
-		      if ((tmp = msg.ok)) msg._.near = tmp['/']
+		      tmp = msg.ok
+		      if (tmp) msg._.near = tmp['/']
 		      const SS = Date.now()
-		      DBG && (DBG.is = SS)
+		      if (DBG) DBG.is = SS
 		      peer.SI = id
 		      dup_track.ed = (d) => {
 		        if (id !== d) return
 		        dup_track.ed = 0
-		        if (!(d = dup.s[id])) return
+		        d = dup.s[id]
+		        if (!d) return
 		        d.via = peer
 		        if (msg.get) d.it = msg
 		      }
-		      root.on('in', (mesh.last = msg))
-		      DBG && (DBG.hd = Date.now())
+		      mesh.last = msg
+		      root.on('in', mesh.last)
+		      if (DBG) DBG.hd = Date.now()
 		      console.STAT?.(
 		        SS,
 		        Date.now() - SS,
@@ -4120,22 +4076,28 @@ if (typeof module !== 'undefined') {
 		      mesh.leap = mesh.last = null
 		    }
 
-		    const tomap = (k, i, m) => {
-		      m(k, true)
-		    }
 		    hear.c = hear.d = 0
 
 		    ;(() => {
-		      let SMIA = 0
+		      let noPeerAckCount = 0
 		      let loop
 
+		      /**
+		       * Hashes the message put data and sends the message.
+		       * @param {object} msg - The message to hash.
+		       * @param {object} peer - The target peer.
+		       */
 		      mesh.hash = (msg, peer) => {
 		        let h, s, t
 		        const S = Date.now()
 		        json(
 		          msg.put,
-		          function hash(err, text) {
-		            const ss = (s || (s = t = text || '')).slice(0, 32768)
+		          function hash(_err, text) {
+		            if (!s) {
+		              t = text || ''
+		              s = t
+		            }
+		            const ss = s.slice(0, 32768)
 		            h = String.hash(ss, h)
 		            s = s.slice(32768)
 		            if (s) {
@@ -4152,13 +4114,11 @@ if (typeof module !== 'undefined') {
 		        )
 		      }
 
-		      function sort(k, v) {
-		        let tmp
+		      function sort(_k, v) {
 		        if (!(v instanceof Object)) return v
-		        Object.keys(v)
-		          .sort()
-		          .forEach(sorta, { on: v, to: (tmp = {}) })
-		        return tmp
+		        const sorted = {}
+		        Object.keys(v).sort().forEach(sorta, { on: v, to: sorted })
+		        return sorted
 		      }
 		      function sorta(k) {
 		        this.to[k] = this.on[k]
@@ -4166,53 +4126,62 @@ if (typeof module !== 'undefined') {
 
 		      mesh.say = function (msg, peer) {
 		        let tmp
-		        if ((tmp = this) && (tmp = tmp.to) && tmp.next) tmp.next(msg)
+		        tmp = this
+		        const to = tmp ? tmp.to : null
+		        if (tmp && to && to.next) to.next(msg)
 		        if (!msg) return false
 		        let id,
 		          hash,
 		          raw,
 		          ack = msg['@']
-		        const meta = msg._ || (msg._ = () => {})
+		        let meta = msg._
+		        if (!meta) meta = msg._ = () => {}
 		        const DBG = msg.DBG
 		        const S = Date.now()
 		        meta.y = meta.y || S
 		        if (!peer) {
-		          DBG && (DBG.y = S)
+		          if (DBG) DBG.y = S
 		        }
-		        if (!(id = msg['#'])) id = msg['#'] = String.random(9)
+		        id = msg['#']
+		        if (!id) id = msg['#'] = String.random(9)
 		        !loop && dup_track(id)
-		        if (!(hash = msg['##']) && u !== msg.put && !meta.via && ack) {
+		        hash = msg['##']
+		        if (!hash && undefined !== msg.put && !meta.via && ack) {
 		          mesh.hash(msg, peer)
 		          return
 		        }
 		        if (!peer && ack) {
-		          peer =
-		            ((tmp = dup.s[ack]) &&
-		              (tmp.via || ((tmp = tmp.it) && (tmp = tmp._) && tmp.via))) ||
-		            ((tmp = mesh.last) && ack === tmp['#'] && mesh.leap)
+		          const leftTmp = dup.s[ack]
+		          const left = leftTmp && (leftTmp.via || leftTmp.it?._?.via)
+		          const rightTmp = mesh.last
+		          const right = rightTmp && ack === rightTmp['#'] && mesh.leap
+		          peer = left || right
 		        }
 		        if (!peer && ack) {
 		          if (dup.s[ack]) return
-		          console.STAT &&
-		            console.STAT(Date.now(), ++SMIA, 'total no peer to ack to')
+		          console.STAT?.(
+		            Date.now(),
+		            ++noPeerAckCount,
+		            'total no peer to ack to'
+		          )
 		          return false
 		        }
 		        if (ack && !msg.put && !hash && ((dup.s[ack] || '').it || '')['##'])
 		          return false
 		        if (!peer && mesh.way) return mesh.way(msg)
-		        DBG && (DBG.yh = Date.now())
-		        if (!(raw = meta.raw)) {
+		        if (DBG) DBG.yh = Date.now()
+		        raw = meta.raw
+		        if (!raw) {
 		          mesh.raw(msg, peer)
 		          return
 		        }
-		        DBG && (DBG.yr = Date.now())
+		        if (DBG) DBG.yr = Date.now()
 
 		        if (!peer || !peer.id) {
 		          if (!Object.plain(peer || opt.peers)) return false
 		          const SS = Date.now()
-		          let P = opt.puff,
-		            ps = opt.peers,
-		            pl = Object.keys(peer || opt.peers || {})
+		          ps = opt.peers
+		          pl = Object.keys(peer || opt.peers || {})
 		          console.STAT?.(SS, Date.now() - SS, 'peer keys')
 		          ;(function go() {
 		            const SS = Date.now()
@@ -4221,9 +4190,15 @@ if (typeof module !== 'undefined') {
 		            meta.raw = raw
 		            let i = 0,
 		              p
-		            while (i < 9 && (p = (pl || '')[i++])) {
-		              if (!(p = ps[p] || (peer || '')[p])) continue
+		            p = (pl || '')[i++]
+		            while (i < 9 && p) {
+		              p = ps[p] || (peer || '')[p]
+		              if (!p) {
+		                p = (pl || '')[i++]
+		                continue
+		              }
 		              mesh.say(msg, p)
+		              p = (pl || '')[i++]
 		            }
 		            meta.raw = wr
 		            loop = 0
@@ -4240,17 +4215,16 @@ if (typeof module !== 'undefined') {
 		        if (id === peer.last) return
 		        peer.last = id
 		        if (peer === meta.via) return false
-		        if ((tmp = meta.yo) && (tmp[peer.url] || tmp[peer.pid] || tmp[peer.id]))
+		        tmp = meta.yo
+		        if (tmp && (tmp[peer.url] || tmp[peer.pid] || tmp[peer.id]))
 		          return false
-		        console.STAT?.(
-		          S,
-		          ((DBG || meta).yp = Date.now()) - (meta.y || S),
-		          'say prep'
-		        )
+		        ;(DBG || meta).yp = Date.now()
+		        console.STAT?.(S, (DBG || meta).yp - (meta.y || S), 'say prep')
 		        !loop && ack && dup_track(ack)
 
 		        if (peer.batch) {
-		          peer.tail = (tmp = peer.tail || 0) + raw.length
+		          tmp = peer.tail || 0
+		          peer.tail = tmp + raw.length
 		          if (peer.tail <= opt.pack) {
 		            peer.batch += (tmp ? ',' : '') + raw
 		            return
@@ -4276,39 +4250,41 @@ if (typeof module !== 'undefined') {
 		        if (!msg) return ''
 		        const meta = msg._ || {}
 		        let put, tmp
-		        if ((tmp = meta.raw)) return tmp
+		        tmp = meta.raw
+		        if (tmp) return tmp
 		        if (typeof msg === 'string') return msg
 		        const hash = msg['##'],
 		          ack = msg['@']
 
 		        if (hash && ack) {
 		          if (!meta.via && dup_check(ack + hash)) return false
-		          if ((tmp = (dup.s[ack] || '').it)) {
+		          tmp = (dup.s[ack] || '').it
+		          if (tmp) {
 		            if (hash === tmp['##']) return false
 		            if (!tmp['##']) tmp['##'] = hash
 		          }
 		        }
 
 		        if (!msg.dam && !msg['@']) {
-		          let i = 0
-		          const to = []
 		          tmp = opt.peers
-		          for (const k in tmp) {
-		            const p = tmp[k]
-		            to.push(p.url || p.pid || p.id)
-		            if (++i > 6) break
-		          }
-		          if (i > 1) msg['><'] = to.join()
+		          const to = Object.keys(tmp)
+		            .slice(0, 7)
+		            .map((k) => tmp[k].url || tmp[k].pid || tmp[k].id)
+		          if (to.length > 1) msg['><'] = to.join()
 		        }
 
-		        if (msg.put && (tmp = msg.ok)) {
-		          msg.ok = {
-		            '@': (tmp['@'] || 1) - 1,
-		            '/': tmp['/'] === msg._.near ? mesh.near : tmp['/']
+		        if (msg.put) {
+		          tmp = msg.ok
+		          if (tmp) {
+		            msg.ok = {
+		              '@': (tmp['@'] || 1) - 1,
+		              '/': tmp['/'] === msg._.near ? mesh.near : tmp['/']
+		            }
 		          }
 		        }
 
-		        if ((put = meta.$put)) {
+		        put = meta.$put
+		        if (put) {
 		          tmp = {}
 		          Object.keys(msg).forEach((k) => {
 		            tmp[k] = msg[k]
@@ -4318,7 +4294,8 @@ if (typeof module !== 'undefined') {
 		            if (err) return
 		            const S = Date.now()
 		            tmp = raw.indexOf('"put":":])([:"')
-		            res(u, (raw = raw.slice(0, tmp + 6) + put + raw.slice(tmp + 14)))
+		            const newRaw = raw.slice(0, tmp + 6) + put + raw.slice(tmp + 14)
+		            res(undefined, newRaw)
 		            console.STAT?.(S, Date.now() - S, 'say slice')
 		          })
 		          return
@@ -4361,8 +4338,9 @@ if (typeof module !== 'undefined') {
 		        }
 		        mesh.say.d += raw.length || 0
 		        ++mesh.say.c
-		      } catch (e) {
-		        ;(peer.queue = peer.queue || []).push(raw)
+		      } catch (_e) {
+		        peer.queue = peer.queue || []
+		        peer.queue.push(raw)
 		      }
 		    }
 
@@ -4378,7 +4356,8 @@ if (typeof module !== 'undefined') {
 		        opt.peers[peer.url || peer.id] = peer
 		      } else {
 		        tmp = peer.id = peer.id || peer.url || String.random(9)
-		        mesh.say({ dam: '?', pid: root.opt.pid }, (opt.peers[tmp] = peer))
+		        opt.peers[tmp] = peer
+		        mesh.say({ dam: '?', pid: root.opt.pid }, opt.peers[tmp])
 		        delete dup.s[peer.last]
 		      }
 		      if (!peer.met) {
@@ -4407,7 +4386,7 @@ if (typeof module !== 'undefined') {
 		      mesh.bye.time = ((mesh.bye.time || tmp) + tmp) / 2
 		    }
 
-		    mesh.hear['!'] = (msg, peer) => {
+		    mesh.hear['!'] = (msg, _peer) => {
 		      opt.log('Error:', msg.err)
 		    }
 		    mesh.hear['?'] = (msg, peer) => {
@@ -4419,7 +4398,7 @@ if (typeof module !== 'undefined') {
 		      delete dup.s[peer.last]
 		    }
 
-		    mesh.hear['mob'] = (msg, peer) => {
+		    mesh.hear.mob = (msg, peer) => {
 		      if (!msg.peers) return
 		      const peers = Object.keys(msg.peers)
 		      const one = peers[(Math.random() * peers.length) >> 0]
@@ -4437,31 +4416,38 @@ if (typeof module !== 'undefined') {
 		    root.on('bye', function (peer, tmp) {
 		      peer = opt.peers[peer.id || peer] || peer
 		      this.to.next(peer)
-		      peer.bye ? peer.bye() : (tmp = peer.wire) && tmp.close && tmp.close()
+		      if (peer.bye) {
+		        peer.bye()
+		      } else {
+		        tmp = peer.wire
+		        if (tmp?.close) tmp.close()
+		      }
 		      delete opt.peers[peer.id]
 		      peer.wire = null
 		    })
 
-		    const gets = {}
+		    const gets = new Set()
 		    root.on('bye', function (peer, tmp) {
 		      this.to.next(peer)
-		      if ((tmp = console.STAT)) tmp.peers = mesh.near
-		      if (!(tmp = peer.url)) return
-		      gets[tmp] = true
+		      tmp = console.STAT
+		      if (tmp) tmp.peers = mesh.near
+		      tmp = peer.url
+		      if (!tmp) return
+		      gets.add(tmp)
 		      setTimeout(() => {
-		        delete gets[tmp]
+		        gets.delete(tmp)
 		      }, opt.lack || 9000)
 		    })
 
 		    root.on('hi', function (peer, tmp) {
 		      this.to.next(peer)
-		      if ((tmp = console.STAT)) tmp.peers = mesh.near
+		      tmp = console.STAT
+		      if (tmp) tmp.peers = mesh.near
 		      if (opt.super) return
 		      const souls = Object.keys(root.next || '')
 		      if (souls.length > 9999 && !console.SUBS) {
-		        console.log(
-		          (console.SUBS = 'Warning: You have more than 10K live GETs...')
-		        )
+		        console.SUBS = 'Warning: You have more than 10K live GETs...'
+		        console.log(console.SUBS)
 		      }
 		      setTimeout.each(souls, (soul) => {
 		        const node = root.next[soul]
@@ -4487,28 +4473,201 @@ if (typeof module !== 'undefined') {
 
 		  try {
 		    module.exports = Mesh
-		  } catch (e) {}
+		  } catch (_e) {}
 	})(USE, './mesh');
 
 	;USE(function(module){
-		var Gun = USE('./root')
+		const Gun = USE('./root')
 		  Gun.Mesh = USE('./mesh')
 
-		  // TODO: resync upon reconnect online/offline
-		  //window.ononline = window.onoffline = function(){ console.log('online?', navigator.onLine) }
+		  /**
+		   * WebSocketManager handles WebSocket peer connections with improved reconnection,
+		   * error handling, and online/offline support.
+		   */
+		  class WebSocketManager {
+		    /**
+		     * @param {Object} root - Gun root instance
+		     * @param {Object} opt - Options object containing mesh, peers, etc.
+		     */
+		    constructor(root, opt) {
+		      this.root = root
+		      this.opt = opt
+		      this.mesh = opt.mesh
+		      this.logger = opt.logger || console
+		      this.wait = 2 * 999 // Base retry delay in ms
+		      this.maxRetries = opt.retry || 60
+		    }
+
+		    /**
+		     * Sets up the wire function for mesh to create WebSocket connections.
+		     */
+		    setupWire() {
+		      const wired = this.mesh.wire || this.opt.wire
+		      this.mesh.wire = this.opt.wire = (peer) =>
+		        this.open(peer) || wired?.(peer)
+		    }
+
+		    /**
+		     * Sets up online/offline event listeners to handle reconnections.
+		     */
+		    setupOnlineOfflineHandling() {
+		      if (typeof window !== 'undefined') {
+		        window.addEventListener('online', () => this.handleOnline())
+		        window.addEventListener('offline', () => this.handleOffline())
+		      }
+		    }
+
+		    /**
+		     * Handles when the browser comes online - attempts to reconnect peers and resync.
+		     */
+		    handleOnline() {
+		      this.logger.log('Network online, reconnecting peers...')
+		      this.reconnectAllPeers()
+		      // Trigger a resync by sending 'hi' message
+		      if (!this.opt.super) {
+		        this.root.on('out', { dam: 'hi' })
+		      }
+		    }
+
+		    /**
+		     * Handles when the browser goes offline - logs the event.
+		     */
+		    handleOffline() {
+		      this.logger.log('Network offline')
+		    }
+
+		    /**
+		     * Attempts to reconnect all peers after coming online.
+		     */
+		    reconnectAllPeers() {
+		      const peers = Object.values(this.opt.peers || {})
+		      const peerIter = peers.values()
+		      const filteredPeers = peerIter.filter(
+		        (peer) => peer.wire && peer.wire.readyState === WebSocket.CLOSED
+		      )
+		      for (const peer of filteredPeers) {
+		        peer.attempts = 0 // Reset attempt count
+		        this.open(peer)
+		      }
+		    }
+
+		    /**
+		     * Creates a WebSocket connection for a peer with improved error handling.
+		     * @param {Object} peer - Peer object with url and other properties.
+		     * @returns {WebSocket|undefined} The WebSocket instance or undefined.
+		     */
+		    open(peer) {
+		      if (!peer || !peer.url) {
+		        return
+		      }
+
+		      const url = peer.url.replace(/^http/, 'ws')
+		      let wire
+		      try {
+		        peer.wire = new this.opt.WebSocket(url)
+		        wire = peer.wire
+
+		        wire.onclose = () => {
+		          this.logger.log('WebSocket closed for peer:', peer.url)
+		          this.reconnect(peer)
+		          this.mesh.bye(peer)
+		        }
+
+		        wire.onerror = (err) => {
+		          this.logger.error('WebSocket error for peer:', peer.url, err)
+		          this.reconnect(peer)
+		        }
+
+		        wire.onopen = () => {
+		          this.logger.log('WebSocket opened for peer:', peer.url)
+		          peer.attempts = 0 // Reset on successful connection
+		          this.mesh.hi(peer)
+		        }
+
+		        wire.onmessage = (msg) => {
+		          if (!msg) {
+		            return
+		          }
+		          this.mesh.hear(msg.data || msg, peer)
+		        }
+
+		        return wire
+		      } catch (e) {
+		        this.logger.error('Failed to create WebSocket for peer:', peer.url, e)
+		        this.mesh.bye(peer)
+		      }
+		    }
+
+		    /**
+		     * Handles reconnection with exponential backoff and jitter.
+		     * @param {Object} peer - Peer to reconnect.
+		     */
+		    reconnect(peer) {
+		      clearTimeout(peer.defer)
+
+		      if (!this.opt.peers[peer.url]) {
+		        return
+		      }
+
+		      peer.attempts = (peer.attempts || 0) + 1
+
+		      if (peer.attempts > this.maxRetries) {
+		        this.logger.log(
+		          'Max reconnection attempts exceeded for peer:',
+		          peer.url
+		        )
+		        return
+		      }
+
+		      const baseDelay = this.wait
+		      const delay = Math.min(
+		        baseDelay * 2 ** (peer.attempts - 1) + Math.random() * 1000,
+		        30000
+		      ) // Cap at 30 seconds with jitter
+
+		      const doc = typeof document !== 'undefined' && document
+		      peer.defer = setTimeout(() => {
+		        if (doc?.hidden) {
+		          peer.defer = setTimeout(() => this.open(peer), this.wait)
+		          return
+		        }
+		        this.open(peer)
+		      }, delay)
+		    }
+
+		    /**
+		     * Sends initial 'hi' message to peers.
+		     */
+		    sendInitialHi() {
+		      setTimeout(() => {
+		        if (!this.opt.super) {
+		          this.root.on('out', { dam: 'hi' })
+		        }
+		      }, 1) // Minimal delay to allow socket setup
+		    }
+
+		    /**
+		     * Initializes the WebSocket manager by setting up wire, online/offline handling, and sending initial hi.
+		     */
+		    init() {
+		      this.setupWire()
+		      this.setupOnlineOfflineHandling()
+		      this.sendInitialHi()
+		    }
+		  }
 
 		  Gun.on('opt', function (root) {
 		    this.to.next(root)
 		    if (root.once) {
 		      return
 		    }
-		    var opt = root.opt
+		    const opt = root.opt
 		    if (false === opt.WebSocket) {
 		      return
 		    }
 
-		    var env = Gun.window || {}
-		    var websocket =
+		    const env = Gun.window || {}
+		    const websocket =
 		      opt.WebSocket || env.WebSocket || env.webkitWebSocket || env.mozWebSocket
 		    if (!websocket) {
 		      return
@@ -4516,71 +4675,11 @@ if (typeof module !== 'undefined') {
 		    opt.WebSocket = websocket
 
 		    opt.mesh = opt.mesh || Gun.Mesh(root)
-		    var mesh = opt.mesh
 
-		    var wired = mesh.wire || opt.wire
-		    mesh.wire = opt.wire = open
-		    function open(peer) {
-		      var url, wire
-		      try {
-		        if (!peer || !peer.url) {
-		          return wired && wired(peer)
-		        }
-		        url = peer.url.replace(/^http/, 'ws')
-		        peer.wire = new opt.WebSocket(url)
-		        wire = peer.wire
-		        wire.onclose = () => {
-		          reconnect(peer)
-		          opt.mesh.bye(peer)
-		        }
-		        wire.onerror = (err) => {
-		          reconnect(peer)
-		        }
-		        wire.onopen = () => {
-		          opt.mesh.hi(peer)
-		        }
-		        wire.onmessage = (msg) => {
-		          if (!msg) {
-		            return
-		          }
-		          opt.mesh.hear(msg.data || msg, peer)
-		        }
-		        return wire
-		      } catch (e) {
-		        opt.mesh.bye(peer)
-		      }
-		    }
-
-		    setTimeout(() => {
-		      !opt.super && root.on('out', { dam: 'hi' })
-		    }, 1) // it can take a while to open a socket, so maybe no longer lazy load for perf reasons?
-
-		    var wait = 2 * 999
-		    function reconnect(peer) {
-		      clearTimeout(peer.defer)
-		      if (!opt.peers[peer.url]) {
-		        return
-		      }
-		      if (doc && peer.retry <= 0) {
-		        return
-		      }
-		      var previousTried = peer.tried
-		      var now = Date.now()
-		      peer.tried = now
-		      var delta = now - (previousTried || 0)
-		      peer.retry =
-		        (peer.retry || opt.retry + 1 || 60) - (delta < wait * 4 ? 1 : 0)
-		      peer.defer = setTimeout(function to() {
-		        if (doc && doc.hidden) {
-		          return setTimeout(to, wait)
-		        }
-		        open(peer)
-		      }, wait)
-		    }
-		    var doc = typeof document !== 'undefined' && document
+		    // Create and initialize WebSocket manager
+		    const wsManager = new WebSocketManager(root, opt)
+		    wsManager.init()
 		  })
-		  var noop = () => {},
-		    u
 	})(USE, './websocket');
 
 	;USE(function(module){
@@ -4589,11 +4688,10 @@ if (typeof module !== 'undefined') {
 		  }
 
 		  // Constants and utilities
-		  const noop = () => {}
 		  let store
-		  const u = undefined
+
 		  try {
-		    store = (Gun.window || noop).localStorage
+		    store = Gun.window?.localStorage
 		  } catch (_e) {}
 		  if (!store) {
 		    Gun.log('Warning: No localStorage exists to persist data to!')
@@ -4615,7 +4713,7 @@ if (typeof module !== 'undefined') {
 		    JSON.parseAsync ||
 		    ((t, cb, r) => {
 		      try {
-		        cb(u, JSON.parse(t, r))
+		        cb(undefined, JSON.parse(t, r))
 		      } catch (e) {
 		        cb(e)
 		      }
@@ -4624,7 +4722,7 @@ if (typeof module !== 'undefined') {
 		    JSON.stringifyAsync ||
 		    ((v, cb, r, s) => {
 		      try {
-		        cb(u, JSON.stringify(v, r, s))
+		        cb(undefined, JSON.stringify(v, r, s))
 		      } catch (e) {
 		        cb(e)
 		      }
@@ -4650,10 +4748,11 @@ if (typeof module !== 'undefined') {
 		    opt.prefix = opt.file || 'gun/'
 		    try {
 		      const item = store.getItem(opt.prefix)
-		      disk = lg[opt.prefix] = lg[opt.prefix] || JSON.parse(item) || {} // TODO: Perf! This will block, should we care, since limited to 5MB anyways?
+		      disk = lg[opt.prefix] =
+		        lg[opt.prefix] || new Map(Object.entries(JSON.parse(item) || {})) // Load persisted data from localStorage (blocking, but limited to 5MB)
 		      size = (item || '').length
 		    } catch (_e) {
-		      disk = lg[opt.prefix] = {}
+		      disk = lg[opt.prefix] = new Map()
 		      size = 0
 		    }
 
@@ -4662,15 +4761,15 @@ if (typeof module !== 'undefined') {
 		      const lex = msg.get
 		      const soul = lex?.['#']
 		      let data
-		      const u = undefined
+
 		      if (!lex || !soul) {
 		        return
 		      }
 		      // Retrieve data from in-memory disk
-		      data = disk[soul] || u
+		      data = disk.get(soul)
 		      const tmp = lex?.['.']
 		      if (data && tmp && !Object.plain(tmp)) {
-		        // Pluck specific field from the data
+		        // Pluck specific field from the data using state management
 		        data = Gun.state.ify({}, tmp, Gun.state.is(data, tmp), data[tmp], soul)
 		      }
 		      //if(data){ (tmp = {})[soul] = data } // back into a graph.
@@ -4686,26 +4785,32 @@ if (typeof module !== 'undefined') {
 		      const key = put['.']
 		      const id = msg['#']
 		      const ok = msg.ok || ''
-		      const _tmp = undefined // pull data off wire envelope
-		      // Merge data into in-memory disk
-		      disk[soul] = Gun.state.ify(disk[soul], key, put['>'], put[':'], soul)
+		      // Merge data into in-memory disk using state management
+		      disk.set(
+		        soul,
+		        Gun.state.ify(disk.get(soul), key, put['>'], put[':'], soul)
+		      )
 		      if (stop && size > 4999880) {
-		        // Check localStorage size limit (~5MB)
+		        // Enforce localStorage size limit (~5MB) to prevent errors
 		        root.on('in', { '@': id, err: 'localStorage max!' })
 		        return
 		      }
-		      // Probabilistic ack to avoid flooding (only for non-ack messages)
+		      // Probabilistic ack to reduce network traffic for non-ack messages
 		      if (!msg['@'] && (!msg._.via || Math.random() < ok['@'] / ok['/'])) {
 		        acks.push(id)
 		      }
 		      if (to) {
 		        return
 		      }
-		      // Schedule flush with delay based on data size
+		      // Schedule flush with delay proportional to data size to balance performance
 		      to = setTimeout(flush, 9 + size / 333) // 0.1MB = 0.3s, 5MB = 15s
 		    })
+		    /**
+		     * Flushes the in-memory disk to localStorage with deferred execution.
+		     * Handles size limits, probabilistic acks, and error reporting.
+		     */
 		    function flush() {
-		      // Defer flush if busy and no pending acks
+		      // Defer flush if event loop is busy and no pending acks to avoid blocking
 		      if (!acks.length && ((setTimeout.turn || '').s || '').length) {
 		        setTimeout(flush, 99)
 		        return
@@ -4716,7 +4821,7 @@ if (typeof module !== 'undefined') {
 		      to = false
 		      acks = []
 		      // Persist disk to localStorage
-		      json(disk, (_err, tmp) => {
+		      json(Object.fromEntries(disk), (_err, tmp) => {
 		        try {
 		          !_err && store.setItem(opt.prefix, tmp)
 		        } catch (e) {
@@ -4730,20 +4835,19 @@ if (typeof module !== 'undefined') {
 		          root.on('localStorage:error', {
 		            err: _err,
 		            get: opt.prefix,
-		            put: disk
+		            put: Object.fromEntries(disk)
 		          })
 		        }
 		        size = tmp.length
 
 		        // Send acks for persisted messages
-		        setTimeout.each(
-		          ack,
-		          (id) => {
+		        let delay = 0
+		        for (const id of ack) {
+		          setTimeout(() => {
 		            root.on('in', { '@': id, err: _err, ok: 0 }) // localStorage isn't reliable, so make its `ok` code be a low number.
-		          },
-		          0,
-		          99
-		        )
+		          }, delay)
+		          delay += 99
+		        }
 		      })
 		    }
 		  })
@@ -4753,14 +4857,16 @@ if (typeof module !== 'undefined') {
 
 }());
 
-/* BELOW IS TEMPORARY FOR OLD INTERNAL COMPATIBILITY, THEY ARE IMMEDIATELY DEPRECATED AND WILL BE REMOVED IN NEXT VERSION */
 ;(() => {
+  /* BELOW IS TEMPORARY FOR OLD INTERNAL COMPATIBILITY, THEY ARE IMMEDIATELY DEPRECATED AND WILL BE REMOVED IN NEXT VERSION */
+  const u = undefined
   if (typeof Gun === 'undefined') {
     return
   }
   const DEP = (n) => {
     console.warn(
-      `Warning! Deprecated internal utility will break in next version: ${n}`
+      'Warning! Deprecated internal utility will break in next version:',
+      n
     )
   }
   // Generic javascript utilities.
@@ -4788,27 +4894,14 @@ if (typeof module !== 'undefined') {
     }
   }
   Type.text = Type.text || {
-    hash: (s, c) => {
-      // via SO
-      DEP('text.hash')
-      if (typeof s !== 'string') {
-        return
-      }
-      c = c || 0
-      if (!s.length) {
-        return c
-      }
-      let i
-      let l
-      let n
-      for (i = 0, l = s.length, void 0; i < l; ++i) {
-        n = s.charCodeAt(i)
-        c = (c << 5) - c + n
-        c |= 0
-      }
-      return c
-    },
-    ify: (t) => {
+    is: (t) => {
+      DEP('text')
+      return typeof t === 'string'
+    }
+  }
+  Type.text.ify =
+    Type.text.ify ||
+    ((t) => {
       DEP('text.ify')
       if (Type.text.is(t)) {
         return t
@@ -4817,15 +4910,26 @@ if (typeof module !== 'undefined') {
         return JSON.stringify(t)
       }
       return t?.toString?.() ?? t
-    },
-    is: (t) => {
-      DEP('text')
-      return typeof t === 'string'
-    },
-    match: (t, o) => {
-      let tmp
+    })
+  Type.text.random =
+    Type.text.random ||
+    ((l, c) => {
+      DEP('text.random')
+      let s = ''
+      l = l || 24 // you are not going to make a 0 length random number, so no need to check type
+      c = c || '0123456789ABCDEFGHIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz'
+      while (l > 0) {
+        s += c.charAt(Math.floor(Math.random() * c.length))
+        l--
+      }
+      return s
+    })
+  Type.text.match =
+    Type.text.match ||
+    ((t, o) => {
+      let tmp, u
       DEP('text.match')
-      if ('string' !== typeof t) {
+      if (typeof t !== 'string') {
         return false
       }
       if (typeof o === 'string') {
@@ -4836,51 +4940,59 @@ if (typeof module !== 'undefined') {
       if (t === tmp) {
         return true
       }
-      if (undefined !== o['=']) {
+      if (u !== o['=']) {
         return false
       }
       tmp = o['*'] || o['>'] || o['<']
       if (t.slice(0, (tmp || '').length) === tmp) {
         return true
       }
-      if (undefined !== o['*']) {
+      if (u !== o['*']) {
         return false
       }
-      if (undefined !== o['>'] && undefined !== o['<']) {
-        return t >= o['>'] && t <= o['<']
+      if (u !== o['>'] && u !== o['<']) {
+        return !!(t >= o['>'] && t <= o['<'])
       }
-      if (undefined !== o['>'] && t >= o['>']) {
+      if (u !== o['>'] && t >= o['>']) {
         return true
       }
-      if (undefined !== o['<'] && t <= o['<']) {
+      if (u !== o['<'] && t <= o['<']) {
         return true
       }
       return false
-    },
-    random: (l, c) => {
-      DEP('text.random')
-      let s = ''
-      l = l || 24 // you are not going to make a 0 length random number, so no need to check type
-      c = c || '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-      while (l > 0) {
-        s += c.charAt(Math.floor(Math.random() * c.length))
-        l--
+    })
+  Type.text.hash =
+    Type.text.hash ||
+    ((s, c) => {
+      // via SO
+      DEP('text.hash')
+      if (typeof s !== 'string') {
+        return
       }
-      return s
-    }
-  }
+      c ??= 0
+      if (!s.length) {
+        return c
+      }
+      let i = 0
+      const l = s.length
+      let n
+      for (; i < l; ++i) {
+        n = s.charCodeAt(i)
+        c = (c << 5) - c + n
+        c |= 0
+      }
+      return c
+    })
   Type.list = Type.list || {
-    index: 1, // change this to 0 if you want non-logical, non-mathematical, non-matrix, non-convenient array notation
     is: (l) => {
       DEP('list')
       return Array.isArray(l)
-    },
-    map: (l, c, _) => {
-      DEP('list.map')
-      return obj_map(l, c, _)
-    },
-    slit: Array.prototype.slice,
-    sort: (k) => {
+    }
+  }
+  Type.list.slit = Type.list.slit || Array.prototype.slice
+  Type.list.sort =
+    Type.list.sort ||
+    ((k) => {
       // creates a new sort function based off some key
       DEP('list.sort')
       return (A, B) => {
@@ -4897,19 +5009,41 @@ if (typeof module !== 'undefined') {
           return 0
         }
       }
+    })
+  Type.list.map =
+    Type.list.map ||
+    ((l, c, _) => {
+      DEP('list.map')
+      return obj_map(l, c, _)
+    })
+  Type.list.index = 1 // change this to 0 if you want non-logical, non-mathematical, non-matrix, non-convenient array notation
+  Type.obj = Type.boj || {
+    is: (o) => {
+      DEP('obj')
+      return o
+        ? (o instanceof Object && o.constructor === Object) ||
+            Object.prototype.toString.call(o).match(/^\[object (\w+)\]$/)[1] ===
+              'Object'
+        : false
     }
   }
-  Type.obj = Type.boj || {
-    as: (o, k, v, u) => {
-      DEP('obj.as')
-      o[k] = o[k] || (u === v ? {} : v)
-      return o[k]
-    },
-    copy: (o) => {
-      DEP('obj.copy') // because http://web.archive.org/web/20140328224025/http://jsperf.com/cloning-an-object/2
-      return !o ? o : JSON.parse(JSON.stringify(o)) // is shockingly faster than anything else, and our data has to be a subset of JSON anyways!
-    },
-    del: (o, k) => {
+  Type.obj.put =
+    Type.obj.put ||
+    ((o, k, v) => {
+      DEP('obj.put')
+      const target = o || {}
+      target[k] = v
+      return target
+    })
+  Type.obj.has =
+    Type.obj.has ||
+    ((o, k) => {
+      DEP('obj.has')
+      return o && Object.hasOwn(o, k)
+    })
+  Type.obj.del =
+    Type.obj.del ||
+    ((o, k) => {
       DEP('obj.del')
       if (!o) {
         return
@@ -4917,80 +5051,105 @@ if (typeof module !== 'undefined') {
       o[k] = null
       delete o[k]
       return o
-    },
-    empty: (() => {
-      function empty(_v, i) {
-        const n = this.n
-        if (n && (i === n || (obj_is(n) && Object.hasOwn(n, i)))) {
-          return
-        }
-        if (undefined !== i) {
-          return true
-        }
-      }
-      return (o, n) => {
-        DEP('obj.empty')
-        if (!o) {
-          return true
-        }
-        return !obj_map(o, empty, { n: n })
-      }
-    })(),
-    has: (o, k) => {
-      DEP('obj.has')
-      return Object.hasOwn(o, k)
-    },
-    ify: (o) => {
+    })
+  Type.obj.as =
+    Type.obj.as ||
+    ((o, k, v, u) => {
+      DEP('obj.as')
+      o[k] = o[k] || (u === v ? {} : v)
+      return o[k]
+    })
+  Type.obj.ify =
+    Type.obj.ify ||
+    ((o) => {
       DEP('obj.ify')
       if (obj_is(o)) {
         return o
       }
       try {
         o = JSON.parse(o)
-      } catch {
+      } catch (_e) {
         o = {}
       }
       return o
-    },
-    is: (o) => {
-      DEP('obj')
-      return o
-        ? (o instanceof Object && o.constructor === Object) ||
-            Object.prototype.toString
-              .call(o)
-              .match(/^\[object (\w+)\]$/)?.[1] === 'Object'
-        : false
-    },
-    map: (() => {
-      function t(...args) {
-        if (args.length === 2) {
-          const [k, v] = args
-          t.r = t.r || {}
-          t.r[k] = v
-          return
-        }
-        const [k] = args
-        t.r = t.r || []
-        t.r.push(k)
+    })
+  ;(() => {
+    const u = undefined
+    function map(v, k) {
+      if (obj_has(this, k) && u !== this[k]) {
+        return
       }
-      const keys = Object.keys
-      let map
-      Object.keys =
-        Object.keys ||
-        ((o) =>
-          map(o, (_v, k, t) => {
-            t(k)
-          }))
-      return (l, c, _) => {
+      this[k] = v
+    }
+    Type.obj.to =
+      Type.obj.to ||
+      ((from, to) => {
+        DEP('obj.to')
+        to = to || {}
+        obj_map(from, map, to)
+        return to
+      })
+  })()
+  Type.obj.copy =
+    Type.obj.copy ||
+    ((o) => {
+      DEP('obj.copy') // because http://web.archive.org/web/20140328224025/http://jsperf.com/cloning-an-object/2
+      return !o ? o : JSON.parse(JSON.stringify(o)) // is shockingly faster than anything else, and our data has to be a subset of JSON anyways!
+    })
+  ;(() => {
+    function empty(_v, i) {
+      let n = this.n,
+        u
+      if (n && (i === n || (obj_is(n) && obj_has(n, i)))) {
+        return
+      }
+      if (u !== i) {
+        return true
+      }
+    }
+    Type.obj.empty =
+      Type.obj.empty ||
+      ((o, n) => {
+        DEP('obj.empty')
+        if (!o) {
+          return true
+        }
+        return !obj_map(o, empty, { n: n })
+      })
+  })()
+  ;(() => {
+    function t(...args) {
+      if (args.length === 2) {
+        const [k, v] = args
+        t.r = t.r || {}
+        t.r[k] = v
+        return
+      }
+      const [k] = args
+      t.r = t.r || []
+      t.r.push(k)
+    }
+    const keys = Object.keys
+    let map, _u
+    Object.keys =
+      Object.keys ||
+      ((o) =>
+        map(o, (_v, k, t) => {
+          t(k)
+        }))
+    Type.obj.map = map =
+      Type.obj.map ||
+      ((l, c, _) => {
         DEP('obj.map')
-        let i = 0
-        let x
-        let r
-        let ll
-        let lle
-        let ii
-        const f = typeof c === 'function'
-        t.r = undefined
+        const u = undefined
+        let i = 0,
+          x,
+          r,
+          ll,
+          lle,
+          ii,
+          f = 'function' === typeof c
+        t.r = u
         if (keys && obj_is(l)) {
           ll = keys(l)
           lle = true
@@ -5002,7 +5161,7 @@ if (typeof module !== 'undefined') {
             ii = i + Type.list.index
             if (f) {
               r = lle ? c.call(_, l[ll[i]], ll[i], t) : c.call(_, l[i], ii, t)
-              if (r !== undefined) {
+              if (r !== u) {
                 return r
               }
             } else {
@@ -5017,7 +5176,7 @@ if (typeof module !== 'undefined') {
             if (f) {
               if (obj_has(l, i)) {
                 r = _ ? c.call(_, l[i], i, t) : c(l[i], i, t)
-                if (r !== undefined) {
+                if (r !== u) {
                   return r
                 }
               }
@@ -5030,78 +5189,50 @@ if (typeof module !== 'undefined') {
           }
         }
         return f ? t.r : Type.list.index ? 0 : -1
-      }
-    })(),
-    put: (o, k, v) => {
-      DEP('obj.put')
-      const temp = o || {}
-      temp[k] = v
-      return temp
-    },
-    to: (() => {
-      function map(v, k) {
-        if (obj_has(this, k) && undefined !== this[k]) {
-          return
-        }
-        this[k] = v
-      }
-      return (from, to) => {
-        DEP('obj.to')
-        to = to || {}
-        obj_map(from, map, to)
-        return to
-      }
-    })()
-  }
+      })
+  })()
   Type.time = Type.time || {}
   Type.time.is =
     Type.time.is ||
     ((t) => {
       DEP('time')
-      return t ? t instanceof Date : Date.now()
+      return t ? t instanceof Date : +Date.now()
     })
 
+  const fn_is = Type.fn.is
   const list_is = Type.list.is
-  const obj = Type.obj
-  const obj_is = obj.is
-  const obj_has = obj.has
-  const obj_map = obj.map
-
-  var Val = {
-    is: (v) => {
-      DEP('val.is') // Valid values are a subset of JSON: null, binary, number (!Infinity), text, or a soul relation. Arrays need special algorithms to handle concurrency, so they are not supported directly. Use an extension that supports them if needed but research their problems first.
-      if (v === undefined) {
-        return false
-      }
-      if (v === null) {
-        return true
-      } // "deletes", nulling out keys.
-      if (v === Infinity) {
-        return false
-      } // we want this to be, but JSON does not support it, sad face.
-      if (
-        text_is(v) || // by "text" we mean strings.
-        bi_is(v) || // by "binary" we mean boolean.
-        num_is(v)
-      ) {
-        // by "number" we mean integers or decimals.
-        return true // simple values are valid.
-      }
-      return Val.link.is(v) || false // is the value a soul relation? Then it is valid and return it. If not, everything else remaining is an invalid data type. Custom extensions can be built on top of these primitives to support other types.
-    },
-    link: { _: '#' }
+  const Val = {}
+  Val.is = (v) => {
+    DEP('val.is') // Valid values are a subset of JSON: null, binary, number (!Infinity), text, or a soul relation. Arrays need special algorithms to handle concurrency, so they are not supported directly. Use an extension that supports them if needed but research their problems first.
+    if (v === u) {
+      return false
+    }
+    if (v === null) {
+      return true
+    } // "deletes", nulling out keys.
+    if (v === Infinity) {
+      return false
+    } // we want this to be, but JSON does not support it, sad face.
+    if (
+      text_is(v) || // by "text" we mean strings.
+      bi_is(v) || // by "binary" we mean boolean.
+      num_is(v)
+    ) {
+      // by "number" we mean integers or decimals.
+      return true // simple values are valid.
+    }
+    return Val.link.is(v) || false // is the value a soul relation? Then it is valid and return it. If not, everything else remaining is an invalid data type. Custom extensions can be built on top of these primitives to support other types.
   }
-  Val.rel = Val.link
+  Val.link = Val.rel = { _: '#' }
   ;(() => {
     Val.link.is = (v) => {
       DEP('val.link.is') // this defines whether an object is a soul relation or not, they look like this: {'#': 'UUID'}
-      let o
-      if (v?.[rel_] && !v?._ && obj_is(v)) {
+      if (v?.[rel_] && !v._ && obj_is(v)) {
         // must be an object.
-        o = {}
+        const o = {}
         obj_map(v, map, o)
         if (o.id) {
-          // a valid id was found.
+          // we found an id.
           return o.id // yay! Return it.
         }
       }
@@ -5110,14 +5241,13 @@ if (typeof module !== 'undefined') {
     function map(s, k) {
       if (this.id) {
         this.id = false
-        return this.id
+        return
       } // if ID is already defined AND we're still looping through the object, it is considered invalid.
       if (k === rel_ && text_is(s)) {
         // the key should be '#' and have a text value.
         this.id = s // we found the soul!
       } else {
-        this.id = false
-        return this.id // if there exists anything else on the object that isn't the soul, then it is considered invalid.
+        this.id = false // if there exists anything else on the object that isn't the soul, then it is considered invalid.
       }
     }
   })()
@@ -5127,14 +5257,10 @@ if (typeof module !== 'undefined') {
   } // convert a soul into a relation and return it.
   Type.obj.has._ = '.'
   const rel_ = Val.link._
-  var bi_is = Type.bi.is
-  var num_is = Type.num.is
-  var text_is = Type.text.is
-  const obj_put = obj.put
 
   Type.val = Type.val || Val
 
-  var Node = { _: '_' }
+  const Node = { _: '_' }
   Node.soul = (n, o) => {
     DEP('node.soul')
     return n?._?.[o || soul_]
@@ -5151,14 +5277,14 @@ if (typeof module !== 'undefined') {
   ;(() => {
     Node.is = (n, cb, as) => {
       DEP('node.is')
-      let s // checks to see if an object is a valid node.
-      if (!obj_is2(n)) {
+      // checks to see if an object is a valid node.
+      if (!obj_is(n)) {
         return false
       } // must be an object.
-      s = Node.soul(n)
+      const s = Node.soul(n)
       if (s) {
         // must have a soul on it.
-        return !obj_map2(n, map, { as: as, cb: cb, n: n, s: s })
+        return !obj_map(n, map, { as: as, cb: cb, n: n, s: s })
       }
       return false // nope! This was not a valid node.
     }
@@ -5182,15 +5308,15 @@ if (typeof module !== 'undefined') {
         o = {}
       } else if (typeof o === 'string') {
         o = { soul: o }
-      } else if (typeof o === 'function') {
+      } else if ('function' === typeof o) {
         o = { map: o }
       }
       if (o.map) {
-        o.node = o.map.call(as, obj, undefined, o.node || {})
+        o.node = o.map.call(as, obj, u, o.node || {})
       }
       o.node = Node.soul.ify(o.node || {}, o)
       if (o.node) {
-        obj_map2(obj, map, { as: as, o: o })
+        obj_map(obj, map, { as: as, o: o })
       }
       return o.node // This will only be a valid node if the object wasn't already deep!
     }
@@ -5199,8 +5325,8 @@ if (typeof module !== 'undefined') {
       let tmp
       if (o.map) {
         tmp = o.map.call(this.as, v, `${k}`, o.node)
-        if (undefined === tmp) {
-          obj_del2(o.node, k)
+        if (u === tmp) {
+          obj_del(o.node, k)
         } else if (o.node) {
           o.node[k] = tmp
         }
@@ -5211,51 +5337,45 @@ if (typeof module !== 'undefined') {
       }
     }
   })()
-  const obj2 = Type.obj
-  const obj_is2 = obj2.is
-  const obj_del2 = obj2.del
-  const obj_map2 = obj2.map
-  var text = Type.text
-  var text_random = text.random
-  var soul_ = Node.soul._
+  const soul_ = Node.soul._
+  const _u = undefined
   Type.node = Type.node || Node
 
-  var State = Type.state
+  const State = Type.state
   State.lex = () => {
     DEP('state.lex')
     return State().toString(36).replace('.', '')
   }
   State.to = (from, k, to) => {
     DEP('state.to')
-    var val = from?.[k]
-    if (obj_is3(val)) {
-      val = obj_copy3(val)
+    let val = from?.[k]
+    if (obj_is(val)) {
+      val = obj_copy(val)
     }
     return State.ify(to, k, State.is(from, k), val, Node.soul(from))
   }
   ;(() => {
     State.map = (cb, s, as) => {
       DEP('state.map')
-
+      const u = undefined
       const temp = cb || s
-      const o = obj_is3(temp) ? temp : null
-      const temp2 = cb || s
-      cb = fn_is3(temp2) ? temp2 : null
+      const o = obj_is(temp) ? temp : null
+      cb = fn_is(temp) ? temp : null
       if (o && !cb) {
-        s = num_is3(s) ? s : State()
+        s = num_is(s) ? s : State()
         o[N_] = o[N_] || {}
-        obj_map3(o, map, { o: o, s: s })
+        obj_map(o, map, { o: o, s: s })
         return o
       }
-      as = as || obj_is3(s) ? s : undefined
-      s = num_is3(s) ? s : State()
+      as = as || obj_is(s) ? s : u
+      s = num_is(s) ? s : State()
       return function (v, k, o, opt) {
         if (!cb) {
           map.call({ o: o, s: s }, v, k)
           return v
         }
         cb.call(as || this || {}, v, k, o, opt)
-        if (obj_has3(o, k) && undefined === o[k]) {
+        if (obj_has(o, k) && u === o[k]) {
           return
         }
         map.call({ o: o, s: s }, v, k)
@@ -5268,28 +5388,19 @@ if (typeof module !== 'undefined') {
       State.ify(this.o, k, this.s)
     }
   })()
-  const obj3 = Type.obj
-  const obj_has3 = obj3.has
-  const obj_is3 = obj3.is
-  const obj_map3 = obj3.map
-  const obj_copy3 = obj3.copy
-  var num3 = Type.num
-  var num_is3 = num3.is
-  var fn3 = Type.fn
-  var fn_is3 = fn3.is
-  var N_ = Node._
+  const N_ = Node._
 
-  var Graph = {}
+  const Graph = {}
   ;(() => {
     Graph.is = (g, cb, fn, as) => {
       DEP('graph.is') // checks to see if an object is a valid graph.
-      if (!g || !obj_is4(g) || obj_empty4(g)) {
+      if (!g || !obj_is(g) || obj_empty(g)) {
         return false
       } // must be an object.
-      return !obj_map4(g, map, { as: as, cb: cb, fn: fn }) // makes sure it wasn't an empty object.
+      return !obj_map(g, map, { as: as, cb: cb, fn: fn }) // makes sure it wasn't an empty object.
     }
     function map(n, s) {
-      // we invert this because the way'? we check for this is via a negation.
+      // we invert this because the way we check for this is via a negation.
       if (!n || s !== Node.soul(n) || !Node.is(n, this.fn, this.as)) {
         return true
       } // it is true that this is an invalid graph.
@@ -5310,17 +5421,17 @@ if (typeof module !== 'undefined') {
   ;(() => {
     Graph.ify = (obj, env, as) => {
       DEP('graph.ify')
-      var at = { obj: obj, path: [] }
+      const at = { obj: obj, path: [] }
       if (!env) {
         env = {}
       } else if (typeof env === 'string') {
         env = { soul: env }
-      } else if (typeof env === 'function') {
+      } else if ('function' === typeof env) {
         env.map = env
       }
       if (typeof as === 'string') {
         env.soul = env.soul || as
-        as = undefined
+        as = u
       }
       if (env.soul) {
         at.link = Val.link.ify(env.soul)
@@ -5350,10 +5461,10 @@ if (typeof module !== 'undefined') {
       return at
     }
     function map(v, k, n) {
-      var env = this.env
-      var is
+      const env = this.env
+      let is
       let tmp
-      if (Node._ === k && Object.hasOwn(v, Val.link._)) {
+      if (Node._ === k && obj_has(v, Val.link._)) {
         return n._ // TODO: Bug?
       }
       is = valid(v, k, n, this, env)
@@ -5362,7 +5473,7 @@ if (typeof module !== 'undefined') {
       }
       if (!k) {
         this.node = this.node || n || {}
-        if (Object.hasOwn(v, Node._) && Node.soul(v)) {
+        if (obj_has(v, Node._) && Node.soul(v)) {
           // ? for safety ?
           this.node._ = obj_copy(v._)
         }
@@ -5372,12 +5483,13 @@ if (typeof module !== 'undefined') {
       tmp = env.map
       if (tmp) {
         tmp.call(env.as || {}, v, k, n, this)
-        if (Object.hasOwn(n, k)) {
+        if (obj_has(n, k)) {
           v = n[k]
-          if (undefined === v) {
+          if (u === v) {
             obj_del(n, k)
             return
           }
+
           is = valid(v, k, n, this, env)
           if (!is) {
             return
@@ -5387,7 +5499,7 @@ if (typeof module !== 'undefined') {
       if (!k) {
         return this.node
       }
-      if (is) {
+      if (true === is) {
         return v
       }
       tmp = node(env, { obj: v, path: this.path.concat(k) })
@@ -5397,14 +5509,14 @@ if (typeof module !== 'undefined') {
       return tmp.link //{'#': Node.soul(tmp.node)};
     }
     function soul(id) {
-      var prev = Val.link.is(this.link)
-      var graph = this.env.graph
+      const prev = Val.link.is(this.link),
+        graph = this.env.graph
       this.link = this.link || Val.link.ify(id)
       this.link[Val.link._] = id
       if (this.node?.[Node._]) {
         this.node[Node._][Val.link._] = id
       }
-      if (Object.hasOwn(graph, prev)) {
+      if (obj_has(graph, prev)) {
         graph[id] = graph[prev]
         obj_del(graph, prev)
       }
@@ -5424,13 +5536,13 @@ if (typeof module !== 'undefined') {
       }
       env.err = `Invalid value at '${at.path.concat(k).join('.')}'!`
       if (Type.list.is(v)) {
-        env.err = `${env.err} Use \`.set(item)\` instead of an Array.`
+        env.err += ' Use `.set(item)` instead of an Array.'
       }
     }
     function seen(env, at) {
-      var arr = env.seen
-      var i = arr.length
-      var has
+      let arr = env.seen,
+        i = arr.length,
+        has
       while (i--) {
         has = arr[i]
         if (at.obj === has.obj) {
@@ -5442,7 +5554,7 @@ if (typeof module !== 'undefined') {
   })()
   Graph.node = (node) => {
     DEP('graph.node')
-    var soul = Node.soul(node)
+    const soul = Node.soul(node)
     if (!soul) {
       return
     }
@@ -5456,17 +5568,16 @@ if (typeof module !== 'undefined') {
       }
       const obj = {}
       opt = opt || { seen: {} }
-      obj_map4(graph[root], map, { graph: graph, obj: obj, opt: opt })
+      obj_map(graph[root], map, { graph: graph, obj: obj, opt: opt })
       return obj
     }
     function map(v, k) {
-      let tmp
-      let obj
+      let tmp, obj
       if (Node._ === k) {
-        if (obj_empty4(v, Val.link._)) {
+        if (obj_empty(v, Val.link._)) {
           return
         }
-        this.obj[k] = obj_copy4(v)
+        this.obj[k] = obj_copy(v)
         return
       }
       tmp = Val.link.is(v)
