@@ -7,7 +7,7 @@
     cb = cb || (() => {})
     opt = opt || {}
     opt.item = opt.item || item
-    soul = ((item || '')._ || '')['#']
+    soul = item?._?.['#']
     if (soul) {
       item = {}
       item['#'] = soul

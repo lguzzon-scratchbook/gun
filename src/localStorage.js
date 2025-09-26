@@ -64,10 +64,11 @@
     opt.prefix = opt.file || 'gun/'
     try {
       const item = store.getItem(opt.prefix)
-      disk = lg[opt.prefix] = lg[opt.prefix] || JSON.parse(item) || {} // Load persisted data from localStorage (blocking, but limited to 5MB)
+      disk = lg[opt.prefix] =
+        lg[opt.prefix] || new Map(Object.entries(JSON.parse(item) || {})) // Load persisted data from localStorage (blocking, but limited to 5MB)
       size = (item || '').length
     } catch (_e) {
-      disk = lg[opt.prefix] = {}
+      disk = lg[opt.prefix] = new Map()
       size = 0
     }
 
@@ -81,7 +82,7 @@
         return
       }
       // Retrieve data from in-memory disk
-      data = disk[soul] || undefined
+      data = disk.get(soul)
       const tmp = lex?.['.']
       if (data && tmp && !Object.plain(tmp)) {
         // Pluck specific field from the data using state management
@@ -101,7 +102,10 @@
       const id = msg['#']
       const ok = msg.ok || ''
       // Merge data into in-memory disk using state management
-      disk[soul] = Gun.state.ify(disk[soul], key, put['>'], put[':'], soul)
+      disk.set(
+        soul,
+        Gun.state.ify(disk.get(soul), key, put['>'], put[':'], soul)
+      )
       if (stop && size > 4999880) {
         // Enforce localStorage size limit (~5MB) to prevent errors
         root.on('in', { '@': id, err: 'localStorage max!' })
@@ -133,7 +137,7 @@
       to = false
       acks = []
       // Persist disk to localStorage
-      json(disk, (_err, tmp) => {
+      json(Object.fromEntries(disk), (_err, tmp) => {
         try {
           !_err && store.setItem(opt.prefix, tmp)
         } catch (e) {
@@ -147,20 +151,19 @@
           root.on('localStorage:error', {
             err: _err,
             get: opt.prefix,
-            put: disk
+            put: Object.fromEntries(disk)
           })
         }
         size = tmp.length
 
         // Send acks for persisted messages
-        setTimeout.each(
-          ack,
-          (id) => {
+        let delay = 0
+        for (const id of ack) {
+          setTimeout(() => {
             root.on('in', { '@': id, err: _err, ok: 0 }) // localStorage isn't reliable, so make its `ok` code be a low number.
-          },
-          0,
-          99
-        )
+          }, delay)
+          delay += 99
+        }
       })
     }
   })

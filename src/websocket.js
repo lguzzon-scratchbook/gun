@@ -62,12 +62,15 @@
      * Attempts to reconnect all peers after coming online.
      */
     reconnectAllPeers() {
-      Object.values(this.opt.peers || {}).forEach((peer) => {
-        if (peer.wire && peer.wire.readyState === WebSocket.CLOSED) {
-          peer.attempts = 0 // Reset attempt count
-          this.open(peer)
-        }
-      })
+      const peers = Object.values(this.opt.peers || {})
+      const peerIter = peers.values()
+      const filteredPeers = peerIter.filter(
+        (peer) => peer.wire && peer.wire.readyState === WebSocket.CLOSED
+      )
+      for (const peer of filteredPeers) {
+        peer.attempts = 0 // Reset attempt count
+        this.open(peer)
+      }
     }
 
     /**

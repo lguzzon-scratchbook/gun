@@ -88,7 +88,7 @@
     let listenerId = String.random(LISTENER_ID_LENGTH)
     getOptions.at = currentContext
     getOptions.ok = key
-    let waitList = {} // can we assign this to the at instead, like in once?
+    const waitList = new Map() // can we assign this to the at instead, like in once?
     //var path = []; context.$.back(at => { at.get && path.push(at.get.slice(0,9))}); path = path.reverse().join('.');
     function listenerHandler(msg, eve, f) {
       if (listenerHandler.stun) {
@@ -158,16 +158,16 @@
           !f
         ) {
           // Hatch: batches listener callbacks to fire after a complete batch of data is streamed, improving performance for bulk updates
-          if (waitList[at.$._.id]) {
+          if (waitList.has(at.$._.id)) {
             return
           }
-          waitList[at.$._.id] = 1
+          waitList.set(at.$._.id, 1)
           hatchData.push(() => {
             listenerHandler(msg, eve, 1)
           })
           return
         }
-        waitList = {} // end quick hack.
+        waitList.clear() // end quick hack.
       }
       // Call listener: prevent recursion with pass tracking
       if (rootContext.pass) {
@@ -184,10 +184,7 @@
         getOptions.ok(msg, eve || listenerHandler)
         return
       }
-      const messageCopy = {}
-      Object.keys(msg).forEach((k) => {
-        messageCopy[k] = msg[k]
-      })
+      const messageCopy = { ...msg }
       msg = messageCopy
       msg.put = nodeData // Compatibility with 2019 API: modify message.put for old callback style
       getOptions.ok.call(getOptions.as, msg, eve || listenerHandler) // is this the right
@@ -218,14 +215,14 @@
 
       //if(!map || !(tempNode = map[at]) || !(tempNode = tempNode.at)){ return }
       if (!this.seen) {
-        this.seen = {}
+        this.seen = new Map()
       }
       const seenNodes = this.seen
-      const tempNode = seenNodes[at]
+      const tempNode = seenNodes.get(at)
       if (tempNode) {
         return true
       }
-      seenNodes[at] = true
+      seenNodes.set(at, true)
       //tempNode.echo[ridContext.id] = {}; // TODO: Warning: This unsubscribes ALL of this chain's listeners from this link, not just the one callback event.
       //obj.del(map, at); // TODO: Warning: This unsubscribes ALL of this chain's listeners from this link, not just the one callback event.
       return
@@ -361,9 +358,8 @@
         const msgContext = msg.$ ? msg.$._ : {}
         const jamQueue = gunContext.jam
         delete gunContext.jam
-        for (let index = 0; index < jamQueue.length; index++) {
-          const callbackArgs = jamQueue[index]
-          if (!callbackArgs) continue
+        jamQueue.forEach((callbackArgs) => {
+          if (!callbackArgs) return
           const [cb, args] = callbackArgs
           const soulId =
             msgContext.link ||
@@ -371,7 +367,7 @@
             Gun.valid(msg.put) ||
             msg.put?._?.['#']
           cb?.(soulId, args, msg, eve)
-        }
+        })
       },
       { out: { get: { [PATH_KEY]: true } } }
     )

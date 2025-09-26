@@ -215,15 +215,12 @@
   function list(each) {
     each = each ?? ((x) => x)
     const l = sort(this)
-    const r = []
     const p = this.book?.parse ?? (() => {})
     //while(w = l[i++]){ r.push(each(slot(w)[1], p(w)||w, this)) }
-    for (let idx = 0; idx < l.length; idx++) {
-      let w = l[idx]
-      w = w.word || p(w) || w
-      r.push(each(this.get(w), w, this))
-    } // TODO: BUG! PERF?
-    return r
+    return l.map((item) => {
+      const w = item.word || p(item) || item
+      return each(this.get(w), w, this)
+    }) // TODO: BUG! PERF?
   }
 
   /**
@@ -291,14 +288,11 @@
     }
     next.from = []
     const f = next.from
-    let idx = 0
-    while (idx < L.length) {
-      const tmp = L[idx]
-      idx++
+    L.forEach((tmp) => {
       f.push(tmp)
       next.size += (tmp.is || '').length || 1
       tmp.page = next
-    }
+    })
     p.from = p.from.slice(0, j)
     p.size -= next.size
     b.list.splice(spot(next.first, b.list) + 1, 0, next) // TODO: BUG! Make sure next.first is decoded text. // TODO: BUG! spot may need parse too?
@@ -406,16 +400,14 @@
     // TODO: IMPROVE PERFORMANCE!!!! l[j] = i is 5X+ faster than .push(
     const limbo = l || p.limbo || []
     p.limbo = null
-    let i
     const f = p.from
-    for (let idx = 0; idx < limbo.length; idx++) {
-      i = limbo[idx]
+    limbo.forEach((i) => {
       if (got(i.word, p)) {
         f[got.i] = i // TODO: Trick: allow for a GUN'S HAM CRDT hook here.
       } else {
         f.push(i)
       }
-    }
+    })
     return f
   }
 
@@ -449,12 +441,11 @@
           return ' '
         } // TODO: BUG!!! Nested objects don't slot correctly
         const l = Object.keys(d).sort()
-        let t = sStr
-        for (let idx = 0; idx < l.length; idx++) {
-          const k = l[idx]
-          t += `${uStr}${B.encode(k, sStr, uStr)}${uStr}${B.encode(d[k], sStr, uStr)}${uStr}${sStr}`
-        }
-        return t
+        return l.reduce(
+          (t, k) =>
+            `${t}${uStr}${B.encode(k, sStr, uStr)}${uStr}${B.encode(d[k], sStr, uStr)}${uStr}${sStr}`,
+          sStr
+        )
       }
     }
   }

@@ -12,12 +12,9 @@
     length = 24,
     chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXZabcdefghijklmnopqrstuvwxyz'
   ) => {
-    let result = ''
-    while (length > 0) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length))
-      length--
-    }
-    return result
+    return Array.from({ length }, () =>
+      chars.charAt(Math.floor(Math.random() * chars.length))
+    ).join('')
   }
 
   /**
@@ -122,15 +119,10 @@
    * Flow: Iterates over own properties, returns false if any non-ignored key is found.
    */
   Object.empty = (obj, ignoreKeys) => {
-    for (const key in obj) {
-      if (
-        hasOwn.call(obj, key) &&
-        (!ignoreKeys || ignoreKeys.indexOf(key) === -1)
-      ) {
-        return false
-      }
-    }
-    return true
+    if (!obj) return true
+    return !Object.keys(obj).some(
+      (key) => !ignoreKeys || ignoreKeys.indexOf(key) === -1
+    )
   }
 
   /**
@@ -276,8 +268,8 @@
           const batchLen = batch.length
           if (batchLen) {
             let result
-            for (let i = 0; i < batchLen; i++) {
-              result = processFn(batch[i])
+            for (const item of batch) {
+              result = processFn(item)
               if (u !== result) {
                 break
               }

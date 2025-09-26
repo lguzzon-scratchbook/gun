@@ -12,7 +12,7 @@
    * @returns {Object} Dup instance with check, track, drop methods.
    */
   function Dup(opt = { age: 1000 * 9, max: 999 }) {
-    const dup = { s: {} }
+    const dup = { s: new Map() }
     const s = dup.s
     /**
      * Checks if an ID is tracked, and updates its timestamp if so.
@@ -20,7 +20,7 @@
      * @returns {Object|boolean} The tracked item or false.
      */
     dup.check = (id) => {
-      if (!s[id]) return false
+      if (!s.has(id)) return false
       return dt(id)
     }
     /**
@@ -29,10 +29,10 @@
      * @returns {Object} The tracked item.
      */
     dup.track = (id) => {
-      if (!s[id]) {
-        s[id] = {}
+      if (!s.has(id)) {
+        s.set(id, {})
       }
-      const it = s[id]
+      const it = s.get(id)
       const now = Date.now()
       it.was = now
       dup.now = now
@@ -48,19 +48,18 @@
      * @param {number} [age] - Optional age override.
      */
     dup.drop = (age) => {
-      let it
       dup.to = null
       dup.now = Date.now()
-      const l = Object.keys(s)
+      const l = Array.from(s.keys())
       console.STAT?.(dup.now, Date.now() - dup.now, 'dup drop keys') // prev ~20% CPU 7% RAM 300MB // now ~25% CPU 7% RAM 500MB
       setTimeout.each(
         l,
         (id) => {
-          it = s[id] // TODO: .keys( is slow?
+          const it = s.get(id)
           if (it && (age || opt.age) > dup.now - it.was) {
             return
           }
-          delete s[id]
+          s.delete(id)
         },
         0,
         99

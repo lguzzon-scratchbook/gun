@@ -426,16 +426,16 @@
       // TODO: DAM's ## hash check, on same get ACK, producing multiple replies still, maybe JSON vs YSON?
       // TMP note for now: viMZq1slG was chat LEX query #.
       /*if(gun !== (tmp = msg.$) && (tmp = (tmp||'')._)){
-			if(tmp.Q){ tmp.Q[msg['#']] = ''; return } // chain does not need to ask for it again.
-			tmp.Q = {};
-		}*/
+    if(tmp.Q){ tmp.Q[msg['#']] = ''; return } // chain does not need to ask for it again.
+    tmp.Q = {};
+   }*/
       /*if(u === has){
-			if(at.Q){
-				//at.Q[msg['#']] = '';
-				//return;
-			}
-			at.Q = {};
-		}*/
+    if(at.Q){
+     //at.Q[msg['#']] = '';
+     //return;
+    }
+    at.Q = {};
+   }*/
       const ctx = msg._ || {}
       ctx.DBG = msg.DBG
       const DBG = ctx.DBG
@@ -467,7 +467,7 @@
       const ctx = msg._ || {}
       ctx.DBG = msg.DBG
       const DBG = ctx.DBG
-      let keys = Object.keys(node || '').sort()
+      const keys = Object.keys(node || '').sort()
       const to = msg['#']
       let id = text_rand(9)
       const soul = ((node || '')._ || '')['#']
@@ -482,15 +482,11 @@
         (() => {
           const go = () => {
             S = Date.now()
-            let i = 0
-            let k
             let put = {}
-            while (i < 9) {
-              k = keys[i]
-              i++
+            const batch = keys.splice(0, 9)
+            for (const k of batch) {
               state_ify(put, k, state_is(node, k), node[k], soul)
             }
-            keys = keys.slice(i)
             const tmpObj = {}
             tmpObj[soul] = put
             put = tmpObj

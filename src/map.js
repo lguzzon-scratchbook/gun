@@ -5,14 +5,14 @@
   /** @function getSoul @param {object|string} lex - Input lex. @returns {string} Soul if present. */
   const getSoul = (lex) => {
     if (!lex) return ''
-    const tmp = lex['#'] || ''
+    const tmp = lex?.['#'] || ''
     if (Array.isArray(tmp)) return tmp[0] || ''
-    return tmp['='] || tmp
+    return tmp?.['='] || tmp
   }
   /** @function getLexPattern @param {object|string} lex - Input lex. @returns {string} Lex pattern. */
   const getLexPattern = (lex) => {
     if (!lex) return ''
-    return lex['.'] || lex['#'] || lex
+    return lex?.['.'] || lex?.['#'] || lex
   }
   /** @function checkMapField @param {string|object} field - Field to check. @returns {boolean} True if valid map field. @throws {Error} For invalid inputs. */
   const checkMapField = (field) => {
@@ -39,7 +39,7 @@
   const validateLexInput = (node, lexQuery) => {
     if (!node || typeof node !== 'object')
       throw new Error('Invalid node: must be an object')
-    if (!node._) throw new Error('Invalid node: missing _ property')
+    if (!node?._) throw new Error('Invalid node: missing _ property')
     if (
       typeof lexQuery !== 'string' &&
       (!lexQuery || typeof lexQuery !== 'object' || Array.isArray(lexQuery))
@@ -119,9 +119,7 @@
     if (undefined === next) return
     if (data === next) return chain._.on('in', msg)
     if (Gun.is(next)) return chain._.on('in', next._)
-    const tmp = {}
-    Object.assign(tmp, msg.put)
-    tmp['='] = next
+    const tmp = { ...msg.put, '=': next }
     chain._.on('in', { get: key, put: tmp })
   }
   /**
@@ -173,7 +171,9 @@
    */
   const checkLex = (cat, msg, put) => {
     const lex = cat.lex
-    return !lex || String.match(msg.get || (put || '')['.'], getLexPattern(lex))
+    return (
+      !lex || String.match(msg?.get || (put || '')?.['.'], getLexPattern(lex))
+    )
   }
   /**
    * Internal map function to handle messages.

@@ -19,11 +19,7 @@
       n = n.split('.')
     }
     if (Array.isArray(n)) {
-      const l = n.length
-      let tmp = at
-      for (let i = 0; i < l; i++) {
-        tmp = (tmp || empty)[n[i]]
-      }
+      const tmp = n.reduce((acc, key) => acc?.[key] ?? empty[key], at)
       if (undefined !== tmp) {
         return opt ? this : tmp
       } else {
@@ -45,7 +41,12 @@
       return yes
     }
     if (typeof n === 'number') {
-      return (at.back || at).$.back(n - 1)
+      let node = this
+      for (let i = 0; i < n; i++) {
+        const at = node._
+        node = (at.back || at).$
+      }
+      return node
     }
     return this
   }

@@ -123,14 +123,9 @@
           const P = opt.puff
           ;(function go() {
             const S = Date.now()
-            let i = 0
-
-            while (i < P) {
-              const m = msg[i++]
-              if (!m) break
-              mesh.hear(m, peer)
-            }
-            msg = msg.slice(i)
+            msg.splice(0, P).forEach((m) => {
+              if (m) mesh.hear(m, peer)
+            })
             console.STAT?.(S, Date.now() - S, 'hear loop')
             flush(peer)
             if (!msg.length) return
@@ -181,12 +176,9 @@
       tmp = msg['><']
       if (tmp && typeof tmp === 'string') {
         msg._.yo = {}
-        tmp
-          .slice(0, 99)
-          .split(',')
-          .forEach(function (k) {
-            this[k] = 1
-          }, msg._.yo)
+        for (const k of Iterator.from(tmp.slice(0, 99).split(',')).take(99)) {
+          msg._.yo[k] = 1
+        }
       }
       tmp = msg.dam
       if (tmp) {
@@ -411,15 +403,11 @@
         }
 
         if (!msg.dam && !msg['@']) {
-          let i = 0
-          const to = []
           tmp = opt.peers
-          for (const k in tmp) {
-            const p = tmp[k]
-            to.push(p.url || p.pid || p.id)
-            if (++i > 6) break
-          }
-          if (i > 1) msg['><'] = to.join()
+          const to = Object.keys(tmp)
+            .slice(0, 7)
+            .map((k) => tmp[k].url || tmp[k].pid || tmp[k].id)
+          if (to.length > 1) msg['><'] = to.join()
         }
 
         if (msg.put) {
@@ -575,16 +563,16 @@
       peer.wire = null
     })
 
-    const gets = {}
+    const gets = new Set()
     root.on('bye', function (peer, tmp) {
       this.to.next(peer)
       tmp = console.STAT
       if (tmp) tmp.peers = mesh.near
       tmp = peer.url
       if (!tmp) return
-      gets[tmp] = true
+      gets.add(tmp)
       setTimeout(() => {
-        delete gets[tmp]
+        gets.delete(tmp)
       }, opt.lack || 9000)
     })
 

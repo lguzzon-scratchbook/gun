@@ -12,7 +12,8 @@
   const u = undefined
   const text_rand = String.random
   const valid = Gun.valid
-  const obj_has = (o, k) => o && Object.hasOwn(o, k)
+  const obj_has = (o, k) =>
+    o && (o instanceof Map ? o.has(k) : Object.hasOwn(o, k))
   const state = Gun.state
   const state_is = state.is
   const state_ify = state.ify
@@ -66,9 +67,7 @@
       } // will this make for buggy behavior elsewhere?
       if (at.lex) {
         tmp = msg.get = msg.get || {}
-        Object.keys(at.lex).forEach((k) => {
-          tmp[k] = at.lex[k]
-        })
+        Object.assign(tmp, at.lex)
       }
       if (get['#'] || at.soul) {
         get['#'] = get['#'] || at.soul
@@ -80,11 +79,11 @@
         get = get['.']
         if (!get) {
           // soul
-          tmp = back.ask?.[''] // check if we have already asked for the full node
+          tmp = back.ask?.get('') // check if we have already asked for the full node
           if (!back.ask) {
-            back.ask = {}
+            back.ask = new Map()
           }
-          back.ask[''] = back // add a flag that we are now.
+          back.ask.set('', back) // add a flag that we are now.
           if (u !== back.put) {
             // if we already have data,
             back.on('in', back) // send what is cached down the chain
@@ -95,11 +94,11 @@
           msg.$ = back.$
         } else if (obj_has(back.put, get)) {
           // TODO: support #LEX !
-          tmp = back.ask?.[get]
+          tmp = back.ask?.get(get)
           if (!back.ask) {
-            back.ask = {}
+            back.ask = new Map()
           }
-          back.ask[get] = back.$.get(get)._
+          back.ask.set(get, back.$.get(get)._)
           back.on('in', {
             get: get,
             put: {
@@ -148,24 +147,24 @@
         if (at.get) {
           msg = { $: at.$, get: { '.': at.get } }
           if (!back.ask) {
-            back.ask = {}
+            back.ask = new Map()
           }
-          back.ask[at.get] = msg.$._ // TODO: PERFORMANCE? More elegant way?
+          back.ask.set(at.get, msg.$._) // TODO: PERFORMANCE? More elegant way?
           return back.on('out', msg)
         }
         msg = { $: at.$, get: at.lex ? msg.get : {} }
         return back.on('out', msg)
       }
       if (!at.ask) {
-        at.ask = {}
+        at.ask = new Map()
       }
-      at.ask[''] = at //at.ack = at.ack || -1;
+      at.ask.set('', at) //at.ack = at.ack || -1;
       if (at.get) {
         get['.'] = at.get
         if (!back.ask) {
-          back.ask = {}
+          back.ask = new Map()
         }
-        back.ask[at.get] = msg.$._ // TODO: PERFORMANCE? More elegant way?
+        back.ask.set(at.get, msg.$._) // TODO: PERFORMANCE? More elegant way?
         return back.on('out', msg)
       }
     }
@@ -283,26 +282,22 @@
     this.to?.next(msg) // 1st API job is to call all chain listeners.
     // TODO: Make input more reusable by only doing these (some?) calls if we are a chain we recognize? This means each input listener would be responsible for when listeners need to be called, which makes sense, as they might want to filter.
     if (cat.any) {
-      setTimeout.each(
-        Object.keys(cat.any),
-        (any) => {
+      void Promise.all(
+        Object.keys(cat.any).map((any) => {
           const anyValue = cat.any[any]
-          anyValue?.(msg)
-        },
-        0,
-        99
-      ) // 1st API job is to call all chain listeners. // TODO: .keys( is slow // BUG: Some re-in logic may depend on this being sync.
+          return anyValue ? Promise.resolve(anyValue(msg)) : Promise.resolve()
+        })
+      )
     }
     if (cat.echo) {
-      setTimeout.each(
-        Object.keys(cat.echo),
-        (lat) => {
+      void Promise.all(
+        Object.keys(cat.echo).map((lat) => {
           const latValue = cat.echo[lat]
-          latValue?.on('in', msg)
-        },
-        0,
-        99
-      ) // & linked at chains // TODO: .keys( is slow // BUG: Some re-in logic may depend on this being sync.
+          return latValue
+            ? Promise.resolve(latValue.on('in', msg))
+            : Promise.resolve()
+        })
+      )
     }
 
     if (((msg.$$ || '')._ || at).soul) {
@@ -378,23 +373,20 @@
       if (sat) sat.echo = {}
     }
     if (sat?.echo) sat.echo[tat.id] = tat // link it.
-    tmp = cat.ask || '' // ask the chain for what needs to be loaded next!
-    if (cat.ask?.[''] || cat.lex) {
+    tmp = cat.ask || new Map() // ask the chain for what needs to be loaded next!
+    if (cat.ask?.has('') || cat.lex) {
       // we might need to load the whole thing // TODO: cat.lex probably has edge case bugs to it, need more test coverage.
       sat?.on('out', { get: { '#': link } })
     }
-    setTimeout.each(
-      Object.keys(tmp),
-      (get) => {
-        // if sub chains are asking for data. // TODO: .keys( is slow // BUG? ?Some re-in logic may depend on this being sync?
-        const sat = cat?.ask?.[get]
+    void Promise.all(
+      [...tmp.keys()].map((get) => {
+        // if sub chains are asking for data.
+        const sat = tmp.get(get)
         if (!get || !sat) {
-          return
+          return Promise.resolve()
         }
-        sat.on('out', { get: { '.': get, '#': link } }) // go get it.
-      },
-      0,
-      99
+        return Promise.resolve(sat.on('out', { get: { '.': get, '#': link } })) // go get it.
+      })
     )
   }
 
@@ -433,22 +425,19 @@
       }
       cat.put = u // empty out the cache if, for example, alice's car's color no longer exists (relative to alice) if alice no longer has a car.
       // TODO: BUG! For maps, proxy this so the individual sub is triggered, not all subs.
-      setTimeout.each(
-        Object.keys(cat.next || ''),
-        (get) => {
-          // empty out all sub chains. // TODO: .keys( is slow // BUG? ?Some re-in logic may depend on this being sync? // TODO: BUG? This will trigger deeper put first, does put logic depend on nested order? // TODO: BUG! For map, this needs to be the isolated child, not all of them.
+      void Promise.all(
+        Object.keys(cat.next || {}).map((get) => {
+          // empty out all sub chains.
           const sat = cat.next?.[get]
           if (!sat) {
-            return
+            return Promise.resolve()
           }
           //if(cat.has && u === sat.put && !(root.pass||'')[sat.id]){ return } // if we are already unlinked, do not call again, unless edge case. // TODO: BUG! This line should be deleted for "unlink deeply nested".
           if (link) {
             delete root.$.get(link)?.get(get)?._?.echo?.[sat.id]
           }
-          sat.on('in', { $: sat.$, get: get, put: u }) // TODO: BUG? Add recursive seen check?
-        },
-        0,
-        99
+          return Promise.resolve(sat.on('in', { $: sat.$, get: get, put: u })) // TODO: BUG? Add recursive seen check?
+        })
       )
       return
     }

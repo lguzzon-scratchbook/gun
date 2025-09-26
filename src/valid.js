@@ -32,13 +32,11 @@
       // Allow boolean values
       'boolean' === typeof v ||
       // Allow finite numbers (exclude Infinity and NaN)
-      // we want +/- Infinity to be, but JSON does not support it, sad face.
-      // can you guess what v === v checks for? ;)
-      // biome-ignore lint/suspicious/noSelfCompare: old code works good like this ...
-      ('number' === typeof v && v !== Infinity && v !== -Infinity && v === v) ||
+      Number.isFinite(v) ||
       // Allow soul relations: objects with exactly one key '#' that is a non-empty string
       (!!v &&
-        'string' === typeof v['#'] &&
+        Object.hasOwn(v, '#') &&
+        typeof v['#'] === 'string' &&
         Object.keys(v).length === 1 &&
         v['#'])
     )
