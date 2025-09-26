@@ -57,6 +57,7 @@
     "build:unbuild": "npm run build && npm run unbuild:script",
     "check": "bunx @biomejs/biome check --write ./src/*.js ./src/**/*.js package.json",
     "check:file": "bunx @biomejs/biome check --write --max-diagnostics=100",
+    "check:test": "clear && npm run check && npm test ; npm run test:reset ; git sti",
     "debug": "node --prof-process --preprocess -j isolate*.log > v8data.json && rm isolate*.log && echo 'drag & drop ./v8data.json into https://mapbox.github.io/flamebearer/'",
     "docker": "hooks/build",
     "e2e": "mocha e2e/distributed.js",
