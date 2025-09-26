@@ -10,7 +10,9 @@ function USE(arg, req) {
           USE[R(path)] = mod.exports
         }
   function R(p) {
-    return p.split('/').slice(-1).toString().replace('.js', '')
+    const lastSlash = p.lastIndexOf('/')
+    const filename = lastSlash === -1 ? p : p.substring(lastSlash + 1)
+    return filename.replace('.js', '')
   }
 }
 if (typeof module !== 'undefined') {
