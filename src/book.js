@@ -1,34 +1,33 @@
 ;(() => {
-  // TODO: BUG! Unbuild will make these globals... CHANGE unbuild to wrap files in a function.
   // Book is a replacement for JS objects, maps, dictionaries.
   const sT = setTimeout
   let B = sT.Book
   if (!B) {
     /**
-     * @constructor Book
-     * @param {string} [text] - Optional text input for initializing the book.
-     * @returns {Function} The book function that manages key-value storage.
+     * Creates a new Book instance.
+     * @param {string} [text] - Optional serialized text to initialize the book.
+     * @returns {Function} The book function for key-value operations.
      */
     B = sT.Book = (text) => {
       const b = function book(word, is) {
-        const has = b.all[word]
+        const cached = b.all[word]
         if (is === undefined) {
-          return has ? has.is : b.get(word)
+          return cached ? cached.is : b.get(word)
         }
-        if (has) {
-          const p = has.page
+        if (cached) {
+          // Update existing item
+          const p = cached.page
           if (p) {
-            p.size += size(is) - size(has.is)
+            p.size += size(is) - size(cached.is)
             p.text = ''
           }
-          has.text = ''
-          has.is = is
+          cached.text = ''
+          cached.is = is
           return b
         }
-        //b.all[word] = {is: word}; return b;
         return b.set(word, is)
       }
-      // TODO: if from text, preserve the separator symbol.
+      // Initialize with root page
       b.list = [
         {
           book: b,
@@ -51,6 +50,7 @@
 
   /**
    * Retrieves the page for the given word.
+   * If the page is stored as a string, converts it to an object.
    * @param {string} word - The word to search for.
    * @returns {Object} The page object.
    */
@@ -58,45 +58,42 @@
     const l = this.list
     const i = spot(word, l, this.parse)
     let p = l[i]
-    if ('string' === typeof p) {
+    if (typeof p === 'string') {
+      // Convert string page to object
       l[i] = p = {
         book: this,
         first: this.parse ? this.parse(p) : p,
         get: this,
         read: list,
-        size: -1,
+        size: -1, // Size will be calculated later
         substring: sub,
         toString: to
       }
-    } // TODO: test, how do we arrive at this condition again?
+    }
+    // Note: If page size exceeds limit after operations, it may be split, requiring re-getting the page
     return p
-    // TODO: BUG! What if we get the page, it turns out to be too big & split, we must then RE get the page!
   }
   /**
    * Retrieves the value associated with the given word.
+   * Checks in-memory cache first, then searches in pages.
    * @param {string} word - The word to search for.
    * @returns {*} The value associated with the word, or undefined if not found.
    */
   function get(word) {
-    if (!word) {
-      return
-    }
-    if (undefined !== word.is) {
-      return word.is
-    } // JS falsy values!
-    const hasGet = this.all[word]
-    if (hasGet) {
-      return hasGet.is
-    }
-    // get does an exact match, so we would have found it already, unless parseless page:
+    if (!word) return
+    // If word is an object with 'is' property, return its value
+    if (word.is !== undefined) return word.is
+    // Check in-memory cache
+    const cached = this.all[word]
+    if (cached) return cached.is
+    // Search in the appropriate page
     const page = this.page(word)
-    if (!page?.from) {
-      return
-    } // no parseless data
+    if (!page || !page.from) return // No data in this page
     return got(word, page)
   }
   /**
    * Retrieves the value for a word from a page.
+   * Handles exact matches, non-exact matches, and escaped keys.
    * @param {string} word - The word to retrieve.
    * @param {Object} page - The page object.
    * @returns {*} The value associated with the word, or undefined if not found.
@@ -104,40 +101,50 @@
   function got(word, page) {
     const b = page.book
     const l = from(page)
-    let hasGot
-    let i
-    if (l) {
-      i = spot(word, l, B.decode)
-      got.i = i
-      hasGot = l[i]
+    if (!l) return
+    let i = spot(word, l, B.decode)
+    got.i = i
+    let item = l[i]
+    // Check for exact match
+    if (item && word === item.word) {
+      b.all[word] = item
+      return item.is
     }
-    // Check for exact match with existing item
-    if (hasGot && word === hasGot.word) {
-      b.all[word] = hasGot
-      return hasGot.is
-    }
-    // If the item is not a string, check the next item for non-exact match
-    if (typeof hasGot !== 'string') {
+    // Check next item if current is not a string (possibly escaped)
+    if (typeof item !== 'string') {
       i += 1
       got.i = i
-      hasGot = l[i]
-    }
-    if (hasGot && word === hasGot.word) {
-      b.all[word] = hasGot
-      return hasGot.is
-    }
-    // Parse escaped value using slot
-    const [key, val] = slot(hasGot)
-    if (word !== B.decode(key)) {
-      i += 1
-      got.i = i
-      hasGot = l[i][key] = slot(hasGot) // Handle edge case for escaped keys
-      if (word !== B.decode(key)) {
-        return
+      item = l[i]
+      if (item && word === item.word) {
+        b.all[word] = item
+        return item.is
       }
     }
-    // Create new item object and cache it
-    hasGot =
+    // Parse as escaped key-value pair
+    const [key, val] = slot(item)
+    const decodedKey = B.decode(key)
+    if (word !== decodedKey) {
+      // Try next item for escaped
+      i += 1
+      got.i = i
+      item = l[i]
+      if (!item) return
+      const [nextKey, nextVal] = slot(item)
+      if (word !== B.decode(nextKey)) {
+        return
+      }
+      // Cache the parsed item
+      l[i] = b.all[word] = {
+        is: B.decode(nextVal),
+        page: page,
+        substring: subt,
+        toString: tot,
+        word: String(word)
+      }
+      return l[i].is
+    }
+    // Create and cache new item for found escaped key
+    item =
       l[i] =
       b.all[word] =
         {
@@ -147,7 +154,7 @@
           toString: tot,
           word: String(word)
         }
-    return hasGot.is
+    return item.is
   }
 
   /**
@@ -165,30 +172,24 @@
       throw new TypeError('parse must be a function if provided')
     }
     if (!parse) {
-      parse = spot.no ??= (t) => t
+      if (!spot.no) {
+        spot.no = (t) => t
+      }
+      parse = spot.no
     }
-    const L = sorted
-    let min = 0
-    let max = L.length
-    let i = Math.floor(max / 2)
+    let low = 0
+    let high = sorted.length
     const wordStr = String(word)
-    // Binary search to find the insertion point for the word
-    while (i !== min) {
-      const currentI = Math.floor(i)
-      const parsed = parse(L[currentI]) || ''
-      const page = parsed.substring()
-      const nextParsed = parse(L[currentI + 1]) || ''
-      const nextPage = nextParsed.substring()
-      if (!(wordStr < page || nextPage <= wordStr)) break
-      if (page <= wordStr) {
-        min = currentI
-        i += (max - min) / 2
+    while (low < high) {
+      const mid = Math.floor((low + high) / 2)
+      const midVal = parse(sorted[mid]) || ''
+      if (wordStr < midVal) {
+        high = mid
       } else {
-        max = currentI
-        i -= (max - min) / 2
+        low = mid + 1
       }
     }
-    return Math.floor(i)
+    return low
   }
 
   /**
@@ -213,40 +214,39 @@
    * @param {Function} [each] - Function to apply to each item. Defaults to identity.
    * @returns {Array} Array of results from applying each to each item.
    */
-  function list(each) {
-    each = each ?? ((x) => x)
-    const l = sort(this)
-    const p = this.book?.parse ?? (() => {})
-    //while(w = l[i++]){ r.push(each(slot(w)[1], p(w)||w, this)) }
-    return l.map((item) => {
-      const w = item.word || p(item) || item
-      return each(this.get(w), w, this)
-    }) // TODO: BUG! PERF?
+  function list(each = (x) => x) {
+    const sortedItems = sort(this)
+    const parse = this.book?.parse ?? (() => {})
+    return sortedItems.map((item) => {
+      const word = item.word || parse(item) || item
+      return each(this.get(word), word, this)
+    })
   }
 
   /**
    * Sets the value for a word in the book.
+   * Handles updates and inserts, managing page sizes and splits.
    * @param {string} word - The word to set.
    * @param {*} is - The value to set.
    * @returns {Function} The book function.
    */
   function set(word, is) {
-    // TODO: Perf on random write is decent, but short keys or seq seems significantly slower.
-    let hasSet = this.all[word]
-    if (hasSet) {
-      return this(word, is)
-    } // updates to in-memory items will always match exactly.
+    // Check if already in memory
+    let item = this.all[word]
+    if (item) {
+      return this(word, is) // Update via main function
+    }
     const wordStr = String(word)
     const page = this.page(wordStr)
+    // Check if it's an update in parseless data
     if (page?.from) {
-      // if it could be an update to an existing word from parseless.
       this.get(word)
       if (this.all[word]) {
         return this(word, is)
       }
     }
-    // MUST be an insert:
-    hasSet = this.all[wordStr] = {
+    // Insert new item
+    item = this.all[wordStr] = {
       is: is,
       page: page,
       substring: subt,
@@ -254,11 +254,9 @@
       word: wordStr
     }
     page.first = page.first < wordStr ? page.first : wordStr
-    if (!page.limbo) {
-      page.limbo = []
-    }
-    page.limbo.push(hasSet)
-    this(word, is)
+    if (!page.limbo) page.limbo = []
+    page.limbo.push(item)
+    this(word, is) // Update main function
     page.size += size(wordStr) + size(is)
     if ((this.PAGE ?? PAGE) < page.size) {
       split(page, this)
@@ -268,38 +266,42 @@
 
   /**
    * Splits a page when it exceeds the size limit.
+   * Creates a new page with the second half of items.
    * @param {Object} p - The page to split.
    * @param {Object} b - The book containing the page.
    */
   function split(p, b) {
-    // Split the page into two halves when size limit is exceeded
-    // TODO: use closest hash instead of half.
-    const L = sort(p)
-    const l = L.length
-    const i = (l / 2) >> 0
-    const j = i
-    const half = L[j]
-    const next = {
+    const sortedItems = sort(p)
+    const len = sortedItems.length
+    const mid = Math.floor(len / 2)
+    const midItem = sortedItems[mid]
+    const newPage = {
       book: b,
-      first: half.substring(),
+      first: midItem.substring(), // Word of the middle item
       get: b,
       read: list,
       size: 0,
       substring: sub,
       toString: to
     }
-    next.from = []
-    const f = next.from
-    L.forEach((tmp) => {
-      f.push(tmp)
-      next.size += (tmp.is || '').length || 1
-      tmp.page = next
-    })
-    p.from = p.from.slice(0, j)
-    p.size -= next.size
-    b.list.splice(spot(next.first, b.list) + 1, 0, next) // TODO: BUG! Make sure next.first is decoded text. // TODO: BUG! spot may need parse too?
+    newPage.from = []
+    const newFrom = newPage.from
+    // Move second half to new page
+    for (let k = mid; k < len; k++) {
+      const item = sortedItems[k]
+      newFrom.push(item)
+      newPage.size += size(item.word) + size(item.is)
+      item.page = newPage
+    }
+    // Keep first half in original page
+    p.from = p.from.slice(0, mid)
+    p.size -= newPage.size
+    // Insert new page into book's list
+    const insertIndex = spot(newPage.first, b.list, b.parse) + 1
+    b.list.splice(insertIndex, 0, newPage)
+    // Notify if split callback exists
     if (b.split) {
-      b.split(next, p)
+      b.split(newPage, p)
     }
   }
 
@@ -345,19 +347,18 @@
 
   /**
    * Calculates the size of a value for storage purposes.
+   * Returns the length of the string representation, or 1 if empty.
    * @param {any} t - The value to measure.
    * @returns {number} The size, at least 1.
    */
   function size(t) {
     return (t ?? '').length || 1
-  } // bits/numbers less size? Bug or feature?
+  }
   /**
    * Returns the word property of the item.
-   * @param {number} _i - Unused start index.
-   * @param {number} _j - Unused end index.
    * @returns {string} The word.
    */
-  function subt(_i, _j) {
+  function subt() {
     return this.word
   }
   /**
@@ -365,12 +366,8 @@
    * @returns {string} The encoded text.
    */
   function tot() {
-    //if((tmp = this.page) && tmp.saving){ delete tmp.book.all[this.word]; } // TODO: BUG! Book can't know about RAD, this was from RAD, so this MIGHT be correct but we need to refactor. Make sure to add tests that will re-trigger this.
     this.text = this.text || `:${B.encode(this.word)}:${B.encode(this.is)}:`
     return this.text
-    // tmp[this.word] = this.is;
-    // return this.text = this.text || B.encode(tmp,'|',':').slice(1,-1);
-    //return this.text = this.text || `'${this.word}'${this.is}'`;
   }
   /**
    * Returns a substring of the first word or decoded value.
@@ -395,6 +392,8 @@
   }
   /**
    * Generates the serialized text for a page.
+   * If the page has limbo items, sorts them first.
+   * Empty page is represented as '||'.
    * @param {Object} p - The page object.
    * @returns {string} The serialized string.
    */
@@ -402,7 +401,7 @@
     // PERF: read->[*] : text->"*" no edit waste 1 time perf.
     if (p.limbo) {
       sort(p)
-    } // TODO: BUG? Empty page meaning? undef, '', '||'?
+    }
     return 'string' === typeof p.from ? p.from : `|${(p.from || []).join('|')}|`
   }
 
@@ -488,9 +487,7 @@
    * @returns {*} The decoded value.
    */
   B.decode = (t) => {
-    if ('string' !== typeof t) {
-      return
-    }
+    if (typeof t !== 'string') return
     switch (t) {
       case ' ':
         return null
@@ -505,6 +502,17 @@
         return parseFloat(t)
       case '"':
         return t.slice(1)
+      case '|': {
+        // Decode object
+        const parts = t.slice(1, -1).split('|')
+        const obj = {}
+        for (const part of parts) {
+          if (!part) continue
+          const [key, val] = part.split(' ')
+          obj[B.decode(key)] = B.decode(val)
+        }
+        return obj
+      }
     }
     return t.slice(t.indexOf('"') + 1)
   }

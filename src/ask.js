@@ -4,22 +4,23 @@
 
   /**
    * Utility function to manage request timeouts.
-   * @param {object} obj - The request object with err property.
+   * @param {object} obj - The request object with timeoutId property.
    * @param {Function} callback - Function to execute on timeout.
    * @param {number} delay - Timeout delay in milliseconds.
    * @param {boolean} [clearExisting=false] - Whether to clear existing timeout before setting new one.
    */
   const setRequestTimeout = (obj, callback, delay, clearExisting = false) => {
-    if (clearExisting) {
-      clearTimeout(obj.err) // Clear existing timeout if requested
+    if (clearExisting && obj.timeoutId) {
+      clearTimeout(obj.timeoutId) // Clear existing timeout if requested and exists
     }
-    obj.err = obj.err ?? setTimeout(callback, delay) // Set new timeout only if not already set
+    if (!obj.timeoutId) {
+      obj.timeoutId = setTimeout(callback, delay) // Set new timeout only if not already set
+    }
   }
   /**
    * Generates a unique request ID, using provided ID if valid, otherwise random.
    * @param {object} [as] - Options object that may contain a '#' property for ID.
    * @returns {string} - The generated or provided ID.
-   * @throws {Error} - If ID generation fails or is invalid.
    */
   const generateRequestId = (as) => {
     // Use provided ID if available and valid
@@ -27,35 +28,19 @@
     if (providedId && typeof providedId === 'string' && providedId.length > 0) {
       return providedId
     }
-    // Fallback to random generation with error handling
-    const random =
-      String.random ??
-      (() => {
-        try {
-          return Math.random().toString(36).slice(2)
-        } catch (error) {
-          throw new Error(`Failed to generate random ID: ${error.message}`)
-        }
-      })
-    let generated
-    try {
-      generated = random()
-    } catch (error) {
-      throw new Error(`Random ID generation failed: ${error.message}`)
-    }
-    if (typeof generated !== 'string' || generated.length === 0) {
-      throw new Error('Generated random string is invalid')
-    }
-    return generated.slice(0, 9)
+    // Generate random ID
+    return Math.random().toString(36).slice(2, 11) // 9-character random string
   }
 
   /**
-   * Handles asking and acknowledging messages with timeout management.
-   * @param {Function|string|object} cb - Callback function for ask, or ID/message for ack.
-   * @param {object} [as] - Additional options or data.
-   * @returns {string|boolean|undefined} - ID for ask, true for ack, or undefined.
+   * Handles acknowledging messages with timeout management.
+   * @param {object} self - The context object.
+   * @param {Function|string|object} cb - ID or message for ack.
+   * @param {object} [as] - Additional acknowledgment data.
+   * @param {number} ackTimeout - Acknowledgment timeout duration in milliseconds.
+   * @returns {boolean|undefined} - True if acknowledgment handled, undefined otherwise.
    */
-  const handleAcknowledgment = (self, cb, as, lack) => {
+  const handleAcknowledgment = (self, cb, as, ackTimeout) => {
     if (!cb) return // No callback provided, nothing to acknowledge
     const id = cb?.['#'] || cb // Extract message ID from callback object or use cb directly
     let tmp = self.tag?.[id] // Retrieve the pending request object from the tag map
@@ -63,7 +48,7 @@
     if (as) {
       // If acknowledgment data is provided
       tmp = self.on(id, as) // Update the request with acknowledgment data
-      setRequestTimeout(tmp, () => tmp.off(), lack, true) // Clear existing and set new timeout to remove request after lack period
+      setRequestTimeout(tmp, () => tmp.off(), ackTimeout, true) // Clear existing and set new timeout to remove request after ackTimeout
     }
     return true // Acknowledgment handled successfully
   }
@@ -74,19 +59,19 @@
    * @param {Function} cb - Callback function for the ask.
    * @param {object} [as] - Additional options or data.
    * @param {string} id - Unique identifier for the request.
-   * @param {number} lack - Timeout duration in milliseconds.
+   * @param {number} ackTimeout - Timeout duration in milliseconds.
    * @returns {string} - The request ID.
    */
-  const handleAsk = (self, cb, as, id, lack) => {
+  const handleAsk = (self, cb, as, id, ackTimeout) => {
     const to = self.on(id, cb, as)
     // Set timeout to handle lack of acknowledgment if not already set
     setRequestTimeout(
       to,
       () => {
         to.off()
-        to.next({ err: 'Error: No ACK yet.', lack: true })
+        to.next({ err: 'No acknowledgment received yet.', lack: true })
       },
-      lack,
+      ackTimeout,
       false
     )
     return id
@@ -102,19 +87,15 @@
     if (!this.on) {
       throw new Error('Context must have an "on" method.')
     }
-    const lack = this.opt?.lack ?? 9000
+    const ackTimeout = this.opt?.lack ?? 9000
 
     if (typeof cb !== 'function') {
       // Handle acknowledgment for non-function cb (ack operation)
-      return handleAcknowledgment(this, cb, as, lack)
+      return handleAcknowledgment(this, cb, as, ackTimeout)
     }
     // Generate request ID for ask operation
     const id = generateRequestId(as)
-    if (!cb) {
-      // Edge case: return ID if callback is falsy (though unlikely for function)
-      return id
-    }
     // Set up ask operation with timeout
-    return handleAsk(this, cb, as, id, lack)
+    return handleAsk(this, cb, as, id, ackTimeout)
   }
 })()

@@ -67,38 +67,34 @@
     })
   Type.text.match =
     Type.text.match ||
-    ((t, o) => {
-      let tmp, u
+    ((text, options) => {
       DEP('text.match')
-      if (typeof t !== 'string') {
+      if (typeof text !== 'string') {
         return false
       }
-      if (typeof o === 'string') {
-        o = { '=': o }
+      if (typeof options === 'string') {
+        options = { '=': options }
       }
-      o = o || {}
-      tmp = o['='] || o['*'] || o['>'] || o['<']
-      if (t === tmp) {
-        return true
+      options = options || {}
+      // Check exact match
+      if (options['='] !== undefined) {
+        return text === options['=']
       }
-      if (u !== o['=']) {
-        return false
+      // Check prefix match
+      if (options['*'] !== undefined) {
+        return text.startsWith(options['*'])
       }
-      tmp = o['*'] || o['>'] || o['<']
-      if (t.slice(0, (tmp || '').length) === tmp) {
-        return true
+      // Check range
+      const hasMin = options['>'] !== undefined
+      const hasMax = options['<'] !== undefined
+      if (hasMin && hasMax) {
+        return text >= options['>'] && text <= options['<']
       }
-      if (u !== o['*']) {
-        return false
+      if (hasMin) {
+        return text >= options['>']
       }
-      if (u !== o['>'] && u !== o['<']) {
-        return !!(t >= o['>'] && t <= o['<'])
-      }
-      if (u !== o['>'] && t >= o['>']) {
-        return true
-      }
-      if (u !== o['<'] && t <= o['<']) {
-        return true
+      if (hasMax) {
+        return text <= options['<']
       }
       return false
     })
@@ -215,19 +211,18 @@
       return o
     })
   ;(() => {
-    const u = undefined
-    function map(v, k) {
-      if (obj_has(this, k) && u !== this[k]) {
-        return
+    // Copy properties from 'from' to 'to', setting only if key is missing or value is undefined
+    function copyPropertyIfNotPresent(value, key) {
+      if (!(key in this) || this[key] === undefined) {
+        this[key] = value
       }
-      this[k] = v
     }
     Type.obj.to =
       Type.obj.to ||
       ((from, to) => {
         DEP('obj.to')
         to = to || {}
-        obj_map(from, map, to)
+        obj_map(from, copyPropertyIfNotPresent, to)
         return to
       })
   })()
@@ -238,14 +233,23 @@
       return !o ? o : JSON.parse(JSON.stringify(o)) // is shockingly faster than anything else, and our data has to be a subset of JSON anyways!
     })
   ;(() => {
-    function empty(_v, i) {
-      let n = this.n,
-        u
-      if (n && (i === n || (obj_is(n) && obj_has(n, i)))) {
-        return
+    // Check if object has any keys not in the excluded set (n can be a value or object of keys to exclude)
+    function checkKeyPresence(_value, key) {
+      const excluded = this.n
+      if (excluded) {
+        if (
+          typeof excluded === 'object' &&
+          obj_is(excluded) &&
+          obj_has(excluded, key)
+        ) {
+          return
+        }
+        if (key === excluded) {
+          return
+        }
       }
-      if (u !== i) {
-        return true
+      if (key !== undefined) {
+        return true // found a non-excluded key
       }
     }
     Type.obj.empty =
@@ -255,7 +259,7 @@
         if (!o) {
           return true
         }
-        return !obj_map(o, empty, { n: n })
+        return !obj_map(o, checkKeyPresence, { n: n })
       })
   })()
   ;(() => {
@@ -371,7 +375,7 @@
       if (v?.[rel_] && !v._ && obj_is(v)) {
         // must be an object.
         const o = {}
-        obj_map(v, map, o)
+        obj_map(v, validateLinkProperty, o)
         if (o.id) {
           // we found an id.
           return o.id // yay! Return it.
@@ -379,14 +383,15 @@
       }
       return false // the value was not a valid soul relation.
     }
-    function map(s, k) {
-      if (this.id) {
+    // Ensure the object has exactly one property: the relation key with a string value
+    function validateLinkProperty(value, key) {
+      if (this.id !== undefined) {
         this.id = false
         return
       } // if ID is already defined AND we're still looping through the object, it is considered invalid.
-      if (k === rel_ && text_is(s)) {
+      if (key === rel_ && text_is(value)) {
         // the key should be '#' and have a text value.
-        this.id = s // we found the soul!
+        this.id = value // we found the soul!
       } else {
         this.id = false // if there exists anything else on the object that isn't the soul, then it is considered invalid.
       }
@@ -425,20 +430,20 @@
       const s = Node.soul(n)
       if (s) {
         // must have a soul on it.
-        return !obj_map(n, map, { as: as, cb: cb, n: n, s: s })
+        return !obj_map(n, validateNodeProperty, { as: as, cb: cb, n: n, s: s })
       }
       return false // nope! This was not a valid node.
     }
-    function map(v, k) {
-      // we invert this because the way we check for this is via a negation.
-      if (k === Node._) {
+    // Validate each property of the node
+    function validateNodeProperty(value, key) {
+      if (key === Node._) {
         return
       } // skip over the metadata.
-      if (!Val.is(v)) {
+      if (!Val.is(value)) {
         return true
       } // it is true that this is an invalid node.
       if (this.cb) {
-        this.cb.call(this.as, v, k, this.n, this.s)
+        this.cb.call(this.as, value, key, this.n, this.s)
       } // optionally callback each key/value.
     }
   })()
@@ -457,24 +462,25 @@
       }
       o.node = Node.soul.ify(o.node || {}, o)
       if (o.node) {
-        obj_map(obj, map, { as: as, o: o })
+        obj_map(obj, processProperty, { as: as, o: o })
       }
       return o.node // This will only be a valid node if the object wasn't already deep!
     }
-    function map(v, k) {
-      const o = this.o
-      let tmp
-      if (o.map) {
-        tmp = o.map.call(this.as, v, `${k}`, o.node)
-        if (u === tmp) {
-          obj_del(o.node, k)
-        } else if (o.node) {
-          o.node[k] = tmp
+    // Process each property of the object to build the node
+    function processProperty(value, key) {
+      const options = this.o
+      let transformed
+      if (options.map) {
+        transformed = options.map.call(this.as, value, key, options.node)
+        if (transformed === undefined) {
+          obj_del(options.node, key)
+        } else if (options.node) {
+          options.node[key] = transformed
         }
         return
       }
-      if (Val.is(v)) {
-        o.node[k] = v
+      if (Val.is(value)) {
+        options.node[key] = value
       }
     }
   })()
@@ -505,28 +511,29 @@
       if (o && !cb) {
         s = num_is(s) ? s : State()
         o[N_] = o[N_] || {}
-        obj_map(o, map, { o: o, s: s })
+        obj_map(o, setState, { o: o, s: s })
         return o
       }
       as = as || obj_is(s) ? s : u
       s = num_is(s) ? s : State()
       return function (v, k, o, opt) {
         if (!cb) {
-          map.call({ o: o, s: s }, v, k)
+          setState.call({ o: o, s: s }, v, k)
           return v
         }
         cb.call(as || this || {}, v, k, o, opt)
         if (obj_has(o, k) && u === o[k]) {
           return
         }
-        map.call({ o: o, s: s }, v, k)
+        setState.call({ o: o, s: s }, v, k)
       }
     }
-    function map(_v, k) {
-      if (N_ === k) {
+    // Set state for the key if not metadata
+    function setState(_value, key) {
+      if (key === N_) {
         return
       }
-      State.ify(this.o, k, this.s)
+      State.ify(this.o, key, this.s)
     }
   })()
   const N_ = Node._
@@ -538,25 +545,29 @@
       if (!g || !obj_is(g) || obj_empty(g)) {
         return false
       } // must be an object.
-      return !obj_map(g, map, { as: as, cb: cb, fn: fn }) // makes sure it wasn't an empty object.
+      return !obj_map(g, validateGraphNode, { as: as, cb: cb, fn: fn }) // makes sure it wasn't an empty object.
     }
-    function map(n, s) {
-      // we invert this because the way we check for this is via a negation.
-      if (!n || s !== Node.soul(n) || !Node.is(n, this.fn, this.as)) {
+    // Validate that each node in the graph is valid
+    function validateGraphNode(node, soul) {
+      if (
+        !node ||
+        soul !== Node.soul(node) ||
+        !Node.is(node, this.fn, this.as)
+      ) {
         return true
       } // it is true that this is an invalid graph.
       if (!this.cb) {
         return
       }
-      nf.n = n
-      nf.as = this.as // sequential race conditions aren't races.
-      this.cb.call(nf.as, n, s, nf)
+      nodeCallback.n = node
+      nodeCallback.as = this.as // sequential race conditions aren't races.
+      this.cb.call(nodeCallback.as, node, soul, nodeCallback)
     }
-    function nf(fn) {
-      // optional callback for each node.
-      if (fn) {
-        Node.is(nf.n, fn, nf.as)
-      } // where we then have an optional callback for each key/value.
+    // Callback function for node validation
+    function nodeCallback(callback) {
+      if (callback) {
+        Node.is(nodeCallback.n, callback, nodeCallback.as)
+      }
     }
   })()
   ;(() => {
@@ -581,19 +592,19 @@
       env.graph = env.graph || {}
       env.seen = env.seen || []
       env.as = env.as || as
-      node(env, at)
+      processNode(env, at)
       env.root = at.node
       return env.graph
     }
-    function node(env, at) {
-      let tmp
-      tmp = seen(env, at)
-      if (tmp) {
-        return tmp
+    // Process a node in the object graph
+    function processNode(env, at) {
+      const existing = findSeenObject(env, at)
+      if (existing) {
+        return existing
       }
       at.env = env
-      at.soul = soul
-      if (Node.ify(at.obj, map, at)) {
+      at.soul = updateSoul
+      if (Node.ify(at.obj, processValue, at)) {
         at.link = at.link || Val.link.ify(Node.soul(at.node))
         if (at.obj !== env.shell) {
           env.graph[Val.link.is(at.link)] = at.node
@@ -601,15 +612,16 @@
       }
       return at
     }
-    function map(v, k, n) {
+    // Process each value in the object
+    function processValue(v, k, n) {
       const env = this.env
-      let is
+      let isValid
       let tmp
       if (Node._ === k && obj_has(v, Val.link._)) {
         return n._ // TODO: Bug?
       }
-      is = valid(v, k, n, this, env)
-      if (!is) {
+      isValid = validateValue(v, k, n, this, env)
+      if (!isValid) {
         return
       }
       if (!k) {
@@ -631,8 +643,8 @@
             return
           }
 
-          is = valid(v, k, n, this, env)
-          if (!is) {
+          isValid = validateValue(v, k, n, this, env)
+          if (!isValid) {
             return
           }
         }
@@ -640,16 +652,17 @@
       if (!k) {
         return this.node
       }
-      if (true === is) {
+      if (true === isValid) {
         return v
       }
-      tmp = node(env, { obj: v, path: this.path.concat(k) })
+      tmp = processNode(env, { obj: v, path: this.path.concat(k) })
       if (!tmp.node) {
         return
       }
       return tmp.link //{'#': Node.soul(tmp.node)};
     }
-    function soul(id) {
+    // Update the soul of the current context
+    function updateSoul(id) {
       const prev = Val.link.is(this.link),
         graph = this.env.graph
       this.link = this.link || Val.link.ify(id)
@@ -662,7 +675,8 @@
         obj_del(graph, prev)
       }
     }
-    function valid(v, k, n, at, env) {
+    // Validate the value for inclusion in the graph
+    function validateValue(v, k, n, at, env) {
       let tmp
       if (Val.is(v)) {
         return true
@@ -673,14 +687,15 @@
       tmp = env.invalid
       if (tmp) {
         v = tmp.call(env.as || {}, v, k, n)
-        return valid(v, k, n, at, env)
+        return validateValue(v, k, n, at, env)
       }
       env.err = `Invalid value at '${at.path.concat(k).join('.')}'!`
       if (Type.list.is(v)) {
         env.err += ' Use `.set(item)` instead of an Array.'
       }
     }
-    function seen(env, at) {
+    // Find if the object has been seen before to avoid cycles
+    function findSeenObject(env, at) {
       let arr = env.seen,
         i = arr.length,
         has
@@ -709,29 +724,34 @@
       }
       const obj = {}
       opt = opt || { seen: {} }
-      obj_map(graph[root], map, { graph: graph, obj: obj, opt: opt })
+      obj_map(graph[root], convertValue, { graph: graph, obj: obj, opt: opt })
       return obj
     }
-    function map(v, k) {
-      let tmp, obj
-      if (Node._ === k) {
-        if (obj_empty(v, Val.link._)) {
+    // Convert graph node back to object, resolving links recursively
+    function convertValue(value, key) {
+      let linkId, resolved
+      if (key === Node._) {
+        if (obj_empty(value, Val.link._)) {
           return
         }
-        this.obj[k] = obj_copy(v)
+        this.obj[key] = obj_copy(value)
         return
       }
-      tmp = Val.link.is(v)
-      if (!tmp) {
-        this.obj[k] = v
+      linkId = Val.link.is(value)
+      if (!linkId) {
+        this.obj[key] = value
         return
       }
-      obj = this.opt.seen[tmp]
-      if (obj) {
-        this.obj[k] = obj
+      resolved = this.opt.seen[linkId]
+      if (resolved) {
+        this.obj[key] = resolved
         return
       }
-      this.obj[k] = this.opt.seen[tmp] = Graph.to(this.graph, tmp, this.opt)
+      this.obj[key] = this.opt.seen[linkId] = Graph.to(
+        this.graph,
+        linkId,
+        this.opt
+      )
     }
   })()
   Type.graph = Type.graph || Graph

@@ -9,63 +9,74 @@
   const PATH_KEY = '.'
 
   /**
-   * Handles retrieval for string keys.
+   * Handles retrieval for string keys by returning or creating a cached chain.
    * @param {string} key - The string key to retrieve.
-   * @param {function} [cb] - Optional callback function.
-   * @param {object} context - The gun context.
-   * @returns {object} The gun chain for the key.
+   * @param {function} [callback] - Optional callback function for errors.
+   * @param {object} chainContext - The Gun chain context.
+   * @returns {object} The Gun chain for the key.
    */
-  function handleStringKey(key, cb, context) {
+  function handleStringKey(key, callback, chainContext) {
     if (key.length === 0) {
-      const nodeChain = context.chain()
-      nodeChain._.err = { err: Gun.log('0 length key!', key) }
-      if (cb) {
-        cb.call(nodeChain, nodeChain._.err)
+      // Invalid: empty key
+      const errorChain = chainContext.chain()
+      errorChain._.err = { err: Gun.log('0 length key!', key) }
+      if (callback) {
+        callback.call(errorChain, errorChain._.err)
       }
-      return nodeChain
+      return errorChain
     }
-    const currentContext = context._
-    const nextChains = currentContext.next || EMPTY_OBJECT
-    let nodeChain = nextChains[key]
-    if (!nodeChain) {
-      nodeChain = key && createCachedChain(key, context)
+    const context = chainContext._
+    const cachedChains = context.next || EMPTY_OBJECT
+    let targetChain = cachedChains[key]
+    if (!targetChain) {
+      // Create and cache a new chain for this key
+      targetChain = createCachedChain(key, chainContext)
     }
-    return nodeChain?.$
+    return targetChain?.$ // Return the chain's public interface
   }
   /**
-   * Processes message data for get operations, handling links and not options.
-   * @param {object} msg - The message object.
-   * @param {object} getOptions - Options for the get operation.
-   * @param {object} rootContext - The root context.
-   * @returns {object} Processed data with at, nodeData, sat, and shouldSkip.
+   * Processes message data for get operations, handling links and 'not' options.
+   * Extracts node data from the message, resolving links if necessary.
+   * @param {object} msg - The incoming message object.
+   * @param {object} getOptions - Options for the get operation, including 'not' flag.
+   * @param {object} rootContext - The root Gun context.
+   * @returns {object} Processed data: { currentContext, nodeData, linkedContext, shouldSkip }
    */
   function processMessageData(msg, getOptions, rootContext) {
-    const at = msg.$._
-    const sat = (msg.$$ || '')._
-    let nodeData = (sat || at).put
-    if ((!at.has && !at.soul) || undefined === nodeData) {
-      // Handle non-core data: extract from msg.put using core keys
-      const passData = msg.put
+    const currentContext = msg.$._
+    const linkedContext = (msg.$$ || '')._
+    let nodeData = (linkedContext || currentContext).put
+
+    // If no core data (no soul or has), extract from msg.put using special keys
+    if (
+      (!currentContext.has && !currentContext.soul) ||
+      nodeData === undefined
+    ) {
+      const messagePut = msg.put
+      // Prefer '=' key, then ':' key, fallback to entire put
       nodeData =
-        undefined === (passData || '')[CORE_KEY_EQUALS]
-          ? undefined === (passData || '')[CORE_KEY_COLON]
-            ? passData
-            : passData[CORE_KEY_COLON]
-          : passData[CORE_KEY_EQUALS]
+        messagePut?.[CORE_KEY_EQUALS] !== undefined
+          ? messagePut[CORE_KEY_EQUALS]
+          : messagePut?.[CORE_KEY_COLON] !== undefined
+            ? messagePut[CORE_KEY_COLON]
+            : messagePut
     }
-    let passData = Gun.valid(nodeData)
-    const isLink = 'string' === typeof passData
+
+    const validatedData = Gun.valid(nodeData)
+    const isLink = typeof validatedData === 'string'
     if (isLink) {
-      passData = rootContext.$.get(passData)._.put
+      // Resolve link: get the linked node's data
+      const linkedNodeData = rootContext.$.get(validatedData)._.put
       nodeData =
-        undefined === passData
+        linkedNodeData === undefined
           ? getOptions.not
             ? undefined
-            : nodeData
-          : passData
+            : nodeData // If 'not' option and no data, return undefined
+          : linkedNodeData
     }
-    const shouldSkip = getOptions.not && undefined === nodeData
-    return { at, nodeData, sat, shouldSkip }
+
+    const shouldSkip = getOptions.not && nodeData === undefined
+    return { at: currentContext, nodeData, sat: linkedContext, shouldSkip }
   }
 
   /**
@@ -303,70 +314,79 @@
     return nodeChain
   }
   /**
-   * Creates a cached chain for the given key and back context.
+   * Creates a cached chain for the given key and parent context.
+   * Caches the chain to avoid recreating it for repeated accesses.
    * @param {string} key - The key for the chain.
-   * @param {object} back - The back context.
-   * @returns {object} The new chain context.
+   * @param {object} parent - The parent Gun chain context.
+   * @returns {object} The new child chain context.
    */
-  function createCachedChain(key, back) {
-    const backContext = back._
-    backContext.next ??= {}
-    const nextChains = backContext.next
-    const newChain = back.chain()
-    const newChainContext = newChain._
-    newChainContext.get = key
-    nextChains[key] = newChainContext
-    if (back === backContext.root.$) {
-      newChainContext.soul = key
-    } else if (backContext.soul || backContext.has) {
-      newChainContext.has = key
+  function createCachedChain(key, parent) {
+    const parentContext = parent._
+    parentContext.next ??= {}
+    const nextChains = parentContext.next
+    const childChain = parent.chain()
+    const childContext = childChain._
+    childContext.get = key
+    nextChains[key] = childContext
+
+    // Determine if this is a root soul or a property/has
+    if (parent === parentContext.root.$) {
+      childContext.soul = key // Root-level key is a soul
+    } else if (parentContext.soul || parentContext.has) {
+      childContext.has = key // Child of soul or has is a property
     }
-    return newChainContext
+
+    return childContext
   }
   /**
-   * Extracts the soul from the gun context.
-   * @param {object} gun - The gun instance.
-   * @param {function} cb - The callback function.
-   * @param {*} _opt - Options (unused).
-   * @param {*} as - Additional context.
-   * @returns {object} The gun instance.
+   * Extracts the soul (unique identifier) from the Gun context.
+   * If soul is not immediately available, queues the callback and waits for network acknowledgments.
+   * @param {object} gun - The Gun chain instance.
+   * @param {function} callback - The callback function to receive the soul.
+   * @param {*} _options - Unused options parameter.
+   * @param {*} additionalContext - Additional context passed to callback.
+   * @returns {object} The Gun instance.
    */
-  function extractSoul(gun, cb, _opt, as) {
-    const gunContext = gun._
-    const soulValue = gunContext.soul || gunContext.link
-    if (soulValue) {
-      return cb(soulValue, as, gunContext)
+  function extractSoul(gun, callback, _options, additionalContext) {
+    const context = gun._
+    const soul = context.soul || context.link
+    if (soul) {
+      // Soul is already available, call callback immediately
+      return callback(soul, additionalContext, context)
     }
-    if (gunContext.jam) {
-      return gunContext.jam.push([cb, as])
+    if (context.jam) {
+      // Queue is already set up, add to existing queue
+      return context.jam.push([callback, additionalContext])
     }
-    gunContext.jam = [[cb, as]]
-    let ackCount = 0
+    // Initialize queue with this callback
+    context.jam = [[callback, additionalContext]]
+    let acknowledgmentCount = 0
     gun.get(
-      (msg, eve) => {
-        const peerCount = Object.keys(gunContext.root.opt.peers).length
+      (message, event) => {
+        const peerCount = Object.keys(context.root.opt.peers).length
         if (
-          undefined === msg.put &&
-          !gunContext.root.opt.super &&
+          message.put === undefined &&
+          !context.root.opt.super &&
           peerCount &&
-          ++ackCount <= peerCount
+          ++acknowledgmentCount <= peerCount
         ) {
-          // Wait for acknowledgments from all peers before extracting soul to ensure data consistency across the network
+          // Wait for acknowledgments from all peers to ensure data consistency
           return
         }
-        eve.rid(msg)
-        const msgContext = msg.$ ? msg.$._ : {}
-        const jamQueue = gunContext.jam
-        delete gunContext.jam
-        jamQueue.forEach((callbackArgs) => {
+        event.rid(message)
+        const messageContext = message.$ ? message.$._ : {}
+        const callbackQueue = context.jam
+        delete context.jam
+        callbackQueue.forEach((callbackArgs) => {
           if (!callbackArgs) return
           const [cb, args] = callbackArgs
+          // Extract soul ID from various possible sources
           const soulId =
-            msgContext.link ||
-            msgContext.soul ||
-            Gun.valid(msg.put) ||
-            msg.put?._?.['#']
-          cb?.(soulId, args, msg, eve)
+            messageContext.link ||
+            messageContext.soul ||
+            Gun.valid(message.put) ||
+            message.put?._?.['#']
+          cb?.(soulId, args, message, event)
         })
       },
       { out: { get: { [PATH_KEY]: true } } }
