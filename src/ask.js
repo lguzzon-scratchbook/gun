@@ -4,17 +4,22 @@
 
   /**
    * Utility function to manage request timeouts.
-   * @param {object} obj - The request object with timeoutId property.
+   * @param {object} request - The request object with timeoutId property.
    * @param {Function} callback - Function to execute on timeout.
    * @param {number} delay - Timeout delay in milliseconds.
    * @param {boolean} [clearExisting=false] - Whether to clear existing timeout before setting new one.
    */
-  const setRequestTimeout = (obj, callback, delay, clearExisting = false) => {
-    if (clearExisting && obj.timeoutId) {
-      clearTimeout(obj.timeoutId) // Clear existing timeout if requested and exists
+  const setRequestTimeout = (
+    request,
+    callback,
+    delay,
+    clearExisting = false
+  ) => {
+    if (clearExisting && request.timeoutId) {
+      clearTimeout(request.timeoutId) // Clear existing timeout if requested and exists
     }
-    if (!obj.timeoutId) {
-      obj.timeoutId = setTimeout(callback, delay) // Set new timeout only if not already set
+    if (!request.timeoutId) {
+      request.timeoutId = setTimeout(callback, delay) // Set new timeout only if not already set
     }
   }
   /**
@@ -43,12 +48,17 @@
   const handleAcknowledgment = (self, cb, as, ackTimeout) => {
     if (!cb) return // No callback provided, nothing to acknowledge
     const id = cb?.['#'] || cb // Extract message ID from callback object or use cb directly
-    let tmp = self.tag?.[id] // Retrieve the pending request object from the tag map
-    if (!tmp) return // No pending request found, ignore acknowledgment
+    let pendingRequest = self.tag?.[id] // Retrieve the pending request object from the tag map
+    if (!pendingRequest) return // No pending request found, ignore acknowledgment
     if (as) {
       // If acknowledgment data is provided
-      tmp = self.on(id, as) // Update the request with acknowledgment data
-      setRequestTimeout(tmp, () => tmp.off(), ackTimeout, true) // Clear existing and set new timeout to remove request after ackTimeout
+      pendingRequest = self.on(id, as) // Update the request with acknowledgment data
+      setRequestTimeout(
+        pendingRequest,
+        () => pendingRequest.off(),
+        ackTimeout,
+        true
+      ) // Clear existing and set new timeout to remove request after ackTimeout
     }
     return true // Acknowledgment handled successfully
   }
@@ -63,13 +73,13 @@
    * @returns {string} - The request ID.
    */
   const handleAsk = (self, cb, as, id, ackTimeout) => {
-    const to = self.on(id, cb, as)
+    const request = self.on(id, cb, as)
     // Set timeout to handle lack of acknowledgment if not already set
     setRequestTimeout(
-      to,
+      request,
       () => {
-        to.off()
-        to.next({ err: 'No acknowledgment received yet.', lack: true })
+        request.off()
+        request.next({ err: 'No acknowledgment received yet.', lack: true })
       },
       ackTimeout,
       false

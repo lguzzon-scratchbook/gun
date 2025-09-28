@@ -5,45 +5,45 @@
   if (!B) {
     /**
      * Creates a new Book instance.
-     * @param {string} [text] - Optional serialized text to initialize the book.
+     * @param {string} [initialText] - Optional serialized text to initialize the book.
      * @returns {Function} The book function for key-value operations.
      */
-    B = sT.Book = (text) => {
-      const b = function book(word, is) {
-        const cached = b.all[word]
-        if (is === undefined) {
-          return cached ? cached.is : b.get(word)
+    B = sT.Book = (initialText) => {
+      const bookInstance = function book(key, value) {
+        const cachedItem = bookInstance.all[key]
+        if (value === undefined) {
+          return cachedItem ? cachedItem.is : bookInstance.get(key)
         }
-        if (cached) {
+        if (cachedItem) {
           // Update existing item
-          const p = cached.page
-          if (p) {
-            p.size += size(is) - size(cached.is)
-            p.text = ''
+          const pageObj = cachedItem.page
+          if (pageObj) {
+            pageObj.size += size(value) - size(cachedItem.is)
+            pageObj.text = ''
           }
-          cached.text = ''
-          cached.is = is
-          return b
+          cachedItem.text = ''
+          cachedItem.is = value
+          return bookInstance
         }
-        return b.set(word, is)
+        return bookInstance.set(key, value)
       }
       // Initialize with root page
-      b.list = [
+      bookInstance.list = [
         {
-          book: b,
-          from: text,
-          get: b,
+          book: bookInstance,
+          from: initialText,
+          get: bookInstance,
           read: list,
-          size: (text || '').length,
+          size: (initialText || '').length,
           substring: sub,
           toString: to
         }
       ]
-      b.page = page
-      b.set = set
-      b.get = get
-      b.all = {}
-      return b
+      bookInstance.page = page
+      bookInstance.set = set
+      bookInstance.get = get
+      bookInstance.all = {}
+      return bookInstance
     }
   }
   const PAGE = 2 ** 12
@@ -51,18 +51,18 @@
   /**
    * Retrieves the page for the given word.
    * If the page is stored as a string, converts it to an object.
-   * @param {string} word - The word to search for.
+   * @param {string} searchWord - The word to search for.
    * @returns {Object} The page object.
    */
-  function page(word) {
-    const l = this.list
-    const i = spot(word, l, this.parse)
-    let p = l[i]
-    if (typeof p === 'string') {
+  function page(searchWord) {
+    const pageList = this.list
+    const index = spot(searchWord, pageList, this.parse)
+    let pageObj = pageList[index]
+    if (typeof pageObj === 'string') {
       // Convert string page to object
-      l[i] = p = {
+      pageList[index] = pageObj = {
         book: this,
-        first: this.parse ? this.parse(p) : p,
+        first: this.parse ? this.parse(pageObj) : pageObj,
         get: this,
         read: list,
         size: -1, // Size will be calculated later
@@ -71,195 +71,195 @@
       }
     }
     // Note: If page size exceeds limit after operations, it may be split, requiring re-getting the page
-    return p
+    return pageObj
   }
   /**
    * Retrieves the value associated with the given word.
    * Checks in-memory cache first, then searches in pages.
-   * @param {string} word - The word to search for.
+   * @param {string} searchWord - The word to search for.
    * @returns {*} The value associated with the word, or undefined if not found.
    */
-  function get(word) {
-    if (!word) return
-    // If word is an object with 'is' property, return its value
-    if (word.is !== undefined) return word.is
+  function get(searchWord) {
+    if (!searchWord) return
+    // If searchWord is an object with 'is' property, return its value
+    if (searchWord.is !== undefined) return searchWord.is
     // Check in-memory cache
-    const cached = this.all[word]
-    if (cached) return cached.is
+    const cachedItem = this.all[searchWord]
+    if (cachedItem) return cachedItem.is
     // Search in the appropriate page
-    const page = this.page(word)
-    if (!page || !page.from) return // No data in this page
-    return got(word, page)
+    const pageObj = this.page(searchWord)
+    if (!pageObj || !pageObj.from) return // No data in this page
+    return got(searchWord, pageObj)
   }
   /**
    * Retrieves the value for a word from a page.
    * Handles exact matches, non-exact matches, and escaped keys.
-   * @param {string} word - The word to retrieve.
-   * @param {Object} page - The page object.
+   * @param {string} searchWord - The word to retrieve.
+   * @param {Object} pageObj - The page object.
    * @returns {*} The value associated with the word, or undefined if not found.
    */
-  function got(word, page) {
-    const b = page.book
-    const l = from(page)
-    if (!l) return
-    let i = spot(word, l, B.decode)
-    got.i = i
-    let item = l[i]
+  function got(searchWord, pageObj) {
+    const book = pageObj.book
+    const fromArray = from(pageObj)
+    if (!fromArray) return
+    let index = spot(searchWord, fromArray, B.decode)
+    got.i = index
+    let currentItem = fromArray[index]
     // Check for exact match
-    if (item && word === item.word) {
-      b.all[word] = item
-      return item.is
+    if (currentItem && searchWord === currentItem.word) {
+      book.all[searchWord] = currentItem
+      return currentItem.is
     }
     // Check next item if current is not a string (possibly escaped)
-    if (typeof item !== 'string') {
-      i += 1
-      got.i = i
-      item = l[i]
-      if (item && word === item.word) {
-        b.all[word] = item
-        return item.is
+    if (typeof currentItem !== 'string') {
+      index += 1
+      got.i = index
+      currentItem = fromArray[index]
+      if (currentItem && searchWord === currentItem.word) {
+        book.all[searchWord] = currentItem
+        return currentItem.is
       }
     }
     // Parse as escaped key-value pair
-    const [key, val] = slot(item)
+    const [key, val] = slot(currentItem)
     const decodedKey = B.decode(key)
-    if (word !== decodedKey) {
+    if (searchWord !== decodedKey) {
       // Try next item for escaped
-      i += 1
-      got.i = i
-      item = l[i]
-      if (!item) return
-      const [nextKey, nextVal] = slot(item)
-      if (word !== B.decode(nextKey)) {
+      index += 1
+      got.i = index
+      currentItem = fromArray[index]
+      if (!currentItem) return
+      const [nextKey, nextVal] = slot(currentItem)
+      if (searchWord !== B.decode(nextKey)) {
         return
       }
       // Cache the parsed item
-      l[i] = b.all[word] = {
+      fromArray[index] = book.all[searchWord] = {
         is: B.decode(nextVal),
-        page: page,
+        page: pageObj,
         substring: subt,
         toString: tot,
-        word: String(word)
+        word: String(searchWord)
       }
-      return l[i].is
+      return fromArray[index].is
     }
     // Create and cache new item for found escaped key
-    item =
-      l[i] =
-      b.all[word] =
+    currentItem =
+      fromArray[index] =
+      book.all[searchWord] =
         {
           is: B.decode(val),
-          page: page,
+          page: pageObj,
           substring: subt,
           toString: tot,
-          word: String(word)
+          word: String(searchWord)
         }
-    return item.is
+    return currentItem.is
   }
 
   /**
    * Performs a binary search on a sorted array to find the insertion point for a word.
-   * @param {string} word - The word to search for.
-   * @param {Array} sorted - The sorted array to search in.
-   * @param {Function} [parse] - Optional parse function to transform array elements.
+   * @param {string} searchWord - The word to search for.
+   * @param {Array} sortedArray - The sorted array to search in.
+   * @param {Function} [parseFn] - Optional parse function to transform array elements.
    * @returns {number} The index where the word should be inserted.
    */
-  function spot(word, sorted, parse) {
-    if (!Array.isArray(sorted)) {
-      throw new TypeError('sorted must be an array')
+  function spot(searchWord, sortedArray, parseFn) {
+    if (!Array.isArray(sortedArray)) {
+      throw new TypeError('sortedArray must be an array')
     }
-    if (parse && typeof parse !== 'function') {
-      throw new TypeError('parse must be a function if provided')
+    if (parseFn && typeof parseFn !== 'function') {
+      throw new TypeError('parseFn must be a function if provided')
     }
-    if (!parse) {
+    if (!parseFn) {
       if (!spot.no) {
-        spot.no = (t) => t
+        spot.no = (value) => value
       }
-      parse = spot.no
+      parseFn = spot.no
     }
-    let low = 0
-    let high = sorted.length
-    const wordStr = String(word)
-    while (low < high) {
-      const mid = Math.floor((low + high) / 2)
-      const midVal = parse(sorted[mid]) || ''
-      if (wordStr < midVal) {
-        high = mid
+    let lowIndex = 0
+    let highIndex = sortedArray.length
+    const searchWordStr = String(searchWord)
+    while (lowIndex < highIndex) {
+      const midIndex = Math.floor((lowIndex + highIndex) / 2)
+      const midValue = parseFn(sortedArray[midIndex]) || ''
+      if (searchWordStr < midValue) {
+        highIndex = midIndex
       } else {
-        low = mid + 1
+        lowIndex = midIndex + 1
       }
     }
-    return low
+    return lowIndex
   }
 
   /**
    * Processes the 'from' property of the given object.
    * If 'from' is not a string, returns it as is.
    * Otherwise, parses it using slot and updates the object.
-   * @param {Object} a - The object containing the 'from' property.
-   * @param {string|*} a.from - The value to process.
+   * @param {Object} obj - The object containing the 'from' property.
+   * @param {string|*} obj.from - The value to process.
    * @returns {*} The processed value.
    */
-  function from(a) {
-    if ('string' !== typeof a.from) {
-      return a.from
+  function from(obj) {
+    if (typeof obj.from !== 'string') {
+      return obj.from
     }
-    const t = a.from || ''
-    const l = slot(t)
-    a.from = l
-    return l
+    const text = obj.from || ''
+    const parsedArray = slot(text)
+    obj.from = parsedArray
+    return parsedArray
   }
   /**
-   * Lists the items in the book, applying the each function to each item.
-   * @param {Function} [each] - Function to apply to each item. Defaults to identity.
-   * @returns {Array} Array of results from applying each to each item.
+   * Lists the items in the book, applying the map function to each item.
+   * @param {Function} [mapFn] - Function to apply to each item. Defaults to identity.
+   * @returns {Array} Array of results from applying mapFn to each item.
    */
-  function list(each = (x) => x) {
-    const sortedItems = sort(this)
-    const parse = this.book?.parse ?? (() => {})
-    return sortedItems.map((item) => {
-      const word = item.word || parse(item) || item
-      return each(this.get(word), word, this)
+  function list(mapFn = (value) => value) {
+    const sortedItemsArray = sort(this)
+    const parseFn = this.book?.parse ?? (() => {})
+    return sortedItemsArray.map((item) => {
+      const word = item.word || parseFn(item) || item
+      return mapFn(this.get(word), word, this)
     })
   }
 
   /**
-   * Sets the value for a word in the book.
+   * Sets the value for a key in the book.
    * Handles updates and inserts, managing page sizes and splits.
-   * @param {string} word - The word to set.
-   * @param {*} is - The value to set.
+   * @param {string} key - The key to set.
+   * @param {*} value - The value to set.
    * @returns {Function} The book function.
    */
-  function set(word, is) {
+  function set(key, value) {
     // Check if already in memory
-    let item = this.all[word]
-    if (item) {
-      return this(word, is) // Update via main function
+    let existingItem = this.all[key]
+    if (existingItem) {
+      return this(key, value) // Update via main function
     }
-    const wordStr = String(word)
-    const page = this.page(wordStr)
+    const keyStr = String(key)
+    const pageObj = this.page(keyStr)
     // Check if it's an update in parseless data
-    if (page?.from) {
-      this.get(word)
-      if (this.all[word]) {
-        return this(word, is)
+    if (pageObj?.from) {
+      this.get(key)
+      if (this.all[key]) {
+        return this(key, value)
       }
     }
     // Insert new item
-    item = this.all[wordStr] = {
-      is: is,
-      page: page,
+    existingItem = this.all[keyStr] = {
+      is: value,
+      page: pageObj,
       substring: subt,
       toString: tot,
-      word: wordStr
+      word: keyStr
     }
-    page.first = page.first < wordStr ? page.first : wordStr
-    if (!page.limbo) page.limbo = []
-    page.limbo.push(item)
-    this(word, is) // Update main function
-    page.size += size(wordStr) + size(is)
-    if ((this.PAGE ?? PAGE) < page.size) {
-      split(page, this)
+    pageObj.first = pageObj.first < keyStr ? pageObj.first : keyStr
+    if (!pageObj.limbo) pageObj.limbo = []
+    pageObj.limbo.push(existingItem)
+    this(key, value) // Update main function
+    pageObj.size += size(keyStr) + size(value)
+    if ((this.PAGE ?? PAGE) < pageObj.size) {
+      split(pageObj, this)
     }
     return this
   }
@@ -267,92 +267,95 @@
   /**
    * Splits a page when it exceeds the size limit.
    * Creates a new page with the second half of items.
-   * @param {Object} p - The page to split.
-   * @param {Object} b - The book containing the page.
+   * @param {Object} pageObj - The page to split.
+   * @param {Object} book - The book containing the page.
    */
-  function split(p, b) {
-    const sortedItems = sort(p)
-    const len = sortedItems.length
-    const mid = Math.floor(len / 2)
-    const midItem = sortedItems[mid]
-    const newPage = {
-      book: b,
+  function split(pageObj, book) {
+    const sortedItemsArray = sort(pageObj)
+    const length = sortedItemsArray.length
+    const midIndex = Math.floor(length / 2)
+    const midItem = sortedItemsArray[midIndex]
+    const newPageObj = {
+      book: book,
       first: midItem.substring(), // Word of the middle item
-      get: b,
+      get: book,
       read: list,
       size: 0,
       substring: sub,
       toString: to
     }
-    newPage.from = []
-    const newFrom = newPage.from
+    newPageObj.from = []
+    const newFromArray = newPageObj.from
     // Move second half to new page
-    for (let k = mid; k < len; k++) {
-      const item = sortedItems[k]
-      newFrom.push(item)
-      newPage.size += size(item.word) + size(item.is)
-      item.page = newPage
+    for (let index = midIndex; index < length; index++) {
+      const item = sortedItemsArray[index]
+      newFromArray.push(item)
+      newPageObj.size += size(item.word) + size(item.is)
+      item.page = newPageObj
     }
     // Keep first half in original page
-    p.from = p.from.slice(0, mid)
-    p.size -= newPage.size
+    pageObj.from = pageObj.from.slice(0, midIndex)
+    pageObj.size -= newPageObj.size
     // Insert new page into book's list
-    const insertIndex = spot(newPage.first, b.list, b.parse) + 1
-    b.list.splice(insertIndex, 0, newPage)
+    const insertIndex = spot(newPageObj.first, book.list, book.parse) + 1
+    book.list.splice(insertIndex, 0, newPageObj)
     // Notify if split callback exists
-    if (b.split) {
-      b.split(newPage, p)
+    if (book.split) {
+      book.split(newPageObj, pageObj)
     }
   }
 
   /**
    * Parses a serialized string into an array.
-   * @param {string} t - The serialized string to parse.
+   * @param {string} text - The serialized string to parse.
    * @returns {Array} The parsed array.
    */
-  function slot(t) {
-    t = t ?? ''
-    return heal(t.substring(1, t.length - 1).split(t[0]), t[0])
+  function slot(text) {
+    text = text ?? ''
+    return heal(text.substring(1, text.length - 1).split(text[0]), text[0])
   }
   B.slot = slot // TODO: check first=last & pass `s`.
   /**
    * Heals an array by rejoining escaped values split by a separator.
-   * @param {Array} l - The array to heal.
-   * @param {string} [s] - The separator, defaults to '|'.
+   * @param {Array} array - The array to heal.
+   * @param {string} [separator] - The separator, defaults to '|'.
    * @returns {Array} The healed array.
    */
-  function heal(l, s) {
-    if (!Array.isArray(l)) return []
-    if (typeof s !== 'string') s = '|'
-    const i = l.indexOf('')
-    if (0 > i) {
-      return l
+  function heal(array, separator) {
+    if (!Array.isArray(array)) return []
+    if (typeof separator !== 'string') separator = '|'
+    const emptyIndex = array.indexOf('')
+    if (emptyIndex < 0) {
+      return array
     } // ~700M ops/sec on 4KB of Math.random()s, even faster if escape does exist.
-    if ('' === l[0] && 1 === l.length) {
+    if (array[0] === '' && array.length === 1) {
       return []
     } // annoying edge cases! how much does this slow us down?
     //if((c=i+2+parseInt(l[i+1])) !== c){ return [] } // maybe still faster than below?
-    const originalE = l[i + 1]
-    const parsed = parseInt(
-      originalE.substring(0, originalE.indexOf('"')) || originalE,
+    const originalEscape = array[emptyIndex + 1]
+    const parsedLength = parseInt(
+      originalEscape.substring(0, originalEscape.indexOf('"')) ||
+        originalEscape,
       10
     )
-    const e = i + 2 + parsed
-    if (Number.isNaN(e)) {
+    const endIndex = emptyIndex + 2 + parsedLength
+    if (Number.isNaN(endIndex)) {
       return []
     } // NaN check in JS is weird.
-    l[i] = l.slice(i, e).join(s ?? '|') // rejoin the escaped value
-    return l.slice(0, i + 1).concat(heal(l.slice(e), s)) // merge left with checked right.
+    array[emptyIndex] = array.slice(emptyIndex, endIndex).join(separator ?? '|') // rejoin the escaped value
+    return array
+      .slice(0, emptyIndex + 1)
+      .concat(heal(array.slice(endIndex), separator)) // merge left with checked right.
   }
 
   /**
    * Calculates the size of a value for storage purposes.
    * Returns the length of the string representation, or 1 if empty.
-   * @param {any} t - The value to measure.
+   * @param {any} value - The value to measure.
    * @returns {number} The size, at least 1.
    */
-  function size(t) {
-    return (t ?? '').length || 1
+  function size(value) {
+    return (value ?? '').length || 1
   }
   /**
    * Returns the word property of the item.
@@ -371,16 +374,16 @@
   }
   /**
    * Returns a substring of the first word or decoded value.
-   * @param {number} i - Start index.
-   * @param {number} j - End index.
+   * @param {number} startIndex - Start index.
+   * @param {number} endIndex - End index.
    * @returns {string} The substring.
    */
-  function sub(i, j) {
+  function sub(startIndex, endIndex) {
     return (
       this.first ||
       this.word ||
       B.decode((from(this) || '')[0] || '')
-    ).substring(i, j)
+    ).substring(startIndex, endIndex)
   }
   /**
    * Returns the string representation of the page.
@@ -394,101 +397,104 @@
    * Generates the serialized text for a page.
    * If the page has limbo items, sorts them first.
    * Empty page is represented as '||'.
-   * @param {Object} p - The page object.
+   * @param {Object} pageObj - The page object.
    * @returns {string} The serialized string.
    */
-  function text(p) {
+  function text(pageObj) {
     // PERF: read->[*] : text->"*" no edit waste 1 time perf.
-    if (p.limbo) {
-      sort(p)
+    if (pageObj.limbo) {
+      sort(pageObj)
     }
-    return 'string' === typeof p.from ? p.from : `|${(p.from || []).join('|')}|`
+    return typeof pageObj.from === 'string'
+      ? pageObj.from
+      : `|${(pageObj.from || []).join('|')}|`
   }
 
   /**
    * Sorts the page's items, mixing in any limbo items.
-   * @param {Object} p - The page object.
-   * @param {Array} [l] - Optional limbo array.
+   * @param {Object} pageObj - The page object.
+   * @param {Array} [limboArray] - Optional limbo array.
    * @returns {Array} The sorted array.
    */
-  function sort(p, l) {
-    const f = 'string' === typeof p.from ? slot(p.from) : p.from || []
-    p.from = f
-    const limbo = l || p.limbo
+  function sort(pageObj, limboArray) {
+    const fromArray =
+      typeof pageObj.from === 'string' ? slot(pageObj.from) : pageObj.from || []
+    pageObj.from = fromArray
+    const limbo = limboArray || pageObj.limbo
     if (!limbo) {
-      return f
+      return fromArray
     }
-    return mix(p, limbo).sort((a, b) =>
+    return mix(pageObj, limbo).sort((a, b) =>
       (a.word || B.decode(String(a))) < (b.word || B.decode(String(b))) ? -1 : 1
     )
   }
   /**
    * Merges limbo items into the page's from array.
-   * @param {Object} p - The page object.
-   * @param {Array} [l] - Optional limbo array.
+   * @param {Object} pageObj - The page object.
+   * @param {Array} [limboArray] - Optional limbo array.
    * @returns {Array} The merged array.
    */
-  function mix(p, l) {
+  function mix(pageObj, limboArray) {
     // TODO: IMPROVE PERFORMANCE!!!! l[j] = i is 5X+ faster than .push(
-    const limbo = l || p.limbo || []
-    p.limbo = null
-    const f = p.from
-    limbo.forEach((i) => {
-      if (got(i.word, p)) {
-        f[got.i] = i // TODO: Trick: allow for a GUN'S HAM CRDT hook here.
+    const limbo = limboArray || pageObj.limbo || []
+    pageObj.limbo = null
+    const fromArray = pageObj.from
+    limbo.forEach((item) => {
+      if (got(item.word, pageObj)) {
+        fromArray[got.i] = item // TODO: Trick: allow for a GUN'S HAM CRDT hook here.
       } else {
-        f.push(i)
+        fromArray.push(item)
       }
     })
-    return f
+    return fromArray
   }
 
   /**
    * Encodes a value into a serialized string format.
-   * @param {*} d - The value to encode.
-   * @param {string} [s='|'] - The separator character.
-   * @param {string} [u=' '] - The unit separator character.
+   * @param {*} data - The value to encode.
+   * @param {string} [separator='|'] - The separator character.
+   * @param {string} [unitSeparator=' '] - The unit separator character.
    * @returns {string} The encoded string.
    */
-  B.encode = (d, s, u) => {
-    const sStr = s || '|'
-    const uStr = u || String.fromCharCode(32)
-    switch (typeof d) {
+  B.encode = (data, separator, unitSeparator) => {
+    const sepStr = separator || '|'
+    const unitSepStr = unitSeparator || String.fromCharCode(32)
+    switch (typeof data) {
       case 'string': {
         // text
-        let i = d.indexOf(sStr)
-        let c = 0
-        while (i !== -1) {
-          c++
-          i = d.indexOf(sStr, i + 1)
+        let index = data.indexOf(sepStr)
+        let count = 0
+        while (index !== -1) {
+          count++
+          index = data.indexOf(sepStr, index + 1)
         }
-        return `${c ? `${sStr}${c}` : ''}"${d}`
+        return `${count ? `${sepStr}${count}` : ''}"${data}`
       }
       case 'number':
-        return d < 0 ? `${d}` : `+${d}`
+        return data < 0 ? `${data}` : `+${data}`
       case 'boolean':
-        return d ? '+' : '-'
+        return data ? '+' : '-'
       case 'object': {
-        if (!d) {
+        if (!data) {
           return ' '
         } // TODO: BUG!!! Nested objects don't slot correctly
-        const l = Object.keys(d).sort()
-        return l.reduce(
-          (t, k) =>
-            `${t}${uStr}${B.encode(k, sStr, uStr)}${uStr}${B.encode(d[k], sStr, uStr)}${uStr}${sStr}`,
-          sStr
+        const keysArray = Object.keys(data).sort()
+        return keysArray.reduce(
+          (result, key) =>
+            `${result}${unitSepStr}${B.encode(key, sepStr, unitSepStr)}${unitSepStr}${B.encode(data[key], sepStr, unitSepStr)}${unitSepStr}${sepStr}`,
+          sepStr
         )
       }
     }
   }
   /**
    * Decodes a serialized string back into its original value.
-   * @param {string} t - The encoded string to decode.
+   * @param {string} text - The encoded string to decode.
    * @returns {*} The decoded value.
    */
-  B.decode = (t) => {
-    if (typeof t !== 'string') return
-    switch (t) {
+  B.decode = (text) => {
+    if (typeof text !== 'string') return
+    switch (text) {
       case ' ':
         return null
       case '-':
@@ -496,49 +502,49 @@
       case '+':
         return true
     }
-    switch (t[0]) {
+    switch (text[0]) {
       case '-':
       case '+':
-        return parseFloat(t)
+        return parseFloat(text)
       case '"':
-        return t.slice(1)
+        return text.slice(1)
       case '|': {
         // Decode object
-        const parts = t.slice(1, -1).split('|')
-        const obj = {}
-        for (const part of parts) {
-          if (!part) continue
-          const [key, val] = part.split(' ')
-          obj[B.decode(key)] = B.decode(val)
+        const partsArray = text.slice(1, -1).split('|')
+        const resultObj = {}
+        for (const currentPart of partsArray) {
+          if (!currentPart) continue
+          const [keyStr, valStr] = currentPart.split(' ')
+          resultObj[B.decode(keyStr)] = B.decode(valStr)
         }
-        return obj
+        return resultObj
       }
     }
-    return t.slice(t.indexOf('"') + 1)
+    return text.slice(text.indexOf('"') + 1)
   }
 
   /**
    * Computes a hash value for a string.
-   * @param {string} s - The string to hash.
-   * @param {number} [c=0] - Initial hash value.
+   * @param {string} inputStr - The string to hash.
+   * @param {number} [initialHash=0] - Initial hash value.
    * @returns {number} The computed hash.
    */
-  B.hash = (s, c) => {
+  B.hash = (inputStr, initialHash) => {
     // via SO
-    if (typeof s !== 'string') {
+    if (typeof inputStr !== 'string') {
       return
     }
-    const cVal = c ?? 0 // CPU schedule hashing by
-    if (!s.length) {
-      return cVal
+    const hashValue = initialHash ?? 0 // CPU schedule hashing by
+    if (!inputStr.length) {
+      return hashValue
     }
-    let cTemp = cVal
-    for (let i = 0, l = s.length; i < l; ++i) {
-      const n = s.charCodeAt(i)
-      cTemp = (cTemp << 5) - cTemp + n
-      cTemp |= 0
+    let tempHash = hashValue
+    for (let index = 0, length = inputStr.length; index < length; ++index) {
+      const charCode = inputStr.charCodeAt(index)
+      tempHash = (tempHash << 5) - tempHash + charCode
+      tempHash |= 0
     }
-    return cTemp
+    return tempHash
   }
 
   try {

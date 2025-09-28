@@ -29,13 +29,13 @@
    * @returns {*} The result of the test function or undefined.
    */
   function traverseWithTestFunction(context, testFn, opt) {
-    let current = { back: context }
-    while (current.back) {
-      current = current.back
+    let current = context
+    while (current) {
       const result = testFn(current, opt)
       if (result !== undefined) {
         return result
       }
+      current = current.back
     }
     return undefined
   }
@@ -47,12 +47,12 @@
    * @returns {Object} The chain node after traversing back.
    */
   function traverseBackLevels(chain, levels) {
-    let node = chain
+    let currentChain = chain
     for (let i = 0; i < levels; i++) {
-      const context = node._
-      node = (context.back || context).$
+      const internalContext = currentChain._
+      currentChain = (internalContext.back || internalContext).$
     }
-    return node
+    return currentChain
   }
 
   /**
