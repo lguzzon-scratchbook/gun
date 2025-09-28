@@ -154,7 +154,7 @@
       return obj_map(l, c, _)
     })
   Type.list.index = 1 // change this to 0 if you want non-logical, non-mathematical, non-matrix, non-convenient array notation
-  Type.obj = Type.boj || {
+  Type.obj = Type.obj || {
     is: (o) => {
       DEP('obj')
       return o
@@ -233,19 +233,19 @@
       return !o ? o : JSON.parse(JSON.stringify(o)) // is shockingly faster than anything else, and our data has to be a subset of JSON anyways!
     })
   ;(() => {
-    // Check if object has any keys not in the excluded set (n can be a value or object of keys to exclude)
-    function checkKeyPresence(_value, key) {
-      const excluded = this.n
+    // Check if object has any keys not in the excluded set (excluded can be a value or object of keys to exclude)
+    function isNonExcludedKey(_value, key) {
+      const excluded = this.excluded
       if (excluded) {
         if (
           typeof excluded === 'object' &&
           obj_is(excluded) &&
           obj_has(excluded, key)
         ) {
-          return
+          return // key is excluded
         }
         if (key === excluded) {
-          return
+          return // key matches excluded value
         }
       }
       if (key !== undefined) {
@@ -254,86 +254,107 @@
     }
     Type.obj.empty =
       Type.obj.empty ||
-      ((o, n) => {
+      ((o, excluded) => {
         DEP('obj.empty')
         if (!o) {
           return true
         }
-        return !obj_map(o, checkKeyPresence, { n: n })
+        return !obj_map(o, isNonExcludedKey, { excluded: excluded })
       })
   })()
   ;(() => {
-    function t(...args) {
+    // Result collector function: if 2 args, sets key-value in object; if 1 arg, pushes to array
+    function resultCollector(...args) {
       if (args.length === 2) {
         const [k, v] = args
-        t.r = t.r || {}
-        t.r[k] = v
+        resultCollector.results = resultCollector.results || {}
+        resultCollector.results[k] = v
         return
       }
       const [k] = args
-      t.r = t.r || []
-      t.r.push(k)
+      resultCollector.results = resultCollector.results || []
+      resultCollector.results.push(k)
     }
     const keys = Object.keys
     let map, _u
     Object.keys =
       Object.keys ||
       ((o) =>
-        map(o, (_v, k, t) => {
-          t(k)
+        map(o, (_v, k, resultCollector) => {
+          resultCollector(k)
         }))
     Type.obj.map = map =
       Type.obj.map ||
-      ((l, c, _) => {
+      ((listOrObj, callbackOrValue, context) => {
         DEP('obj.map')
         const u = undefined
         let i = 0,
           x,
-          r,
-          ll,
-          lle,
-          ii,
-          f = 'function' === typeof c
-        t.r = u
-        if (keys && obj_is(l)) {
-          ll = keys(l)
-          lle = true
+          result,
+          objKeys,
+          hasObjKeys,
+          index,
+          isFunction = 'function' === typeof callbackOrValue
+        resultCollector.results = u
+        if (keys && obj_is(listOrObj)) {
+          objKeys = keys(listOrObj)
+          hasObjKeys = true
         }
-        _ = _ || {}
-        if (list_is(l) || ll) {
-          x = (ll || l).length
+        context = context || {}
+        if (list_is(listOrObj) || objKeys) {
+          x = (objKeys || listOrObj).length
           for (; i < x; i++) {
-            ii = i + Type.list.index
-            if (f) {
-              r = lle ? c.call(_, l[ll[i]], ll[i], t) : c.call(_, l[i], ii, t)
-              if (r !== u) {
-                return r
+            index = i + Type.list.index
+            if (isFunction) {
+              result = hasObjKeys
+                ? callbackOrValue.call(
+                    context,
+                    listOrObj[objKeys[i]],
+                    objKeys[i],
+                    resultCollector
+                  )
+                : callbackOrValue.call(
+                    context,
+                    listOrObj[i],
+                    index,
+                    resultCollector
+                  )
+              if (result !== u) {
+                return result
               }
             } else {
-              //if(Type.test.is(c,l[i])){ return ii } // should implement deep equality testing!
-              if (c === l[lle ? ll[i] : i]) {
-                return ll ? ll[i] : ii
-              } // use this for now
+              // If callbackOrValue is not a function, treat as value to find
+              // TODO: implement deep equality testing
+              if (callbackOrValue === listOrObj[hasObjKeys ? objKeys[i] : i]) {
+                return hasObjKeys ? objKeys[i] : index
+              }
             }
           }
         } else {
-          for (i in l) {
-            if (f) {
-              if (obj_has(l, i)) {
-                r = _ ? c.call(_, l[i], i, t) : c(l[i], i, t)
-                if (r !== u) {
-                  return r
+          for (i in listOrObj) {
+            if (isFunction) {
+              if (obj_has(listOrObj, i)) {
+                result = context
+                  ? callbackOrValue.call(
+                      context,
+                      listOrObj[i],
+                      i,
+                      resultCollector
+                    )
+                  : callbackOrValue(listOrObj[i], i, resultCollector)
+                if (result !== u) {
+                  return result
                 }
               }
             } else {
-              //if(a.test.is(c,l[i])){ return i } // should implement deep equality testing!
-              if (c === l[i]) {
+              // TODO: implement deep equality testing
+              if (callbackOrValue === listOrObj[i]) {
                 return i
-              } // use this for now
+              }
             }
           }
         }
-        return f ? t.r : Type.list.index ? 0 : -1
+        return isFunction ? resultCollector.results : Type.list.index ? 0 : -1
       })
   })()
   Type.time = Type.time || {}
@@ -374,17 +395,17 @@
       DEP('val.link.is') // this defines whether an object is a soul relation or not, they look like this: {'#': 'UUID'}
       if (v?.[rel_] && !v._ && obj_is(v)) {
         // must be an object.
-        const o = {}
-        obj_map(v, validateLinkProperty, o)
-        if (o.id) {
+        const validationResult = {}
+        obj_map(v, validateRelationProperty, validationResult)
+        if (validationResult.id) {
           // we found an id.
-          return o.id // yay! Return it.
+          return validationResult.id // yay! Return it.
         }
       }
       return false // the value was not a valid soul relation.
     }
     // Ensure the object has exactly one property: the relation key with a string value
-    function validateLinkProperty(value, key) {
+    function validateRelationProperty(value, key) {
       if (this.id !== undefined) {
         this.id = false
         return
@@ -427,15 +448,15 @@
       if (!obj_is(n)) {
         return false
       } // must be an object.
-      const s = Node.soul(n)
-      if (s) {
+      const soul = Node.soul(n)
+      if (soul) {
         // must have a soul on it.
-        return !obj_map(n, validateNodeProperty, { as: as, cb: cb, n: n, s: s })
+        return !obj_map(n, validateNodeValue, { as: as, cb: cb, n: n, s: soul })
       }
       return false // nope! This was not a valid node.
     }
     // Validate each property of the node
-    function validateNodeProperty(value, key) {
+    function validateNodeValue(value, key) {
       if (key === Node._) {
         return
       } // skip over the metadata.
@@ -448,26 +469,26 @@
     }
   })()
   ;(() => {
-    Node.ify = (obj, o, as) => {
+    Node.ify = (obj, options, as) => {
       DEP('node.ify') // returns a node from a shallow object.
-      if (!o) {
-        o = {}
-      } else if (typeof o === 'string') {
-        o = { soul: o }
-      } else if ('function' === typeof o) {
-        o = { map: o }
+      if (!options) {
+        options = {}
+      } else if (typeof options === 'string') {
+        options = { soul: options }
+      } else if ('function' === typeof options) {
+        options = { map: options }
       }
-      if (o.map) {
-        o.node = o.map.call(as, obj, u, o.node || {})
+      if (options.map) {
+        options.node = options.map.call(as, obj, u, options.node || {})
       }
-      o.node = Node.soul.ify(o.node || {}, o)
-      if (o.node) {
-        obj_map(obj, processProperty, { as: as, o: o })
+      options.node = Node.soul.ify(options.node || {}, options)
+      if (options.node) {
+        obj_map(obj, processObjectProperty, { as: as, o: options })
       }
-      return o.node // This will only be a valid node if the object wasn't already deep!
+      return options.node // This will only be a valid node if the object wasn't already deep!
     }
     // Process each property of the object to build the node
-    function processProperty(value, key) {
+    function processObjectProperty(value, key) {
       const options = this.o
       let transformed
       if (options.map) {
@@ -506,30 +527,30 @@
       DEP('state.map')
       const u = undefined
       const temp = cb || s
-      const o = obj_is(temp) ? temp : null
+      const stateObj = obj_is(temp) ? temp : null
       cb = fn_is(temp) ? temp : null
-      if (o && !cb) {
+      if (stateObj && !cb) {
         s = num_is(s) ? s : State()
-        o[N_] = o[N_] || {}
-        obj_map(o, setState, { o: o, s: s })
-        return o
+        stateObj[N_] = stateObj[N_] || {}
+        obj_map(stateObj, setKeyState, { o: stateObj, s: s })
+        return stateObj
       }
       as = as || obj_is(s) ? s : u
       s = num_is(s) ? s : State()
       return function (v, k, o, opt) {
         if (!cb) {
-          setState.call({ o: o, s: s }, v, k)
+          setKeyState.call({ o: o, s: s }, v, k)
           return v
         }
         cb.call(as || this || {}, v, k, o, opt)
         if (obj_has(o, k) && u === o[k]) {
           return
         }
-        setState.call({ o: o, s: s }, v, k)
+        setKeyState.call({ o: o, s: s }, v, k)
       }
     }
     // Set state for the key if not metadata
-    function setState(_value, key) {
+    function setKeyState(_value, key) {
       if (key === N_) {
         return
       }
@@ -545,10 +566,10 @@
       if (!g || !obj_is(g) || obj_empty(g)) {
         return false
       } // must be an object.
-      return !obj_map(g, validateGraphNode, { as: as, cb: cb, fn: fn }) // makes sure it wasn't an empty object.
+      return !obj_map(g, validateGraphSoul, { as: as, cb: cb, fn: fn }) // makes sure it wasn't an empty object.
     }
     // Validate that each node in the graph is valid
-    function validateGraphNode(node, soul) {
+    function validateGraphSoul(node, soul) {
       if (
         !node ||
         soul !== Node.soul(node) ||
@@ -559,21 +580,21 @@
       if (!this.cb) {
         return
       }
-      nodeCallback.n = node
-      nodeCallback.as = this.as // sequential race conditions aren't races.
-      this.cb.call(nodeCallback.as, node, soul, nodeCallback)
+      nodeValidator.n = node
+      nodeValidator.as = this.as // sequential race conditions aren't races.
+      this.cb.call(nodeValidator.as, node, soul, nodeValidator)
     }
     // Callback function for node validation
-    function nodeCallback(callback) {
+    function nodeValidator(callback) {
       if (callback) {
-        Node.is(nodeCallback.n, callback, nodeCallback.as)
+        Node.is(nodeValidator.n, callback, nodeValidator.as)
       }
     }
   })()
   ;(() => {
     Graph.ify = (obj, env, as) => {
       DEP('graph.ify')
-      const at = { obj: obj, path: [] }
+      const context = { obj: obj, path: [] }
       if (!env) {
         env = {}
       } else if (typeof env === 'string') {
@@ -586,41 +607,41 @@
         as = u
       }
       if (env.soul) {
-        at.link = Val.link.ify(env.soul)
+        context.link = Val.link.ify(env.soul)
       }
       env.shell = as?.shell
       env.graph = env.graph || {}
       env.seen = env.seen || []
       env.as = env.as || as
-      processNode(env, at)
-      env.root = at.node
+      processGraphNode(env, context)
+      env.root = context.node
       return env.graph
     }
-    // Process a node in the object graph
-    function processNode(env, at) {
-      const existing = findSeenObject(env, at)
+    // Process a node in the object graph, handling cycles
+    function processGraphNode(env, context) {
+      const existing = findPreviouslySeenObject(env, context)
       if (existing) {
         return existing
       }
-      at.env = env
-      at.soul = updateSoul
-      if (Node.ify(at.obj, processValue, at)) {
-        at.link = at.link || Val.link.ify(Node.soul(at.node))
-        if (at.obj !== env.shell) {
-          env.graph[Val.link.is(at.link)] = at.node
+      context.env = env
+      context.soul = updateNodeSoul
+      if (Node.ify(context.obj, processGraphValue, context)) {
+        context.link = context.link || Val.link.ify(Node.soul(context.node))
+        if (context.obj !== env.shell) {
+          env.graph[Val.link.is(context.link)] = context.node
         }
       }
-      return at
+      return context
     }
-    // Process each value in the object
-    function processValue(v, k, n) {
+    // Process each value in the object, validating and linking
+    function processGraphValue(v, k, n) {
       const env = this.env
       let isValid
       let tmp
       if (Node._ === k && obj_has(v, Val.link._)) {
         return n._ // TODO: Bug?
       }
-      isValid = validateValue(v, k, n, this, env)
+      isValid = validateGraphValue(v, k, n, this, env)
       if (!isValid) {
         return
       }
@@ -643,7 +664,7 @@
             return
           }
 
-          isValid = validateValue(v, k, n, this, env)
+          isValid = validateGraphValue(v, k, n, this, env)
           if (!isValid) {
             return
           }
@@ -655,14 +676,14 @@
       if (true === isValid) {
         return v
       }
-      tmp = processNode(env, { obj: v, path: this.path.concat(k) })
+      tmp = processGraphNode(env, { obj: v, path: this.path.concat(k) })
       if (!tmp.node) {
         return
       }
       return tmp.link //{'#': Node.soul(tmp.node)};
     }
     // Update the soul of the current context
-    function updateSoul(id) {
+    function updateNodeSoul(id) {
       const prev = Val.link.is(this.link),
         graph = this.env.graph
       this.link = this.link || Val.link.ify(id)
@@ -676,7 +697,7 @@
       }
     }
     // Validate the value for inclusion in the graph
-    function validateValue(v, k, n, at, env) {
+    function validateGraphValue(v, k, n, context, env) {
       let tmp
       if (Val.is(v)) {
         return true
@@ -687,25 +708,25 @@
       tmp = env.invalid
       if (tmp) {
         v = tmp.call(env.as || {}, v, k, n)
-        return validateValue(v, k, n, at, env)
+        return validateGraphValue(v, k, n, context, env)
       }
-      env.err = `Invalid value at '${at.path.concat(k).join('.')}'!`
+      env.err = `Invalid value at '${context.path.concat(k).join('.')}'!`
       if (Type.list.is(v)) {
         env.err += ' Use `.set(item)` instead of an Array.'
       }
     }
     // Find if the object has been seen before to avoid cycles
-    function findSeenObject(env, at) {
+    function findPreviouslySeenObject(env, context) {
       let arr = env.seen,
         i = arr.length,
         has
       while (i--) {
         has = arr[i]
-        if (at.obj === has.obj) {
+        if (context.obj === has.obj) {
           return has
         }
       }
-      arr.push(at)
+      arr.push(context)
     }
   })()
   Graph.node = (node) => {
@@ -724,11 +745,15 @@
       }
       const obj = {}
       opt = opt || { seen: {} }
-      obj_map(graph[root], convertValue, { graph: graph, obj: obj, opt: opt })
+      obj_map(graph[root], convertGraphValue, {
+        graph: graph,
+        obj: obj,
+        opt: opt
+      })
       return obj
     }
     // Convert graph node back to object, resolving links recursively
-    function convertValue(value, key) {
+    function convertGraphValue(value, key) {
       let linkId, resolved
       if (key === Node._) {
         if (obj_empty(value, Val.link._)) {

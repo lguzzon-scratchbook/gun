@@ -42,7 +42,7 @@
       bookInstance.page = page
       bookInstance.set = set
       bookInstance.get = get
-      bookInstance.all = {}
+      bookInstance.cache = {}
       return bookInstance
     }
   }
@@ -56,10 +56,11 @@
    */
   function page(searchWord) {
     const pageList = this.list
+    // Find the appropriate page index for the searchWord
     const index = spot(searchWord, pageList, this.parse)
     let pageObj = pageList[index]
     if (typeof pageObj === 'string') {
-      // Convert string page to object
+      // Lazy loading: convert serialized page string to object
       pageList[index] = pageObj = {
         book: this,
         first: this.parse ? this.parse(pageObj) : pageObj,
@@ -84,7 +85,7 @@
     // If searchWord is an object with 'is' property, return its value
     if (searchWord.is !== undefined) return searchWord.is
     // Check in-memory cache
-    const cachedItem = this.all[searchWord]
+    const cachedItem = this.cache[searchWord]
     if (cachedItem) return cachedItem.is
     // Search in the appropriate page
     const pageObj = this.page(searchWord)
@@ -100,41 +101,45 @@
    */
   function got(searchWord, pageObj) {
     const book = pageObj.book
+    // Get the parsed array from the page
     const fromArray = from(pageObj)
-    if (!fromArray) return
+    if (!fromArray) return // No data in page
+    // Find the insertion point using binary search
     let index = spot(searchWord, fromArray, B.decode)
-    got.i = index
+    got.i = index // Store index for external use
     let currentItem = fromArray[index]
-    // Check for exact match
+    // Attempt exact match with the item at the spotted index
     if (currentItem && searchWord === currentItem.word) {
-      book.all[searchWord] = currentItem
+      // Exact match found, cache and return
+      book.cache[searchWord] = currentItem
       return currentItem.is
     }
-    // Check next item if current is not a string (possibly escaped)
+    // If current item is not a string, it might be an object; check the next item
     if (typeof currentItem !== 'string') {
       index += 1
       got.i = index
       currentItem = fromArray[index]
       if (currentItem && searchWord === currentItem.word) {
-        book.all[searchWord] = currentItem
+        // Found match in next item
+        book.cache[searchWord] = currentItem
         return currentItem.is
       }
     }
-    // Parse as escaped key-value pair
-    const [key, val] = slot(currentItem)
+    // No exact match, treat currentItem as serialized key-value pair
+    const [key, val] = slot(currentItem) // Parse the serialized pair
     const decodedKey = B.decode(key)
     if (searchWord !== decodedKey) {
-      // Try next item for escaped
+      // Not matching current, try the next item as escaped pair
       index += 1
       got.i = index
       currentItem = fromArray[index]
-      if (!currentItem) return
+      if (!currentItem) return // No more items
       const [nextKey, nextVal] = slot(currentItem)
       if (searchWord !== B.decode(nextKey)) {
-        return
+        return // No match found
       }
-      // Cache the parsed item
-      fromArray[index] = book.all[searchWord] = {
+      // Found in next item, create and cache the parsed item
+      fromArray[index] = book.cache[searchWord] = {
         is: B.decode(nextVal),
         page: pageObj,
         substring: subt,
@@ -143,10 +148,10 @@
       }
       return fromArray[index].is
     }
-    // Create and cache new item for found escaped key
+    // Found in current item, create and cache the parsed item
     currentItem =
       fromArray[index] =
-      book.all[searchWord] =
+      book.cache[searchWord] =
         {
           is: B.decode(val),
           page: pageObj,
@@ -232,7 +237,7 @@
    */
   function set(key, value) {
     // Check if already in memory
-    let existingItem = this.all[key]
+    let existingItem = this.cache[key]
     if (existingItem) {
       return this(key, value) // Update via main function
     }
@@ -241,12 +246,12 @@
     // Check if it's an update in parseless data
     if (pageObj?.from) {
       this.get(key)
-      if (this.all[key]) {
+      if (this.cache[key]) {
         return this(key, value)
       }
     }
     // Insert new item
-    existingItem = this.all[keyStr] = {
+    existingItem = this.cache[keyStr] = {
       is: value,
       page: pageObj,
       substring: subt,
@@ -317,6 +322,7 @@
   B.slot = slot // TODO: check first=last & pass `s`.
   /**
    * Heals an array by rejoining escaped values split by a separator.
+   * Escaped values are marked by an empty string followed by length-prefixed data.
    * @param {Array} array - The array to heal.
    * @param {string} [separator] - The separator, defaults to '|'.
    * @returns {Array} The healed array.
@@ -324,28 +330,34 @@
   function heal(array, separator) {
     if (!Array.isArray(array)) return []
     if (typeof separator !== 'string') separator = '|'
+    // Find the index of the empty string marker for escaped values
     const emptyIndex = array.indexOf('')
     if (emptyIndex < 0) {
+      // No escaped values, return as is
       return array
-    } // ~700M ops/sec on 4KB of Math.random()s, even faster if escape does exist.
+    }
     if (array[0] === '' && array.length === 1) {
+      // Handle edge case of single empty string
       return []
-    } // annoying edge cases! how much does this slow us down?
-    //if((c=i+2+parseInt(l[i+1])) !== c){ return [] } // maybe still faster than below?
-    const originalEscape = array[emptyIndex + 1]
+    }
+    // Extract the escaped segment info
+    const originalEscape = array[emptyIndex + 1] // The element after empty contains length prefix and data
     const parsedLength = parseInt(
       originalEscape.substring(0, originalEscape.indexOf('"')) ||
         originalEscape,
       10
-    )
-    const endIndex = emptyIndex + 2 + parsedLength
+    ) // Parse the length of the escaped value
+    const endIndex = emptyIndex + 2 + parsedLength // Calculate the end index of the escaped segment
     if (Number.isNaN(endIndex)) {
+      // Invalid length, return empty
       return []
-    } // NaN check in JS is weird.
-    array[emptyIndex] = array.slice(emptyIndex, endIndex).join(separator ?? '|') // rejoin the escaped value
+    }
+    // Rejoin the escaped parts into the original value
+    array[emptyIndex] = array.slice(emptyIndex, endIndex).join(separator ?? '|')
+    // Recursively heal the remaining parts
     return array
       .slice(0, emptyIndex + 1)
-      .concat(heal(array.slice(endIndex), separator)) // merge left with checked right.
+      .concat(heal(array.slice(endIndex), separator))
   }
 
   /**
@@ -494,33 +506,33 @@
    */
   B.decode = (text) => {
     if (typeof text !== 'string') return
-    switch (text) {
-      case ' ':
-        return null
-      case '-':
-        return false
-      case '+':
-        return true
-    }
-    switch (text[0]) {
-      case '-':
-      case '+':
-        return parseFloat(text)
-      case '"':
-        return text.slice(1)
-      case '|': {
-        // Decode object
+    if (text === ' ') return null
+    if (text === '-') return false
+    if (text === '+') return true
+    if (text[0] === '"') return text.slice(1)
+    if (text[0] === '-' || text[0] === '+') return parseFloat(text)
+    if (text[0] === '|') {
+      const quoteIndex = text.indexOf('"')
+      if (quoteIndex > 0) {
+        // Escaped string with separator count
+        return text.slice(quoteIndex + 1)
+      } else {
+        // Object
         const partsArray = text.slice(1, -1).split('|')
         const resultObj = {}
         for (const currentPart of partsArray) {
           if (!currentPart) continue
-          const [keyStr, valStr] = currentPart.split(' ')
-          resultObj[B.decode(keyStr)] = B.decode(valStr)
+          const trimmed = currentPart.trim()
+          const parts = trimmed.split(' ')
+          if (parts.length >= 2) {
+            const [keyStr, valStr] = parts
+            resultObj[B.decode(keyStr)] = B.decode(valStr)
+          }
         }
         return resultObj
       }
     }
-    return text.slice(text.indexOf('"') + 1)
+    return text
   }
 
   /**

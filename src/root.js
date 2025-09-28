@@ -1,17 +1,22 @@
 ;(() => {
-  function Gun(o) {
-    if (o instanceof Gun) {
+  // Gun.js - Decentralized Graph Database
+  function Gun(options) {
+    // Constructor for Gun instances
+    if (options instanceof Gun) {
       this._ = { $: this }
       return this._.$
     }
     if (!(this instanceof Gun)) {
-      return new Gun(o)
+      return new Gun(options)
     }
-    this._ = { $: this, opt: o }
+    this._ = { $: this, opt: options }
     return Gun.create(this._)
   }
 
-  Gun.is = ($) => $ instanceof Gun || ($?._ && $ === $._.$) || false
+  Gun.is = (instance) =>
+    instance instanceof Gun ||
+    (instance?._ && instance === instance._.$) ||
+    false
 
   Gun.version = 0.202
 
@@ -43,354 +48,376 @@
       at.once = 1
       return gun
     }
-    function universe(msg) {
-      //if(!F){ var eve = this; setTimeout(function(){ universe.call(eve, msg,1) },Math.random() * 100);return; } // ADD F TO PARAMS!
-      if (!msg) {
+    function universe(message) {
+      // Central message processing hub for Gun's event system
+      if (!message) {
         return
       }
-      if (msg.out === universe) {
-        this.to.next(msg)
+      if (message.out === universe) {
+        this.to.next(message)
         return
       }
-      const as = this.as,
-        at = as.at || as,
-        gun = at.$,
-        dup = at.dup,
-        DBG = msg.DBG
-      let tmp
-      tmp = msg['#']
-      if (!tmp) {
-        tmp = msg['#'] = text_rand(9)
+      const instance = this.as,
+        context = instance.at || instance,
+        gunInstance = context.$,
+        deduplication = context.dup,
+        debugInfo = message.DBG
+      let temp
+      temp = message['#']
+      if (!temp) {
+        temp = message['#'] = text_rand(9)
       }
-      if (dup.check(tmp)) {
+      if (deduplication.check(temp)) {
         return
       }
-      dup.track(tmp)
-      tmp = msg._
-      msg._ = 'function' === typeof tmp ? tmp : () => {}
-      const tmp$ = msg.$ && msg.$ === (msg.$._ || '').$
-      if (!tmp$) {
-        msg.$ = gun
+      deduplication.track(temp)
+      temp = message._
+      message._ = 'function' === typeof temp ? temp : () => {}
+      const hasValidGun = message.$ && message.$ === (message.$._ || '').$
+      if (!hasValidGun) {
+        message.$ = gunInstance
       }
-      if (msg['@'] && !msg.put) {
-        ack(msg)
+      if (message['@'] && !message.put) {
+        ack(message)
       }
-      if (!at.ask(msg['@'], msg)) {
-        // is this machine listening for an ack?
-        if (DBG) {
-          DBG.u = Date.now()
+      if (!context.ask(message['@'], message)) {
+        // Is this machine listening for an ack?
+        if (debugInfo) {
+          debugInfo.u = Date.now()
         }
-        if (msg.put) {
-          put(msg)
+        if (message.put) {
+          put(message)
           return
-        } else if (msg.get) {
-          Gun.on.get(msg, gun)
+        } else if (message.get) {
+          Gun.on.get(message, gunInstance)
         }
       }
-      if (DBG) {
-        DBG.uc = Date.now()
+      if (debugInfo) {
+        debugInfo.uc = Date.now()
       }
-      this.to.next(msg)
-      if (DBG) {
-        DBG.ua = Date.now()
+      this.to.next(message)
+      if (debugInfo) {
+        debugInfo.ua = Date.now()
       }
-      if (msg.nts || msg.NTS) {
+      if (message.nts || message.NTS) {
         return
       } // TODO: This shouldn't be in core, but fast way to prevent NTS spread. Delete this line after all peers have upgraded to newer versions.
-      msg.out = universe
-      at.on('out', msg)
-      if (DBG) {
-        DBG.ue = Date.now()
+      message.out = universe
+      context.on('out', message)
+      if (debugInfo) {
+        debugInfo.ue = Date.now()
       }
     }
-    function put(msg) {
-      if (!msg) {
+    function put(message) {
+      // Process put operations to store data in the graph
+      if (!message) {
         return
       }
-      const ctx = msg._ || ''
-      ctx.$ = msg.$ || ''
-      ctx.root = (ctx.$._ || '').root
-      const root = ctx.root
-      if (msg['@'] && ctx.faith && !ctx.miss) {
+      const context = message._ || ''
+      context.$ = message.$ || ''
+      context.root = (context.$._ || '').root
+      const root = context.root
+      if (message['@'] && context.faith && !context.miss) {
         // TODO: AXE may split/route based on 'put' what should we do here? Detect @ in AXE? I think we don't have to worry, as DAM will route it on @.
-        msg.out = universe
-        root.on('out', msg)
+        message.out = universe
+        root.on('out', message)
         return
       }
-      ctx.latch = root.hatch
-      ctx.match = root.hatch = []
-      const put = msg.put
-      ctx.DBG = msg.DBG
-      const DBG = ctx.DBG
-      const S = Date.now()
-      CT = CT || S
-      if (put['#'] && put['.']) {
-        /*root && root.on('put', msg);*/ return
+      context.latch = root.hatch
+      context.match = root.hatch = []
+      const putData = message.put
+      context.DBG = message.DBG
+      const debugInfo = context.DBG
+      const startTime = Date.now()
+      CT = CT || startTime
+      if (putData['#'] && putData['.']) {
+        /*root && root.on('put', message);*/ return
       } // TODO: BUG! This needs to call HAM instead.
-      if (DBG) {
-        DBG.p = S
+      if (debugInfo) {
+        debugInfo.p = startTime
       }
-      ctx['#'] = msg['#']
-      ctx.msg = msg
-      ctx.all = 0
-      ctx.stun = 1
-      const nl = Object.keys(put) //.sort(); // TODO: This is unbounded operation, large graphs will be slower. Write our own CPU scheduled sort? Or somehow do it in below? Keys itself is not O(1) either, create ES5 shim over ?weak map? or custom which is constant.
+      context['#'] = message['#']
+      context.msg = message
+      context.all = 0
+      context.stun = 1
+      const nodeList = Object.keys(putData) //.sort(); // TODO: This is unbounded operation, large graphs will be slower. Write our own CPU scheduled sort? Or somehow do it in below? Keys itself is not O(1) either, create ES5 shim over ?weak map? or custom which is constant.
       if (console.STAT) {
-        ;(DBG || ctx).pk = Date.now()
-        console.STAT(S, (DBG || ctx).pk - S, 'put sort')
+        ;(debugInfo || context).pk = Date.now()
+        console.STAT(
+          startTime,
+          (debugInfo || context).pk - startTime,
+          'put sort'
+        )
       }
-      let ni = 0
-      let nj
-      let kl
-      let soul
-      let node
-      let states
-      let err
-      let tmp
-      const pop = (o) => {
-        if (nj !== ni) {
-          nj = ni
-          soul = nl[ni]
-          if (!soul) {
+      let nodeIndex = 0
+      let nextNodeIndex
+      let keyList
+      let nodeId
+      let nodeData
+      let stateMap
+      let error
+      let temp
+      const processNode = (offset) => {
+        if (nextNodeIndex !== nodeIndex) {
+          nextNodeIndex = nodeIndex
+          nodeId = nodeList[nodeIndex]
+          if (!nodeId) {
             if (console.STAT) {
-              ;(DBG || ctx).pd = Date.now()
-              console.STAT(S, (DBG || ctx).pd - S, 'put')
+              ;(debugInfo || context).pd = Date.now()
+              console.STAT(
+                startTime,
+                (debugInfo || context).pd - startTime,
+                'put'
+              )
             }
-            fire(ctx)
+            fire(context)
             return
           }
-          node = put[soul]
-          if (!node) {
-            err = `${ERR + cut(soul)}no node.`
-          } else tmp = node._
-          if (!tmp) {
-            err = `${ERR + cut(soul)}no meta.`
-          } else if (soul !== tmp['#']) {
-            err = `${ERR + cut(soul)}soul not same.`
-          } else states = tmp['>']
-          if (!states) {
-            err = `${ERR + cut(soul)}no state.`
+          nodeData = putData[nodeId]
+          if (!nodeData) {
+            error = `${ERR + cut(nodeId)}no node.`
+          } else temp = nodeData._
+          if (!temp) {
+            error = `${ERR + cut(nodeId)}no meta.`
+          } else if (nodeId !== temp['#']) {
+            error = `${ERR + cut(nodeId)}soul not same.`
+          } else stateMap = temp['>']
+          if (!stateMap) {
+            error = `${ERR + cut(nodeId)}no state.`
           }
-          kl = Object.keys(node || {}) // TODO: .keys( is slow
+          keyList = Object.keys(nodeData || {}) // TODO: .keys( is slow
         }
-        if (err) {
-          msg.err = ctx.err = err // invalid data should error and stun the message.
-          fire(ctx)
-          //console.log("handle error!", err) // handle!
+        if (error) {
+          message.err = context.err = error // Invalid data should error and stun the message.
+          fire(context)
           return
         }
-        let i = 0
-        let key
-        o = o || 0
-        while (o++ < 9) {
-          key = kl[i++]
-          if (!key) {
+        let keyIndex = 0
+        let propertyKey
+        offset = offset || 0
+        while (offset++ < 9) {
+          propertyKey = keyList[keyIndex++]
+          if (!propertyKey) {
             break
           }
-          if ('_' === key) {
+          if ('_' === propertyKey) {
             continue
           }
-          const val = node[key],
-            state = states[key]
-          if (u === state) {
-            err = `${ERR + cut(key)}on${cut(soul)}no state.`
+          const value = nodeData[propertyKey],
+            timestamp = stateMap[propertyKey]
+          if (u === timestamp) {
+            error = `${ERR + cut(propertyKey)}on${cut(nodeId)}no state.`
             break
           }
-          if (!valid(val)) {
-            err = `${ERR + cut(key)}on${cut(soul)}bad ${typeof val}${cut(val)}`
+          if (!valid(value)) {
+            error = `${ERR + cut(propertyKey)}on${cut(nodeId)}bad ${typeof value}${cut(value)}`
             break
           }
-          //ctx.all++; //ctx.ack[soul+key] = '';
-          ham(val, key, soul, state, msg)
-          ++C // courtesy count;
+          ham(value, propertyKey, nodeId, timestamp, message)
+          ++C // Courtesy count
         }
-        kl = kl.slice(i)
-        if (kl.length) {
-          turn(pop)
+        keyList = keyList.slice(keyIndex)
+        if (keyList.length) {
+          turn(processNode)
           return
         }
-        ++ni
-        kl = null
-        pop(o)
+        ++nodeIndex
+        keyList = null
+        processNode(offset)
       }
-      pop()
+      processNode()
     }
     Gun.on.put = put
     // TODO: MARK!!! clock below, reconnect sync, SEA certify wire merge, User.auth taking multiple times, // msg put, put, say ack, hear loop...
     // WASIS BUG! local peer not ack. .off other people: .open
-    const ham = (val, key, soul, state, msg) => {
-      const ctx = msg._ || {}
-      const root = ctx.root
+    const ham = (value, propertyKey, nodeId, timestamp, message) => {
+      // Conflict resolution using HAM (Hash Array Mapped Trie) logic
+      const context = message._ || {}
+      const root = context.root
       const graph = root?.graph
-      const vertex = graph?.[soul] || empty
-      const was = state_is(vertex, key, 1)
-      const known = vertex[key]
+      const node = graph?.[nodeId] || empty
+      const previousTimestamp = state_is(node, propertyKey, 1)
+      const existingValue = node[propertyKey]
 
-      const DBG = ctx.DBG
+      const debugInfo = context.DBG
       if (console.STAT) {
-        if (!graph?.[soul] || !known) {
+        if (!graph?.[nodeId] || !existingValue) {
           console.STAT.has = (console.STAT.has || 0) + 1
         }
       }
 
-      const now = State()
-      if (state > now) {
-        const tmp = state - now
-        const delay = tmp > MD ? MD : tmp
-        setTimeout(() => ham(val, key, soul, state, msg), delay)
+      const currentTime = State()
+      if (timestamp > currentTime) {
+        const timeDifference = timestamp - currentTime
+        const delay = timeDifference > MD ? MD : timeDifference
+        setTimeout(
+          () => ham(value, propertyKey, nodeId, timestamp, message),
+          delay
+        )
         if (console.STAT) {
-          const hf = Date.now()
-          if (DBG) DBG.Hf = hf
-          console.STAT(hf, delay, 'future')
+          const futureTime = Date.now()
+          if (debugInfo) debugInfo.Hf = futureTime
+          console.STAT(futureTime, delay, 'future')
         }
         return
       }
-      if (state < was) {
+      if (timestamp < previousTimestamp) {
         return
       }
-      if (!ctx.faith) {
-        if (state === was && (val === known || L(val) <= L(known))) {
-          if (!ctx.miss) {
+      if (!context.faith) {
+        if (
+          timestamp === previousTimestamp &&
+          (value === existingValue || L(value) <= L(existingValue))
+        ) {
+          if (!context.miss) {
             return
           }
         }
       }
-      ctx.stun++
-      const aid = msg['#'] + ctx.all++
-      const id = { _: ctx, toString: () => aid }
+      context.stun++
+      const uniqueId = message['#'] + context.all++
+      const id = { _: context, toString: () => uniqueId }
       id.toJSON = id.toString
-      root.dup.track(id)['#'] = msg['#']
-      if (DBG) {
-        DBG.ph = DBG.ph || Date.now()
+      root.dup.track(id)['#'] = message['#']
+      if (debugInfo) {
+        debugInfo.ph = debugInfo.ph || Date.now()
       }
       root.on('put', {
-        _: ctx,
-        '@': msg['@'],
+        _: context,
+        '@': message['@'],
         '#': id,
-        ok: msg.ok,
-        put: { ':': val, '.': key, '#': soul, '>': state }
+        ok: message.ok,
+        put: { ':': value, '.': propertyKey, '#': nodeId, '>': timestamp }
       })
     }
-    function map(msg) {
-      const DBG = (msg._ || '').DBG
-      if (DBG) {
-        DBG.pa = Date.now()
-        DBG.pm = DBG.pm || Date.now()
+    function map(message) {
+      // Map incoming put messages to update the local graph
+      const debugInfo = (message._ || '').DBG
+      if (debugInfo) {
+        debugInfo.pa = Date.now()
+        debugInfo.pm = debugInfo.pm || Date.now()
       }
       const root = this.as,
         graph = root.graph,
-        ctx = msg._,
-        put = msg.put,
-        soul = put['#'],
-        key = put['.'],
-        val = put[':'],
-        state = put['>']
-      let tmp = ctx.msg
-      if (tmp) {
-        tmp = tmp.put
-        if (tmp) {
-          tmp = tmp[soul]
-          if (tmp) {
-            state_ify(tmp, key, state, val, soul)
+        context = message._,
+        putData = message.put,
+        nodeId = putData['#'],
+        propertyKey = putData['.'],
+        value = putData[':'],
+        timestamp = putData['>']
+      let temp = context.msg
+      if (temp) {
+        temp = temp.put
+        if (temp) {
+          temp = temp[nodeId]
+          if (temp) {
+            state_ify(temp, propertyKey, timestamp, value, nodeId)
           }
         }
-      } // necessary! or else out messages do not get SEA transforms.
-      //var bytes = ((graph[soul]||'')[key]||'').length||1;
-      graph[soul] = state_ify(graph[soul], key, state, val, soul)
-      const tmp_next = (root.next || '')[soul]
-      if (tmp_next) {
-        //tmp.bytes = (tmp.bytes||0) + ((val||'').length||1) - bytes;
-        //if(tmp.bytes > 2**13){ Gun.log.once('byte-limit', "Note: In the future, GUN peers will enforce a ~4KB query limit. Please see https://gun.eco/docs/Page") }
-        tmp_next.on('in', msg)
+      } // Necessary for SEA (Security, Encryption, Authorization) transforms on outgoing messages.
+      graph[nodeId] = state_ify(
+        graph[nodeId],
+        propertyKey,
+        timestamp,
+        value,
+        nodeId
+      )
+      const nextHandler = (root.next || '')[nodeId]
+      if (nextHandler) {
+        nextHandler.on('in', message)
       }
-      fire(ctx)
-      this.to.next(msg)
+      fire(context)
+      this.to.next(message)
     }
-    const fire = (ctx, msg) => {
-      if (ctx.stop) {
+    const fire = (context, message) => {
+      // Fire completion callbacks and send outgoing messages
+      if (context.stop) {
         return
       }
-      ctx.stun--
-      if (!ctx.err && 0 < ctx.stun) {
+      context.stun--
+      if (!context.err && 0 < context.stun) {
         return
       } // TODO: 'forget' feature in SEA tied to this, bad approach, but hacked in for now. Any changes here must update there.
-      ctx.stop = 1
-      const root = ctx.root
+      context.stop = 1
+      const root = context.root
       if (!root) {
         return
       }
-      let tmp = ctx.match
-      tmp.end = 1
-      if (tmp === root.hatch) {
-        tmp = ctx.latch
-        if (!tmp || tmp.end) {
+      let matchList = context.match
+      matchList.end = 1
+      if (matchList === root.hatch) {
+        matchList = context.latch
+        if (!matchList || matchList.end) {
           delete root.hatch
         } else {
-          root.hatch = tmp
+          root.hatch = matchList
         }
       }
-      ctx.hatch?.() // TODO: rename/rework how put & this interact.
-      setTimeout.each(ctx.match, (cb) => {
-        cb?.()
+      context.hatch?.() // TODO: rename/rework how put & this interact.
+      setTimeout.each(context.match, (callback) => {
+        callback?.()
       })
-      msg = ctx.msg
-      if (!msg || ctx.err || msg.err) {
+      message = context.msg
+      if (!message || context.err || message.err) {
         return
       }
-      msg.out = universe
-      ctx.root.on('out', msg)
+      message.out = universe
+      context.root.on('out', message)
 
-      CF() // courtesy check;
+      CF() // Courtesy check for performance warnings
     }
-    const ack = (msg) => {
-      // aggregate ACKs.
-      const id = msg['@'] || ''
-      const ctx = id._
-      if (!ctx) {
-        let dup = msg.$?._?.root?.dup
-        dup = dup?.check(id)
-        if (!dup) {
+    const ack = (message) => {
+      // Aggregate acknowledgments (ACKs) for put operations
+      const ackId = message['@'] || ''
+      const context = ackId._
+      if (!context) {
+        let deduplication = message.$?._?.root?.dup
+        deduplication = deduplication?.check(ackId)
+        if (!deduplication) {
           return
         }
-        msg['@'] = dup?.['#'] || msg['@'] // This doesn't do anything anymore, backtrack it to something else?
+        message['@'] = deduplication?.['#'] || message['@'] // This doesn't do anything anymore, backtrack it to something else?
         return
       }
-      ctx.acks = (ctx.acks || 0) + 1
-      ctx.err = msg.err
-      if (ctx.err) {
-        msg['@'] = ctx['#']
-        fire(ctx) // TODO: BUG? How it skips/stops propagation of msg if any 1 item is error, this would assume a whole batch/resync has same malicious intent.
+      context.acks = (context.acks || 0) + 1
+      context.err = message.err
+      if (context.err) {
+        message['@'] = context['#']
+        fire(context) // TODO: BUG? How it skips/stops propagation of msg if any 1 item is error, this would assume a whole batch/resync has same malicious intent.
       }
-      ctx.ok = msg.ok || ctx.ok
-      if (!ctx.stop && !ctx.crack) {
-        ctx.crack = ctx.match?.push(() => {
-          back(ctx)
+      context.ok = message.ok || context.ok
+      if (!context.stop && !context.crack) {
+        context.crack = context.match?.push(() => {
+          back(context)
         })
-      } // handle synchronous acks. NOTE: If a storage peer ACKs synchronously then the PUT loop has not even counted up how many items need to be processed, so ctx.STOP flags this and adds only 1 callback to the end of the PUT loop.
-      back(ctx)
+      } // Handle synchronous acks. NOTE: If a storage peer ACKs synchronously then the PUT loop has not even counted up how many items need to be processed, so ctx.STOP flags this and adds only 1 callback to the end of the PUT loop.
+      back(context)
     }
-    const back = (ctx) => {
-      if (!ctx?.root) {
+    const back = (context) => {
+      // Send back acknowledgment to the originator
+      if (!context?.root) {
         return
       }
-      if (ctx.stun || ctx.acks !== ctx.all) {
+      if (context.stun || context.acks !== context.all) {
         return
       }
-      ctx.root.on('in', {
-        '@': ctx['#'],
-        err: ctx.err,
-        ok: ctx.err ? u : ctx.ok || { '': 1 }
+      context.root.on('in', {
+        '@': context['#'],
+        err: context.err,
+        ok: context.err ? u : context.ok || { '': 1 }
       })
     }
 
+    // Error messages and utilities
     const ERR = 'Error: Invalid graph!'
-    const cut = (s) => ` '${(`${s}`).slice(0, 9)}...' `
+    const cut = (str) => ` '${(`${str}`).slice(0, 9)}...' `
     const L = JSON.stringify,
       MD = 2147483647,
       State = Gun.state
     let C = 0
     let CT
     let CF = () => {
+      // Performance check for high-frequency operations
       const oldCT = CT
       CT = Date.now()
       if (C > 999 && C / -(oldCT - CT) > 1) {
@@ -406,182 +433,183 @@
   })()
 
   ;(() => {
-    Gun.on.get = (msg, gun) => {
-      const root = gun._,
-        get = msg.get,
-        soul = get['#'],
-        has = get['.']
-      let node = root.graph[soul]
+    Gun.on.get = (message, gunInstance) => {
+      // Handle get requests by retrieving data from the graph
+      const root = gunInstance._,
+        getRequest = message.get,
+        nodeId = getRequest['#'],
+        propertyKey = getRequest['.']
+      let node = root.graph[nodeId]
       if (!root.next) root.next = {}
-      const next = root.next
-      const at = next[soul]
+      const nextMap = root.next
+      const handler = nextMap[nodeId]
 
       // TODO: Azarattum bug, what is in graph is not same as what is in next. Fix!
 
-      // queue concurrent GETs?
+      // Queue concurrent GETs?
       // TODO: consider tagging original message into dup for DAM.
       // TODO: ^ above? In chat app, 12 messages resulted in same peer asking for `#user.pub` 12 times. (same with #user GET too, yipes!) // DAM note: This also resulted in 12 replies from 1 peer which all had same ##hash but none of them deduped because each get was different.
       // TODO: Moving quick hacks fixing these things to axe for now.
       // TODO: a lot of GET #foo then GET #foo."" happening, why?
       // TODO: DAM's ## hash check, on same get ACK, producing multiple replies still, maybe JSON vs YSON?
       // TMP note for now: viMZq1slG was chat LEX query #.
-      /*if(gun !== (tmp = msg.$) && (tmp = (tmp||'')._)){
-    if(tmp.Q){ tmp.Q[msg['#']] = ''; return } // chain does not need to ask for it again.
-    tmp.Q = {};
-   }*/
-      /*if(u === has){
-    if(at.Q){
-     //at.Q[msg['#']] = '';
-     //return;
-    }
-    at.Q = {};
-   }*/
-      const ctx = msg._ || {}
-      ctx.DBG = msg.DBG
-      const DBG = ctx.DBG
-      if (DBG) DBG.g = Date.now()
-      //console.log("GET:", get, node, has, at);
-      //if(!node && !at){ return root.on('get', msg) }
-      //if(has && node){ // replace 2 below lines to continue dev?
+      const context = message._ || {}
+      context.DBG = message.DBG
+      const debugInfo = context.DBG
+      if (debugInfo) debugInfo.g = Date.now()
       if (!node) {
-        return root.on('get', msg)
+        return root.on('get', message)
       }
-      if (has) {
-        if ('string' !== typeof has || u === node[has]) {
-          if (!at?.next?.[has]) {
-            root.on('get', msg)
+      if (propertyKey) {
+        if ('string' !== typeof propertyKey || u === node[propertyKey]) {
+          if (!handler?.next?.[propertyKey]) {
+            root.on('get', message)
             return
           }
         }
-        node = state_ify({}, has, state_is(node, has), node[has], soul)
+        node = state_ify(
+          {},
+          propertyKey,
+          state_is(node, propertyKey),
+          node[propertyKey],
+          nodeId
+        )
         // If we have a key in-memory, do we really need to fetch?
         // Maybe... in case the in-memory key we have is a local write
         // we still need to trigger a pull/merge from peers.
       }
-      //Gun.window? Gun.obj.copy(node) : node; // HNPERF: If !browser bump Performance? Is this too dangerous to reference root graph? Copy / shallow copy too expensive for big nodes. Gun.obj.to(node); // 1 layer deep copy // Gun.obj.copy(node); // too slow on big nodes
-      node && ack(msg, node)
-      root.on('get', msg) // send GET to storage adapters.
+      node && ack(message, node)
+      root.on('get', message) // Send GET to storage adapters.
     }
-    const ack = (msg, node) => {
-      let S = Date.now()
-      const ctx = msg._ || {}
-      ctx.DBG = msg.DBG
-      const DBG = ctx.DBG
-      const keys = Object.keys(node || '').sort()
-      const to = msg['#']
-      let id = text_rand(9)
-      const soul = ((node || '')._ || '')['#']
-      const root = msg.$._.root
-      const F = node === root.graph[soul]
-      const gk = Date.now()
-      if (DBG) DBG.gk = gk
-      else ctx.gk = gk
-      console.STAT?.(S, gk - S, 'got keys')
+    const ack = (message, node) => {
+      // Acknowledge get requests by sending back the retrieved data
+      let startTime = Date.now()
+      const context = message._ || {}
+      context.DBG = message.DBG
+      const debugInfo = context.DBG
+      const propertyKeys = Object.keys(node || '').sort()
+      const messageId = message['#']
+      let batchId = text_rand(9)
+      const nodeId = ((node || '')._ || '')['#']
+      const root = message.$._.root
+      const isFromGraph = node === root.graph[nodeId]
+      const keysTime = Date.now()
+      if (debugInfo) debugInfo.gk = keysTime
+      else context.gk = keysTime
+      console.STAT?.(startTime, keysTime - startTime, 'got keys')
       // PERF: Consider commenting this out to force disk-only reads for perf testing? // TODO: .keys( is slow
       node &&
         (() => {
-          const go = () => {
-            S = Date.now()
-            let put = {}
-            const batch = keys.splice(0, 9)
-            for (const k of batch) {
-              state_ify(put, k, state_is(node, k), node[k], soul)
+          const sendBatch = () => {
+            startTime = Date.now()
+            let putData = {}
+            const batch = propertyKeys.splice(0, 9)
+            for (const key of batch) {
+              state_ify(putData, key, state_is(node, key), node[key], nodeId)
             }
-            const tmpObj = {}
-            tmpObj[soul] = put
-            put = tmpObj
-            const faith = F ? () => {} : undefined
+            const wrappedPut = {}
+            wrappedPut[nodeId] = putData
+            putData = wrappedPut
+            const faith = isFromGraph ? () => {} : undefined
             if (faith) {
               faith.ram = faith.faith = true
             } // HNPERF: We're testing performance improvement by skipping going through security again, but this should be audited.
-            const tmp = keys.length
-            const newS = Date.now()
-            console.STAT?.(S, -(S - newS), 'got copied some')
-            S = newS
-            if (DBG) DBG.ga = Date.now()
-            if (tmp) {
-              id = text_rand(9)
+            const remaining = propertyKeys.length
+            const copyTime = Date.now()
+            console.STAT?.(
+              startTime,
+              -(startTime - copyTime),
+              'got copied some'
+            )
+            startTime = copyTime
+            if (debugInfo) debugInfo.ga = Date.now()
+            if (remaining) {
+              batchId = text_rand(9)
             }
             root.on('in', {
               _: faith,
-              '@': to,
-              '#': id,
-              '%': tmp ? id : u,
+              '@': messageId,
+              '#': batchId,
+              '%': remaining ? batchId : u,
               $: root.$,
-              DBG: DBG,
-              put: put
+              DBG: debugInfo,
+              put: putData
             })
-            console.STAT?.(S, Date.now() - S, 'got in')
-            if (!tmp) {
+            console.STAT?.(startTime, Date.now() - startTime, 'got in')
+            if (!remaining) {
               return
             }
-            setTimeout.turn(go)
+            setTimeout.turn(sendBatch)
           }
-          go()
+          sendBatch()
         })()
       if (!node) {
-        root.on('in', { '@': msg['#'] })
+        root.on('in', { '@': message['#'] })
       } // TODO: I don't think I like this, the default lS adapter uses this but "not found" is a sensitive issue, so should probably be handled more carefully/individually.
     }
     Gun.on.get.ack = ack
   })()
 
   ;(() => {
-    Gun.chain.opt = function (opt) {
-      opt = opt || {}
-      const at = this._
-      let tmp = opt.peers || opt
-      if (!Object.plain(opt)) {
-        opt = {}
+    Gun.chain.opt = function (options) {
+      // Configure Gun instance options, including peers
+      options = options || {}
+      const context = this._
+      let peers = options.peers || options
+      if (!Object.plain(options)) {
+        options = {}
       }
-      if (!Object.plain(at.opt)) {
-        at.opt = opt
+      if (!Object.plain(context.opt)) {
+        context.opt = options
       }
-      if ('string' === typeof tmp) {
-        tmp = [tmp]
+      if ('string' === typeof peers) {
+        peers = [peers]
       }
-      if (!Object.plain(at.opt.peers)) {
-        at.opt.peers = {}
+      if (!Object.plain(context.opt.peers)) {
+        context.opt.peers = {}
       }
-      if (Array.isArray(tmp)) {
-        opt.peers = {}
-        tmp.forEach((url) => {
-          const p = {}
-          p.id = p.url = url
-          opt.peers[url] = at.opt.peers[url] = at.opt.peers[url] || p
+      if (Array.isArray(peers)) {
+        options.peers = {}
+        peers.forEach((url) => {
+          const peer = {}
+          peer.id = peer.url = url
+          options.peers[url] = context.opt.peers[url] =
+            context.opt.peers[url] || peer
         })
       }
-      const each = (k) => {
-        const v = opt[k]
+      const processOption = (key) => {
+        const value = options[key]
         if (
-          (opt && Object.hasOwn(opt, k)) ||
-          'string' === typeof v ||
-          Object.empty(v)
+          (options && Object.hasOwn(options, key)) ||
+          'string' === typeof value ||
+          Object.empty(value)
         ) {
-          opt[k] = v
+          options[key] = value
           return
         }
-        if (v && v.constructor !== Object && !Array.isArray(v)) {
+        if (value && value.constructor !== Object && !Array.isArray(value)) {
           return
         }
-        obj_each(v, each)
+        obj_each(value, processOption)
       }
-      obj_each(opt, each)
-      at.opt.from = opt
-      Gun.on('opt', at)
-      at.opt.uuid =
-        at.opt.uuid ||
-        function uuid(l) {
+      obj_each(options, processOption)
+      context.opt.from = options
+      Gun.on('opt', context)
+      context.opt.uuid =
+        context.opt.uuid ||
+        function uuid(length) {
           return (
-            Gun.state().toString(36).replace('.', '') + String.random(l || 12)
+            Gun.state().toString(36).replace('.', '') +
+            String.random(length || 12)
           )
         }
       return this
     }
   })()
 
-  const obj_each = (o, f) => {
-    Object.keys(o).forEach(f, o)
+  // Utility functions
+  const obj_each = (object, callback) => {
+    Object.keys(object).forEach(callback, object)
   }
   const text_rand = String.random
   const turn = setTimeout.turn
@@ -591,22 +619,24 @@
   const u = undefined
   const empty = {}
 
+  // Logging utilities
   Gun.log = (...args) => {
     if (!Gun.log.off) {
       C.log.apply(C, args)
     }
     return args.join(' ')
   }
-  Gun.log.once = (w, s, o) => {
-    o = Gun.log.once
-    o[w] = o[w] || 0
-    const count = o[w]++
+  Gun.log.once = (warning, message, storage) => {
+    storage = Gun.log.once
+    storage[warning] = storage[warning] || 0
+    const count = storage[warning]++
     if (count === 0) {
-      Gun.log(s)
+      Gun.log(message)
     }
     return count
   }
 
+  // Browser globals
   if (typeof window !== 'undefined') {
     window.GUN = Gun
     window.Gun = Gun
@@ -619,16 +649,18 @@
   } catch {}
   module.exports = Gun
 
+  // Console setup
   ;(Gun.window || {}).console = Gun.window?.console || { log: () => {} }
   const C = console
-  C.only = (i, s, ...args) => {
-    if (C.only.i && i === C.only.i) {
+  C.only = (index, message, ...args) => {
+    if (C.only.i && index === C.only.i) {
       C.only.i++
-      C.log(i, s, ...args)
-      return s
+      C.log(index, message, ...args)
+      return message
     }
   }
 
+  // Welcome message
   ;('Please do not remove welcome log unless you are paying for a monthly sponsorship, thanks!')
   Gun.log.once(
     'welcome',

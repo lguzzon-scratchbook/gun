@@ -25,26 +25,38 @@
   const state_ify = state.ify
 
   /**
+   * Ensures the context has an ask Map, initializing it if necessary.
+   * @param {Object} context - The chain context.
+   * @returns {Map} The ask Map.
+   */
+  const ensureAskMap = (context) => {
+    if (!context.ask) {
+      context.ask = new Map()
+    }
+    return context.ask
+  }
+
+  /**
    * Creates a new chain instance, setting up its context and event listeners.
    * @param {Function} [subConstructor] - Optional subclass constructor.
    * @returns {Object} The new chain instance.
    */
   Gun.chain.chain = function (subConstructor) {
-    const currentChainContext = this._
+    const currentContext = this._
     const newChain = new (subConstructor || this).constructor(this)
-    const newChainContext = newChain._
-    const root = currentChainContext.root
+    const newContext = newChain._
+    const root = currentContext.root
 
-    newChainContext.root = root
-    newChainContext.id = ++root.once
-    newChainContext.back = this._
-    newChainContext.on = Gun.on
+    newContext.root = root
+    newContext.id = ++root.once
+    newContext.back = this._
+    newContext.on = Gun.on
 
     // Set up input listener; must be done before any custom listeners
-    newChainContext.on('in', Gun.on.in, newChainContext)
+    newContext.on('in', Gun.on.in, newContext)
 
     // Set up output listener; no global option, must be individual
-    newChainContext.on('out', Gun.on.out, newChainContext)
+    newContext.on('out', Gun.on.out, newContext)
 
     return newChain
   }
@@ -55,70 +67,65 @@
    */
   function output(msg) {
     let request
-    const chainContext = this.as
-    let parentChain = chainContext.back
-    const root = chainContext.root
+    const context = this.as
+    let parent = context.back
+    const root = context.root
     let temp
 
     if (!msg.$) {
-      msg.$ = chainContext.$
+      msg.$ = context.$
     }
 
     this.to.next(msg)
 
-    if (chainContext.err) {
-      chainContext.put = u
-      chainContext.on('in', { $: chainContext.$, put: chainContext.put })
+    if (context.err) {
+      context.put = u
+      context.on('in', { $: context.$, put: context.put })
       return
     }
 
     if (msg.get) {
       request = msg.get
       if (root.pass) {
-        root.pass[chainContext.id] = chainContext
+        root.pass[context.id] = context
       } // Note: May cause buggy behavior elsewhere
 
-      if (chainContext.lex) {
+      if (context.lex) {
         temp = msg.get = msg.get || {}
-        Object.assign(temp, chainContext.lex)
+        Object.assign(temp, context.lex)
       }
 
-      if (request['#'] || chainContext.soul) {
-        request['#'] = request['#'] || chainContext.soul
+      if (request['#'] || context.soul) {
+        request['#'] = request['#'] || context.soul
         if (!msg['#']) {
           msg['#'] = text_rand(9)
         }
-        parentChain = root.$.get(request['#'])._
+        parent = root.$.get(request['#'])._
         request = request['.']
+        const parentSoul = parent.soul
 
         if (!request) {
           // Requesting full node (soul)
-          temp = parentChain.ask?.get('')
-          if (!parentChain.ask) {
-            parentChain.ask = new Map()
-          }
-          parentChain.ask.set('', parentChain)
-          if (u !== parentChain.put) {
-            parentChain.on('in', parentChain) // Send cached data
+          temp = parent.ask?.get('')
+          ensureAskMap(parent).set('', parent)
+          if (u !== parent.put) {
+            parent.on('in', parent) // Send cached data
             if (temp) {
               return // Already asked
             }
           }
-          msg.$ = parentChain.$
-        } else if (obj_has(parentChain.put, request)) {
+          msg.$ = parent.$
+        } else if (obj_has(parent.put, request)) {
           // Requesting specific property
-          temp = parentChain.ask?.get(request)
-          if (!parentChain.ask) {
-            parentChain.ask = new Map()
-          }
-          parentChain.ask.set(request, parentChain.$.get(request)._)
-          parentChain.on('in', {
+          temp = parent.ask?.get(request)
+          ensureAskMap(parent).set(request, parent.$.get(request)._)
+          parent.on('in', {
             get: request,
             put: {
-              ':': parentChain.put[request],
+              ':': parent.put[request],
               '.': request,
-              '#': parentChain.soul,
-              '>': state_is(root.graph[parentChain.soul], request)
+              '#': parentSoul,
+              '>': state_is(root.graph[parentSoul], request)
             }
           })
           if (temp) {
@@ -131,49 +138,40 @@
       }
 
       if (request['.']) {
-        if (chainContext.get) {
-          msg = { $: chainContext.$, get: { '.': chainContext.get } }
-          if (!parentChain.ask) {
-            parentChain.ask = new Map()
-          }
-          parentChain.ask.set(chainContext.get, msg.$._)
-          return parentChain.on('out', msg)
+        if (context.get) {
+          msg = { $: context.$, get: { '.': context.get } }
+          ensureAskMap(parent).set(context.get, msg.$._)
+          return parent.on('out', msg)
         }
-        msg = { $: chainContext.$, get: chainContext.lex ? msg.get : {} }
-        return parentChain.on('out', msg)
+        msg = { $: context.$, get: context.lex ? msg.get : {} }
+        return parent.on('out', msg)
       }
 
-      if (!chainContext.ask) {
-        chainContext.ask = new Map()
-      }
-      chainContext.ask.set('', chainContext)
+      ensureAskMap(context).set('', context)
 
-      if (chainContext.get) {
-        request['.'] = chainContext.get
-        if (!parentChain.ask) {
-          parentChain.ask = new Map()
-        }
-        parentChain.ask.set(chainContext.get, msg.$._)
-        return parentChain.on('out', msg)
+      if (context.get) {
+        request['.'] = context.get
+        ensureAskMap(parent).set(context.get, msg.$._)
+        return parent.on('out', msg)
       }
     }
 
-    return parentChain.on('out', msg)
+    return parent.on('out', msg)
   }
 
   /**
    * Handles incoming messages for the chain, processing data updates and propagating to listeners.
    * @param {Object} msg - The incoming message.
-   * @param {Object} [chainContext] - The chain context (optional, defaults to this.as).
+   * @param {Object} [context] - The chain context (optional, defaults to this.as).
    */
-  function input(msg, chainContext) {
-    chainContext = chainContext || this.as
-    const root = chainContext.root
+  function input(msg, context) {
+    context = context || this.as
+    const root = context.root
     if (!msg.$) {
-      msg.$ = chainContext.$
+      msg.$ = context.$
     }
     let gun = msg.$
-    const messageChainData = (gun || '')._ || empty
+    const msgData = (gun || '')._ || empty
     let temp = msg.put || {}
     let soul = temp['#']
     let key = temp['.']
@@ -192,38 +190,32 @@
       if (!valid(temp)) {
         soul = ((temp || '')._ || '')['#']
         if (!soul) {
-          console.log(
-            'chain not yet supported for',
-            temp,
-            '...',
-            msg,
-            chainContext
-          )
+          console.log('chain not yet supported for', temp, '...', msg, context)
           return
         }
-        gun = chainContext.root.$.get(soul)
+        gun = context.root.$.get(soul)
         // Process each key asynchronously; note: Object.keys is slow
         return setTimeout.each(Object.keys(temp).sort(), (k) => {
           const state = state_is(temp, k)
           if ('_' === k || u === state) {
             return
           }
-          chainContext.on('in', {
+          context.on('in', {
             $: gun,
             put: { '.': k, '#': soul, '=': temp[k], '>': state },
             VIA: msg
           })
         })
       }
-      soul = messageChainData.back.soul
-      key = messageChainData.has || messageChainData.get
-      chainContext.on('in', {
-        $: messageChainData.back.$,
+      soul = msgData.back.soul
+      key = msgData.has || msgData.get
+      context.on('in', {
+        $: msgData.back.$,
         put: {
           '.': key,
           '#': soul,
           '=': temp,
-          '>': state_is(messageChainData.back.put, key)
+          '>': state_is(msgData.back.put, key)
         },
         via: msg
       }) // Note: This approximation may be buggy if data is corrupted
@@ -231,40 +223,37 @@
     }
 
     // Prevent processing duplicate messages
-    if (msg.seen?.[chainContext.id]) {
+    if (msg.seen?.[context.id]) {
       return
     }
     if (!msg.seen) {
       msg.seen = {}
     }
-    msg.seen[chainContext.id] = chainContext
+    msg.seen[context.id] = context
 
     // Adjust message context if needed
-    if (chainContext !== messageChainData) {
+    if (context !== msgData) {
       temp = { ...msg }
-      temp.get = chainContext.get || temp.get
-      if (!chainContext.soul && !chainContext.has) {
-        temp.$$$ = temp.$$$ || chainContext.$
-      } else if (messageChainData.soul) {
-        temp.$ = chainContext.$
-        temp.$$ = temp.$$ || messageChainData.$
+      temp.get = context.get || temp.get
+      if (!context.soul && !context.has) {
+        temp.$$$ = temp.$$$ || context.$
+      } else if (msgData.soul) {
+        temp.$ = context.$
+        temp.$$ = temp.$$ || msgData.$
       }
       msg = temp
     }
 
-    unlink(msg, chainContext)
+    unlink(msg, context)
 
     // Update cache for soul chains or linked messages
-    if (
-      (chainContext.soul || msg.$$) &&
-      state >= state_is(root.graph[soul], key)
-    ) {
+    if ((context.soul || msg.$$) && state >= state_is(root.graph[soul], key)) {
       temp = root.$.get(soul)._
       temp.put = state_ify(temp.put, key, state, change, soul)
     }
 
     // Update cache for non-soul chains
-    if (!messageChainData.soul && state >= state_is(root.graph[soul], key)) {
+    if (!msgData.soul && state >= state_is(root.graph[soul], key)) {
       subChain = root.$.get(soul)._.next?.[key]
       if (subChain) {
         subChain.put = change
@@ -279,20 +268,20 @@
     this.to?.next(msg)
 
     // Handle any listeners
-    if (chainContext.any) {
+    if (context.any) {
       void Promise.all(
-        Object.keys(chainContext.any).map((listenerId) => {
-          const listener = chainContext.any[listenerId]
+        Object.keys(context.any).map((listenerId) => {
+          const listener = context.any[listenerId]
           return listener ? Promise.resolve(listener(msg)) : Promise.resolve()
         })
       )
     }
 
     // Handle echo listeners
-    if (chainContext.echo) {
+    if (context.echo) {
       void Promise.all(
-        Object.keys(chainContext.echo).map((echoId) => {
-          const echoChain = chainContext.echo[echoId]
+        Object.keys(context.echo).map((echoId) => {
+          const echoChain = context.echo[echoId]
           return echoChain
             ? Promise.resolve(echoChain.on('in', msg))
             : Promise.resolve()
@@ -301,8 +290,8 @@
     }
 
     // Propagate to sub-chains if applicable
-    if (((msg.$$ || '')._ || messageChainData).soul) {
-      subChain = chainContext.next?.[key]
+    if (((msg.$$ || '')._ || msgData).soul) {
+      subChain = context.next?.[key]
       if (subChain) {
         temp = { ...msg }
         temp.get = key
@@ -313,16 +302,16 @@
       }
     }
 
-    link(msg, chainContext)
+    link(msg, context)
   }
 
   /**
    * Links chains for data propagation, establishing connections between related data nodes.
    * @param {Object} msg - The message containing link information.
-   * @param {Object} cat - The chain context (optional, defaults to this.as or msg.$._).
+   * @param {Object} context - The chain context (optional, defaults to this.as or msg.$._).
    */
-  function link(msg, cat) {
-    cat = cat || this.as || msg.$._
+  function link(msg, context) {
+    context = context || this.as || msg.$._
     let targetChain
 
     // Ignore messages from linked sources unless called directly
@@ -331,22 +320,22 @@
     }
 
     // Cannot link to nothing or link a soul chain
-    if (!msg.put || cat.soul) {
+    if (!msg.put || context.soul) {
       return
     }
 
-    const putData = msg.put || {}
-    let linkTarget = putData['='] || putData[':']
+    const put = msg.put || {}
+    let linkTarget = put['='] || put[':']
     let temp
-    const root = cat.root
-    const targetChainContext = root.$.get(putData['#']).get(putData['.'])._
+    const root = context.root
+    const targetChainContext = root.$.get(put['#']).get(put['.'])._
 
     linkTarget = valid(linkTarget)
     if (typeof linkTarget !== 'string') {
       // Allow explicit linking to simple data when called from Gun.on
       if (this === Gun.on) {
         targetChainContext.echo = targetChainContext.echo || {}
-        targetChainContext.echo[cat.id] = cat
+        targetChainContext.echo[context.id] = context
       }
       return // Do not link to non-link data by default
     }
@@ -354,24 +343,24 @@
     targetChainContext.echo = targetChainContext.echo || {}
 
     // Avoid redundant linking unless a new listener requires a pass
-    if (targetChainContext.echo[cat.id] && !root.pass?.[cat.id]) {
+    if (targetChainContext.echo[context.id] && !root.pass?.[context.id]) {
       return
     }
 
     temp = root.pass
     // Prevent infinite passes on circular graphs
-    if (temp?.[linkTarget + cat.id]) {
+    if (temp?.[linkTarget + context.id]) {
       return
     }
     if (temp) {
-      temp[linkTarget + cat.id] = 1
+      temp[linkTarget + context.id] = 1
     }
 
     // Set up echo for self
-    targetChainContext.echo[cat.id] = cat
+    targetChainContext.echo[context.id] = context
 
-    if (cat.has) {
-      cat.link = linkTarget
+    if (context.has) {
+      context.link = linkTarget
     }
     targetChainContext.link = linkTarget
 
@@ -385,9 +374,9 @@
     }
 
     // Request data for pending asks
-    temp = cat.ask || new Map()
-    if (cat.ask?.has('') || cat.lex) {
-      // Load the entire linked node; note: cat.lex may have edge cases
+    temp = ensureAskMap(context)
+    if (context.ask?.has('') || context.lex) {
+      // Load the entire linked node; note: context.lex may have edge cases
       targetChain?.on('out', { get: { '#': linkTarget } })
     }
 
@@ -408,45 +397,45 @@
   /**
    * Unlinks chains when data is removed, cleaning up connections and caches.
    * @param {Object} msg - The message indicating data removal.
-   * @param {Object} cat - The chain context.
+   * @param {Object} context - The chain context.
    */
-  function unlink(msg, cat) {
-    const putData = msg.put || {}
-    const change = u !== putData['='] ? putData['='] : putData[':']
-    const root = cat.root
+  function unlink(msg, context) {
+    const put = msg.put || {}
+    const value = u !== put['='] ? put['='] : put[':']
+    const root = context.root
     let linkTarget
     let temp
 
-    if (u === change) {
+    if (u === value) {
       // Handle case where data is being cleared (e.g., not found or deleted)
       // Note: Potential bug with async cache clearing; may need async ID check
       // Note: Map handling may have issues with sync/async operations
-      if (cat.soul && u !== cat.put) {
+      if (context.soul && u !== context.put) {
         return // Soul chains with existing data cannot be fully cleared
       }
 
       temp = msg.$$?._ || msg.$?._ || {}
-      if (msg['@'] && (u !== temp.put || u !== cat.put)) {
+      if (msg['@'] && (u !== temp.put || u !== context.put)) {
         return // Don't clear if we have data and received not-found from peers
       }
 
-      linkTarget = cat.link || msg.linked
+      linkTarget = context.link || msg.linked
       if (linkTarget) {
-        delete root.$.get(linkTarget)?._?.echo?.[cat.id]
+        delete root.$.get(linkTarget)?._?.echo?.[context.id]
       }
 
-      if (cat.has) {
+      if (context.has) {
         // TODO: Consider clearing links, maps, echoes, acks/asks
-        cat.link = null
+        context.link = null
       }
 
-      cat.put = u // Clear cache
+      context.put = u // Clear cache
 
       // Clear sub-chains
       // Note: For maps, may need to trigger individual subs instead of all
       void Promise.all(
-        Object.keys(cat.next || {}).map((property) => {
-          const subChain = cat.next?.[property]
+        Object.keys(context.next || {}).map((property) => {
+          const subChain = context.next?.[property]
           if (!subChain) {
             return Promise.resolve()
           }
@@ -461,7 +450,7 @@
       return
     }
 
-    if (cat.soul) {
+    if (context.soul) {
       return // Soul chains cannot unlink themselves
     }
 
@@ -469,19 +458,19 @@
       return // Linked chains don't handle unlinking; sub-chains do
     }
 
-    linkTarget = valid(change) // Validate new link target
+    linkTarget = valid(value) // Validate new link target
     temp = msg.$?._ || {}
 
     // Avoid redundant unlinking
-    if (linkTarget === temp.link || (cat.has && !temp.link)) {
-      if (root.pass?.[cat.id] && typeof linkTarget !== 'string') {
+    if (linkTarget === temp.link || (context.has && !temp.link)) {
+      if (root.pass?.[context.id] && typeof linkTarget !== 'string') {
         // Allow during pass for non-string links
       } else {
         return
       }
     }
 
-    delete temp.echo?.[cat.id]
+    delete temp.echo?.[context.id]
     const previousLink = msg.linked || temp.link
     msg.linked = previousLink
 
@@ -489,11 +478,11 @@
     unlink(
       {
         $: msg.$,
-        get: cat.get,
+        get: context.get,
         linked: previousLink,
         put: u
       },
-      cat
+      context
     )
   }
 
@@ -503,31 +492,28 @@
    */
   function ack(msg) {
     // Memory leak prevention is now handled by .ask itself.
-    const chainContext = this.as
-    const chainData = chainContext.$._
-    const request = chainContext.get || {}
-    const responseData = msg.put?.[request['#']] || {}
+    const context = this.as
+    const data = context.$._
+    const req = context.get || {}
+    const resp = msg.put?.[req['#']] || {}
 
     // Check if the response indicates no data found
-    if (
-      !msg.put ||
-      (typeof request['.'] === 'string' && u === responseData[request['.']])
-    ) {
+    if (!msg.put || (typeof req['.'] === 'string' && u === resp[req['.']])) {
       // If we already have cached data, don't process
-      if (u !== chainData.put) {
+      if (u !== data.put) {
         return
       }
       // Only core chains (soul or has) handle not-found responses to avoid bugs
-      if (!chainData.soul && !chainData.has) {
+      if (!data.soul && !data.has) {
         return
       }
-      chainData.ack = (chainData.ack || 0) + 1
-      chainData.put = u
-      chainData.on('in', {
+      data.ack = (data.ack || 0) + 1
+      data.put = u
+      data.on('in', {
         '@': msg['@'],
-        $: chainData.$,
-        get: chainData.get,
-        put: chainData.put
+        $: data.$,
+        get: data.get,
+        put: data.put
       })
       return
     }

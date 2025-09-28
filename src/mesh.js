@@ -77,8 +77,10 @@
             return mesh.say({ dam: '!', err: 'DAM JSON parse error.' }, peer)
           }
           console.STAT?.(Date.now(), msg.length, '# on hear batch')
-          const P = opt.puff
-          ;(function go() {
+          const P = opt.puff /**
+           * Processes a batch of messages asynchronously to prevent blocking the event loop.
+           */
+          ;(function processMessageBatch() {
             const S = Date.now()
             let i = 0
             let m
@@ -93,7 +95,7 @@
             if (!msg.length) {
               return
             }
-            puff(go, 0) // Yield to event loop for batch processing to prevent blocking.
+            puff(processMessageBatch, 0) // Yield to event loop for batch processing to prevent blocking.
           })()
         })
         raw = '' //
@@ -206,42 +208,56 @@
       let SMIA = 0
       let loop
       mesh.hash = (msg, peer) => {
-        let h
-        let s
-        let t
-        const S = Date.now()
+        let currentHash
+        let remainingText
+        let fullJsonText
+        const hashStartTime = Date.now()
         json(
           msg.put,
-          function hash(_err, text) {
-            if (!s) {
-              s = t = text || ''
+          /**
+           * Processes JSON text in chunks to compute a hash without blocking the event loop.
+           * @param {Error|null} _error - Potential error from JSON serialization.
+           * @param {string} jsonText - The serialized JSON text.
+           */
+          function processHashChunk(_error, jsonText) {
+            if (!remainingText) {
+              remainingText = fullJsonText = jsonText || ''
             }
-            const ss = s.slice(0, 32768) // 1024 * 32
-            h = String.hash(ss, h)
-            s = s.slice(32768)
-            if (s) {
-              puff(hash, 0) // Continue hashing in next tick to avoid blocking.
+            const chunk = remainingText.slice(0, 32768) // Process in 32KB chunks to avoid blocking.
+            currentHash = String.hash(chunk, currentHash)
+            remainingText = remainingText.slice(32768)
+            if (remainingText) {
+              puff(processHashChunk, 0) // Continue hashing in next tick to avoid blocking.
               return
             }
-            console.STAT?.(S, Date.now() - S, 'say json+hash')
-            msg._.$put = t
-            msg['##'] = h
+            console.STAT?.(
+              hashStartTime,
+              Date.now() - hashStartTime,
+              'say json+hash'
+            )
+            msg._.$put = fullJsonText
+            msg['##'] = currentHash
             mesh.say(msg, peer)
             delete msg._.$put
           },
-          sort
+          sortObjectKeysForHashing
         )
       }
-      function sort(_k, v) {
-        if (!(v instanceof Object)) {
-          return v
+      /**
+       * Sorts object keys alphabetically for consistent JSON hashing.
+       * @param {string} _key - The key (unused).
+       * @param {*} value - The value to process.
+       * @returns {*} The sorted object or original value.
+       */
+      const sortObjectKeysForHashing = (_key, value) => {
+        if (!(value instanceof Object)) {
+          return value
         }
-        const tmp = {}
-        for (const k of Object.keys(v).sort()) {
-          // Sort keys for consistent hashing.
-          tmp[k] = v[k]
+        const sortedObject = {}
+        for (const key of Object.keys(value).sort()) {
+          sortedObject[key] = value[key]
         }
-        return tmp
+        return sortedObject
       }
 
       /**
@@ -322,8 +338,10 @@
           let _P = opt.puff,
             ps = opt.peers,
             pl = Object.keys(peer || opt.peers || {}) // TODO: .keys( is slow
-          console.STAT?.(S, Date.now() - S, 'peer keys')
-          ;(function go() {
+          console.STAT?.(S, Date.now() - S, 'peer keys') /**
+           * Processes a batch of messages asynchronously to prevent blocking the event loop.
+           */
+          ;(function processMessageBatch() {
             const S = Date.now()
             //Type.obj.map(peer || opt.peers, each); // in case peer is a peer list.
             loop = 1
@@ -347,7 +365,7 @@
             if (!pl.length) {
               return
             }
-            puff(go, 0) // Process next batch of peers asynchronously.
+            puff(processMessageBatch, 0) // Process next batch of peers asynchronously.
             ack && dup_track(ack) // keep for later
           })()
           return
@@ -398,7 +416,7 @@
       }
       mesh.say.c = mesh.say.d = 0
       // TODO: this caused a out-of-memory crash!
-      mesh.raw = (msg, peer) => {
+      mesh.raw = (msg, _peer) => {
         // TODO: Clean this up / delete it / move logic out!
         if (!msg) {
           return ''
@@ -448,6 +466,7 @@
             '/': tmp['/'] === msg._.near ? mesh.near : tmp['/']
           }
         }
+
         put = meta.$put
         if (put) {
           const tmp = { ...msg }
@@ -459,13 +478,13 @@
             const S = Date.now()
             const tmp = raw.indexOf('"put":":])([:"')
             raw = raw.slice(0, tmp + 6) + put + raw.slice(tmp + 14) // Replace placeholder with actual put data.
-            res(undefined, raw)
+            handleSerializationResult(undefined, raw)
             console.STAT?.(S, Date.now() - S, 'say slice')
           })
           return
         }
-        json(msg, res)
-        function res(err, raw) {
+        json(msg, handleSerializationResult)
+        function handleSerializationResult(err, raw) {
           if (err) {
             return
           } // TODO: Handle!!

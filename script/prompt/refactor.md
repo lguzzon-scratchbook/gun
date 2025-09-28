@@ -1,4 +1,4 @@
-# Task: Refactor and test all JavaScript (.js) files in the "src" directory
+# Task: Refactor and test all JavaScript (.js) files in the "src" directory sorted from the bigger to the smaller
 
 For each file:
 
