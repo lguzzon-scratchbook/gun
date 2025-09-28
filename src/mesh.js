@@ -1,14 +1,12 @@
 ;(() => {
   require('./shim')
 
-  const noop = () => {}
   const parse =
     JSON.parseAsync ||
     ((t, cb, r) => {
-      const u = undefined
       const d = Date.now()
       try {
-        cb(u, JSON.parse(t, r), json.sucks(Date.now() - d))
+        cb(undefined, JSON.parse(t, r), json.sucks(Date.now() - d))
       } catch (e) {
         cb(e)
       }
@@ -16,10 +14,9 @@
   const json =
     JSON.stringifyAsync ||
     ((v, cb, r, s) => {
-      const u = undefined
       const d = Date.now()
       try {
-        cb(u, JSON.stringify(v, r, s), json.sucks(Date.now() - d))
+        cb(undefined, JSON.stringify(v, r, s), json.sucks(Date.now() - d))
       } catch (e) {
         cb(e)
       }
@@ -29,7 +26,7 @@
       console.log(
         'Warning: JSON blocking CPU detected. Add `gun/lib/yson.js` to fix.'
       )
-      json.sucks = noop
+      json.sucks = () => {}
     }
   }
 
@@ -203,9 +200,6 @@
       } //dup.track(tmp+hash, true).it = it(msg);
       mesh.leap = mesh.last = null // warning! mesh.leap could be buggy.
     }
-    const _tomap = (k, _i, m) => {
-      m(k, true)
-    }
     hear.c = hear.d = 0
 
     ;(() => {
@@ -289,7 +283,7 @@
         }
         !loop && dup_track(id) //.it = it(msg); // track for 9 seconds, default. Earth<->Mars would need more! // always track, maybe move this to the 'after' logic if we split function.
         const hash = msg['##']
-        if (!hash && u !== msg.put && !meta.via && ack) {
+        if (!hash && undefined !== msg.put && !meta.via && ack) {
           mesh.hash(msg, peer)
           return
         } // TODO: Should broadcasts be hashed?
@@ -465,7 +459,7 @@
             const S = Date.now()
             const tmp = raw.indexOf('"put":":])([:"')
             raw = raw.slice(0, tmp + 6) + put + raw.slice(tmp + 14) // Replace placeholder with actual put data.
-            res(u, raw)
+            res(undefined, raw)
             console.STAT?.(S, Date.now() - S, 'say slice')
           })
           return
@@ -677,9 +671,6 @@
 
     return mesh
   }
-  const _empty = {}
-  const _ok = true
-  let u
 
   try {
     module.exports = Mesh
