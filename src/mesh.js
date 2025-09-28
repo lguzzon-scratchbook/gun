@@ -269,7 +269,6 @@
           return false
         }
         let id
-        let hash
         let raw
         const ack = msg['@']
         let meta = msg._
@@ -289,7 +288,7 @@
           msg['#'] = id
         }
         !loop && dup_track(id) //.it = it(msg); // track for 9 seconds, default. Earth<->Mars would need more! // always track, maybe move this to the 'after' logic if we split function.
-        hash = msg['##']
+        const hash = msg['##']
         if (!hash && u !== msg.put && !meta.via && ack) {
           mesh.hash(msg, peer)
           return

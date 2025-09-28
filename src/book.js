@@ -110,12 +110,13 @@
       i = spot(word, l, B.decode)
       got.i = i
       hasGot = l[i]
-    } // TODO: POTENTIAL BUG! This assumes that each word on a page uses the same serializer/formatter/structure. // TODO: BUG!!! Not actually, but if we want to do non-exact radix-like closest-word lookups on a page, we need to check limbo & potentially sort first.
-    // parseless may return -1 from actual value, so we may need to test both. // TODO: Double check? I think this is correct.
+    }
+    // Check for exact match with existing item
     if (hasGot && word === hasGot.word) {
       b.all[word] = hasGot
       return hasGot.is
     }
+    // If the item is not a string, check the next item for non-exact match
     if (typeof hasGot !== 'string') {
       i += 1
       got.i = i
@@ -125,15 +126,17 @@
       b.all[word] = hasGot
       return hasGot.is
     }
-    const [key, val] = slot(hasGot) // Escape!
+    // Parse escaped value using slot
+    const [key, val] = slot(hasGot)
     if (word !== B.decode(key)) {
       i += 1
       got.i = i
-      hasGot = l[i][key] = slot(hasGot) // edge case bug?
+      hasGot = l[i][key] = slot(hasGot) // Handle edge case for escaped keys
       if (word !== B.decode(key)) {
         return
       }
     }
+    // Create new item object and cache it
     hasGot =
       l[i] =
       b.all[word] =
@@ -143,7 +146,7 @@
           substring: subt,
           toString: tot,
           word: String(word)
-        } // TODO: convert to a JS value!!! Maybe index! TODO: BUG word needs a page!!!! TODO: Check for other types!!!
+        }
     return hasGot.is
   }
 
@@ -162,24 +165,22 @@
       throw new TypeError('parse must be a function if provided')
     }
     if (!parse) {
-      if (!spot.no) {
-        spot.no = (t) => t
-      }
-      parse = spot.no
+      parse = spot.no ??= (t) => t
     }
     const L = sorted
     let min = 0
     let max = L.length
     let i = Math.floor(max / 2)
-    word = String(word)
+    const wordStr = String(word)
+    // Binary search to find the insertion point for the word
     while (i !== min) {
       const currentI = Math.floor(i)
       const parsed = parse(L[currentI]) || ''
       const page = parsed.substring()
       const nextParsed = parse(L[currentI + 1]) || ''
       const nextPage = nextParsed.substring()
-      if (!(word < page || nextPage <= word)) break
-      if (page <= word) {
+      if (!(wordStr < page || nextPage <= wordStr)) break
+      if (page <= wordStr) {
         min = currentI
         i += (max - min) / 2
       } else {
@@ -271,6 +272,7 @@
    * @param {Object} b - The book containing the page.
    */
   function split(p, b) {
+    // Split the page into two halves when size limit is exceeded
     // TODO: use closest hash instead of half.
     const L = sort(p)
     const l = L.length
@@ -342,22 +344,26 @@
   }
 
   /**
-   * @param {any} t
-   * @returns {number}
+   * Calculates the size of a value for storage purposes.
+   * @param {any} t - The value to measure.
+   * @returns {number} The size, at least 1.
    */
   function size(t) {
     return (t ?? '').length || 1
   } // bits/numbers less size? Bug or feature?
   /**
-   * @function subt
-   * @param {number} _i - Unused parameter.
-   * @param {number} _j - Unused parameter.
-   * @returns {string} The word property of the context.
+   * Returns the word property of the item.
+   * @param {number} _i - Unused start index.
+   * @param {number} _j - Unused end index.
+   * @returns {string} The word.
    */
   function subt(_i, _j) {
     return this.word
   }
-  //function tot(){ return this.text = this.text || "'"+(this.word)+"'"+(this.is)+"'" }
+  /**
+   * Converts the item to its encoded string representation.
+   * @returns {string} The encoded text.
+   */
   function tot() {
     //if((tmp = this.page) && tmp.saving){ delete tmp.book.all[this.word]; } // TODO: BUG! Book can't know about RAD, this was from RAD, so this MIGHT be correct but we need to refactor. Make sure to add tests that will re-trigger this.
     this.text = this.text || `:${B.encode(this.word)}:${B.encode(this.is)}:`
@@ -366,6 +372,12 @@
     // return this.text = this.text || B.encode(tmp,'|',':').slice(1,-1);
     //return this.text = this.text || `'${this.word}'${this.is}'`;
   }
+  /**
+   * Returns a substring of the first word or decoded value.
+   * @param {number} i - Start index.
+   * @param {number} j - End index.
+   * @returns {string} The substring.
+   */
   function sub(i, j) {
     return (
       this.first ||
@@ -373,10 +385,19 @@
       B.decode((from(this) || '')[0] || '')
     ).substring(i, j)
   }
+  /**
+   * Returns the string representation of the page.
+   * @returns {string} The text.
+   */
   function to() {
     this.text = this.text || text(this)
     return this.text
   }
+  /**
+   * Generates the serialized text for a page.
+   * @param {Object} p - The page object.
+   * @returns {string} The serialized string.
+   */
   function text(p) {
     // PERF: read->[*] : text->"*" no edit waste 1 time perf.
     if (p.limbo) {
@@ -385,6 +406,12 @@
     return 'string' === typeof p.from ? p.from : `|${(p.from || []).join('|')}|`
   }
 
+  /**
+   * Sorts the page's items, mixing in any limbo items.
+   * @param {Object} p - The page object.
+   * @param {Array} [l] - Optional limbo array.
+   * @returns {Array} The sorted array.
+   */
   function sort(p, l) {
     const f = 'string' === typeof p.from ? slot(p.from) : p.from || []
     p.from = f
@@ -396,6 +423,12 @@
       (a.word || B.decode(String(a))) < (b.word || B.decode(String(b))) ? -1 : 1
     )
   }
+  /**
+   * Merges limbo items into the page's from array.
+   * @param {Object} p - The page object.
+   * @param {Array} [l] - Optional limbo array.
+   * @returns {Array} The merged array.
+   */
   function mix(p, l) {
     // TODO: IMPROVE PERFORMANCE!!!! l[j] = i is 5X+ faster than .push(
     const limbo = l || p.limbo || []
@@ -487,7 +520,7 @@
     if (typeof s !== 'string') {
       return
     }
-    const cVal = c || 0 // CPU schedule hashing by
+    const cVal = c ?? 0 // CPU schedule hashing by
     if (!s.length) {
       return cVal
     }

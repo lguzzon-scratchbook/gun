@@ -12,6 +12,12 @@
   const u = undefined
   const text_rand = String.random
   const valid = Gun.valid
+  /**
+   * Checks if an object or map has a property.
+   * @param {Object|Map} o - The object or map to check.
+   * @param {string} k - The key to check for.
+   * @returns {boolean} True if the object or map has the key.
+   */
   const obj_has = (o, k) =>
     o && (o instanceof Map ? o.has(k) : Object.hasOwn(o, k))
   const state = Gun.state
@@ -58,10 +64,6 @@
     }
     if (msg.get) {
       get = msg.get
-      /*if(u !== at.put){
-			at.on('in', at);
-			return;
-		}*/
       if (root.pass) {
         root.pass[at.id] = at
       } // will this make for buggy behavior elsewhere?
@@ -71,7 +73,6 @@
       }
       if (get['#'] || at.soul) {
         get['#'] = get['#'] || at.soul
-        //root.graph[get['#']] = root.graph[get['#']] || {_:{'#':get['#'],'>':{}}};
         if (!msg['#']) {
           msg['#'] = text_rand(9)
         } // A3120 ?
@@ -112,33 +113,6 @@
             return
           }
         }
-        /*put = (back.$.get(get)._);
-				if(!(tmp = put.ack)){ put.ack = -1 }
-				back.on('in', {
-					$: back.$,
-					put: Gun.state.ify({}, get, Gun.state(back.put, get), back.put[get]),
-					get: back.get
-				});
-				if(tmp){ return }
-			} else
-			if('string' != typeof get){
-				let put = {}, meta = (back.put||{})._;
-				Gun.obj.map(back.put, function(v,k){
-					if(!Gun.text.match(k, get)){ return }
-					put[k] = v;
-				})
-				if(!Gun.obj.empty(put)){
-					put._ = meta;
-					back.on('in', {$: back.$, put: put, get: back.get})
-				}
-				if(tmp = at.lex){
-					tmp = (tmp._) || (tmp._ = function(){});
-					if(back.ack < tmp.ask){ tmp.ask = back.ack }
-					if(tmp.ask){ return }
-					tmp.ask = 1;
-				}
-			}
-			*/
         root.ask(ack, msg) // A3120 ?
         return root.on('in', msg)
       }
@@ -498,10 +472,6 @@
         get: at.get,
         put: at.put
       })
-      /*(tmp = at.Q) && setTimeout.each(Object.keys(tmp), function(id){ // TODO: Temporary testing, not integrated or being used, probably delete.
-			Object.keys(msg).forEach(function(k){ tmp[k] = msg[k] }, tmp = {}); tmp['@'] = id; // copy message
-			root.on('in', tmp);
-		}); delete at.Q;*/
       return
     }
     ;(msg._ || {}).miss = 1

@@ -7,11 +7,11 @@
    * @returns {*} The node at the specified back position or the result of the function.
    */
   Gun.chain.back = function (n, opt) {
-    const empty = {}
-    n = n || 1
+    n = n ?? 1
     if (n === -1 || n === Infinity) {
       return this._.root.$
-    } else if (n === 1) {
+    }
+    if (n === 1) {
       return (this._.back || this._).$
     }
     const at = this._
@@ -19,32 +19,35 @@
       n = n.split('.')
     }
     if (Array.isArray(n)) {
-      const tmp = n.reduce((acc, key) => acc?.[key] ?? empty[key], at)
-      if (undefined !== tmp) {
+      // Traverse the path in the current context
+      const tmp = n.reduce((acc, key) => acc?.[key], at)
+      if (tmp !== undefined) {
         return opt ? this : tmp
-      } else {
-        const backTmp = at.back
-        if (backTmp) {
-          return backTmp.$.back(n, opt)
-        }
+      }
+      // If not found, try traversing back
+      const backTmp = at.back
+      if (backTmp) {
+        return backTmp.$.back(n, opt)
       }
       return
     }
     if (typeof n === 'function') {
+      // Traverse backwards until the function returns a defined value
       let yes
       let tmp = { back: at }
       while (tmp.back) {
         tmp = tmp.back
         yes = n(tmp, opt)
-        if (undefined !== yes) break
+        if (yes !== undefined) break
       }
       return yes
     }
     if (typeof n === 'number') {
+      // Traverse back by n levels
       let node = this
       for (let i = 0; i < n; i++) {
-        const at = node._
-        node = (at.back || at).$
+        const currentAt = node._
+        node = (currentAt.back || currentAt).$
       }
       return node
     }
