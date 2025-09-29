@@ -456,505 +456,564 @@ if (typeof module !== 'undefined') {
 	})(USE, './onto');
 
 	;USE(function(module){
-		// TODO: BUG! Unbuild will make these globals... CHANGE unbuild to wrap files in a function.
-		  // Book is a replacement for JS objects, maps, dictionaries.
+		// Book is a replacement for JS objects, maps, dictionaries.
 		  const sT = setTimeout
 		  let B = sT.Book
 		  if (!B) {
 		    /**
-		     * @constructor Book
-		     * @param {string} [text] - Optional text input for initializing the book.
-		     * @returns {Function} The book function that manages key-value storage.
+		     * Creates a new Book instance.
+		     * @param {string} [initialText] - Optional serialized text to initialize the book.
+		     * @returns {Function} The book function for key-value operations.
 		     */
-		    B = sT.Book = (text) => {
-		      const b = function book(word, is) {
-		        const has = b.all[word]
-		        if (is === undefined) {
-		          return has ? has.is : b.get(word)
+		    B = sT.Book = (initialText) => {
+		      const bookInstance = function book(key, value) {
+		        const cachedItem = bookInstance.all[key]
+		        if (value === undefined) {
+		          return cachedItem ? cachedItem.is : bookInstance.get(key)
 		        }
-		        if (has) {
-		          const p = has.page
-		          if (p) {
-		            p.size += size(is) - size(has.is)
-		            p.text = ''
+		        if (cachedItem) {
+		          // Update existing item
+		          const pageObj = cachedItem.page
+		          if (pageObj) {
+		            pageObj.size += size(value) - size(cachedItem.is)
+		            pageObj.text = ''
 		          }
-		          has.text = ''
-		          has.is = is
-		          return b
+		          cachedItem.text = ''
+		          cachedItem.is = value
+		          return bookInstance
 		        }
-		        //b.all[word] = {is: word}; return b;
-		        return b.set(word, is)
+		        return bookInstance.set(key, value)
 		      }
-		      // TODO: if from text, preserve the separator symbol.
-		      b.list = [
+		      // Initialize with root page
+		      bookInstance.list = [
 		        {
-		          book: b,
-		          from: text,
-		          get: b,
+		          book: bookInstance,
+		          from: initialText,
+		          get: bookInstance,
 		          read: list,
-		          size: (text || '').length,
+		          size: (initialText || '').length,
 		          substring: sub,
 		          toString: to
 		        }
 		      ]
-		      b.page = page
-		      b.set = set
-		      b.get = get
-		      b.all = {}
-		      return b
+		      bookInstance.page = page
+		      bookInstance.set = set
+		      bookInstance.get = get
+		      bookInstance.cache = {}
+		      return bookInstance
 		    }
 		  }
 		  const PAGE = 2 ** 12
 
 		  /**
 		   * Retrieves the page for the given word.
-		   * @param {string} word - The word to search for.
+		   * If the page is stored as a string, converts it to an object.
+		   * @param {string} searchWord - The word to search for.
 		   * @returns {Object} The page object.
 		   */
-		  function page(word) {
-		    const l = this.list
-		    const i = spot(word, l, this.parse)
-		    let p = l[i]
-		    if ('string' === typeof p) {
-		      l[i] = p = {
+		  function page(searchWord) {
+		    const pageList = this.list
+		    // Find the appropriate page index for the searchWord
+		    const index = spot(searchWord, pageList, this.parse)
+		    let pageObj = pageList[index]
+		    if (typeof pageObj === 'string') {
+		      // Lazy loading: convert serialized page string to object
+		      pageList[index] = pageObj = {
 		        book: this,
-		        first: this.parse ? this.parse(p) : p,
+		        first: this.parse ? this.parse(pageObj) : pageObj,
 		        get: this,
 		        read: list,
-		        size: -1,
+		        size: -1, // Size will be calculated later
 		        substring: sub,
 		        toString: to
 		      }
-		    } // TODO: test, how do we arrive at this condition again?
-		    return p
-		    // TODO: BUG! What if we get the page, it turns out to be too big & split, we must then RE get the page!
+		    }
+		    // Note: If page size exceeds limit after operations, it may be split, requiring re-getting the page
+		    return pageObj
 		  }
 		  /**
 		   * Retrieves the value associated with the given word.
-		   * @param {string} word - The word to search for.
+		   * Checks in-memory cache first, then searches in pages.
+		   * @param {string} searchWord - The word to search for.
 		   * @returns {*} The value associated with the word, or undefined if not found.
 		   */
-		  function get(word) {
-		    if (!word) {
-		      return
-		    }
-		    if (undefined !== word.is) {
-		      return word.is
-		    } // JS falsy values!
-		    const hasGet = this.all[word]
-		    if (hasGet) {
-		      return hasGet.is
-		    }
-		    // get does an exact match, so we would have found it already, unless parseless page:
-		    const page = this.page(word)
-		    if (!page?.from) {
-		      return
-		    } // no parseless data
-		    return got(word, page)
+		  function get(searchWord) {
+		    if (!searchWord) return
+		    // If searchWord is an object with 'is' property, return its value
+		    if (searchWord.is !== undefined) return searchWord.is
+		    // Check in-memory cache
+		    const cachedItem = this.cache[searchWord]
+		    if (cachedItem) return cachedItem.is
+		    // Search in the appropriate page
+		    const pageObj = this.page(searchWord)
+		    if (!pageObj || !pageObj.from) return // No data in this page
+		    return got(searchWord, pageObj)
 		  }
 		  /**
 		   * Retrieves the value for a word from a page.
-		   * @param {string} word - The word to retrieve.
-		   * @param {Object} page - The page object.
+		   * Handles exact matches, non-exact matches, and escaped keys.
+		   * @param {string} searchWord - The word to retrieve.
+		   * @param {Object} pageObj - The page object.
 		   * @returns {*} The value associated with the word, or undefined if not found.
 		   */
-		  function got(word, page) {
-		    const b = page.book
-		    const l = from(page)
-		    let hasGot
-		    let i
-		    if (l) {
-		      i = spot(word, l, B.decode)
-		      got.i = i
-		      hasGot = l[i]
-		    } // TODO: POTENTIAL BUG! This assumes that each word on a page uses the same serializer/formatter/structure. // TODO: BUG!!! Not actually, but if we want to do non-exact radix-like closest-word lookups on a page, we need to check limbo & potentially sort first.
-		    // parseless may return -1 from actual value, so we may need to test both. // TODO: Double check? I think this is correct.
-		    if (hasGot && word === hasGot.word) {
-		      b.all[word] = hasGot
-		      return hasGot.is
+		  function got(searchWord, pageObj) {
+		    const book = pageObj.book
+		    // Get the parsed array from the page
+		    const fromArray = from(pageObj)
+		    if (!fromArray) return // No data in page
+		    // Find the insertion point using binary search
+		    let index = spot(searchWord, fromArray, B.decode)
+		    got.i = index // Store index for external use
+		    let currentItem = fromArray[index]
+		    // Attempt exact match with the item at the spotted index
+		    if (currentItem && searchWord === currentItem.word) {
+		      // Exact match found, cache and return
+		      book.cache[searchWord] = currentItem
+		      return currentItem.is
 		    }
-		    if (typeof hasGot !== 'string') {
-		      i += 1
-		      got.i = i
-		      hasGot = l[i]
-		    }
-		    if (hasGot && word === hasGot.word) {
-		      b.all[word] = hasGot
-		      return hasGot.is
-		    }
-		    const [key, val] = slot(hasGot) // Escape!
-		    if (word !== B.decode(key)) {
-		      i += 1
-		      got.i = i
-		      hasGot = l[i][key] = slot(hasGot) // edge case bug?
-		      if (word !== B.decode(key)) {
-		        return
+		    // If current item is not a string, it might be an object; check the next item
+		    if (typeof currentItem !== 'string') {
+		      index += 1
+		      got.i = index
+		      currentItem = fromArray[index]
+		      if (currentItem && searchWord === currentItem.word) {
+		        // Found match in next item
+		        book.cache[searchWord] = currentItem
+		        return currentItem.is
 		      }
 		    }
-		    hasGot =
-		      l[i] =
-		      b.all[word] =
+		    // No exact match, treat currentItem as serialized key-value pair
+		    const [key, val] = slot(currentItem) // Parse the serialized pair
+		    const decodedKey = B.decode(key)
+		    if (searchWord !== decodedKey) {
+		      // Not matching current, try the next item as escaped pair
+		      index += 1
+		      got.i = index
+		      currentItem = fromArray[index]
+		      if (!currentItem) return // No more items
+		      const [nextKey, nextVal] = slot(currentItem)
+		      if (searchWord !== B.decode(nextKey)) {
+		        return // No match found
+		      }
+		      // Found in next item, create and cache the parsed item
+		      fromArray[index] = book.cache[searchWord] = {
+		        is: B.decode(nextVal),
+		        page: pageObj,
+		        substring: subt,
+		        toString: tot,
+		        word: String(searchWord)
+		      }
+		      return fromArray[index].is
+		    }
+		    // Found in current item, create and cache the parsed item
+		    currentItem =
+		      fromArray[index] =
+		      book.cache[searchWord] =
 		        {
 		          is: B.decode(val),
-		          page: page,
+		          page: pageObj,
 		          substring: subt,
 		          toString: tot,
-		          word: String(word)
-		        } // TODO: convert to a JS value!!! Maybe index! TODO: BUG word needs a page!!!! TODO: Check for other types!!!
-		    return hasGot.is
+		          word: String(searchWord)
+		        }
+		    return currentItem.is
 		  }
 
 		  /**
 		   * Performs a binary search on a sorted array to find the insertion point for a word.
-		   * @param {string} word - The word to search for.
-		   * @param {Array} sorted - The sorted array to search in.
-		   * @param {Function} [parse] - Optional parse function to transform array elements.
+		   * @param {string} searchWord - The word to search for.
+		   * @param {Array} sortedArray - The sorted array to search in.
+		   * @param {Function} [parseFn] - Optional parse function to transform array elements.
 		   * @returns {number} The index where the word should be inserted.
 		   */
-		  function spot(word, sorted, parse) {
-		    if (!Array.isArray(sorted)) {
-		      throw new TypeError('sorted must be an array')
+		  function spot(searchWord, sortedArray, parseFn) {
+		    if (!Array.isArray(sortedArray)) {
+		      throw new TypeError('sortedArray must be an array')
 		    }
-		    if (parse && typeof parse !== 'function') {
-		      throw new TypeError('parse must be a function if provided')
+		    if (parseFn && typeof parseFn !== 'function') {
+		      throw new TypeError('parseFn must be a function if provided')
 		    }
-		    if (!parse) {
+		    if (!parseFn) {
 		      if (!spot.no) {
-		        spot.no = (t) => t
+		        spot.no = (value) => value
 		      }
-		      parse = spot.no
+		      parseFn = spot.no
 		    }
-		    const L = sorted
-		    let min = 0
-		    let max = L.length
-		    let i = Math.floor(max / 2)
-		    word = String(word)
-		    while (i !== min) {
-		      const currentI = Math.floor(i)
-		      const parsed = parse(L[currentI]) || ''
-		      const page = parsed.substring()
-		      const nextParsed = parse(L[currentI + 1]) || ''
-		      const nextPage = nextParsed.substring()
-		      if (!(word < page || nextPage <= word)) break
-		      if (page <= word) {
-		        min = currentI
-		        i += (max - min) / 2
+		    let lowIndex = 0
+		    let highIndex = sortedArray.length
+		    const searchWordStr = String(searchWord)
+		    while (lowIndex < highIndex) {
+		      const midIndex = Math.floor((lowIndex + highIndex) / 2)
+		      const midValue = parseFn(sortedArray[midIndex]) || ''
+		      if (searchWordStr < midValue) {
+		        highIndex = midIndex
 		      } else {
-		        max = currentI
-		        i -= (max - min) / 2
+		        lowIndex = midIndex + 1
 		      }
 		    }
-		    return Math.floor(i)
+		    return lowIndex
 		  }
 
 		  /**
 		   * Processes the 'from' property of the given object.
 		   * If 'from' is not a string, returns it as is.
 		   * Otherwise, parses it using slot and updates the object.
-		   * @param {Object} a - The object containing the 'from' property.
-		   * @param {string|*} a.from - The value to process.
+		   * @param {Object} obj - The object containing the 'from' property.
+		   * @param {string|*} obj.from - The value to process.
 		   * @returns {*} The processed value.
 		   */
-		  function from(a) {
-		    if ('string' !== typeof a.from) {
-		      return a.from
+		  function from(obj) {
+		    if (typeof obj.from !== 'string') {
+		      return obj.from
 		    }
-		    const t = a.from || ''
-		    const l = slot(t)
-		    a.from = l
-		    return l
+		    const text = obj.from || ''
+		    const parsedArray = slot(text)
+		    obj.from = parsedArray
+		    return parsedArray
 		  }
 		  /**
-		   * Lists the items in the book, applying the each function to each item.
-		   * @param {Function} [each] - Function to apply to each item. Defaults to identity.
-		   * @returns {Array} Array of results from applying each to each item.
+		   * Lists the items in the book, applying the map function to each item.
+		   * @param {Function} [mapFn] - Function to apply to each item. Defaults to identity.
+		   * @returns {Array} Array of results from applying mapFn to each item.
 		   */
-		  function list(each) {
-		    each = each ?? ((x) => x)
-		    const l = sort(this)
-		    const p = this.book?.parse ?? (() => {})
-		    //while(w = l[i++]){ r.push(each(slot(w)[1], p(w)||w, this)) }
-		    return l.map((item) => {
-		      const w = item.word || p(item) || item
-		      return each(this.get(w), w, this)
-		    }) // TODO: BUG! PERF?
+		  function list(mapFn = (value) => value) {
+		    const sortedItemsArray = sort(this)
+		    const parseFn = this.book?.parse ?? (() => {})
+		    return sortedItemsArray.map((item) => {
+		      const word = item.word || parseFn(item) || item
+		      return mapFn(this.get(word), word, this)
+		    })
 		  }
 
 		  /**
-		   * Sets the value for a word in the book.
-		   * @param {string} word - The word to set.
-		   * @param {*} is - The value to set.
+		   * Sets the value for a key in the book.
+		   * Handles updates and inserts, managing page sizes and splits.
+		   * @param {string} key - The key to set.
+		   * @param {*} value - The value to set.
 		   * @returns {Function} The book function.
 		   */
-		  function set(word, is) {
-		    // TODO: Perf on random write is decent, but short keys or seq seems significantly slower.
-		    let hasSet = this.all[word]
-		    if (hasSet) {
-		      return this(word, is)
-		    } // updates to in-memory items will always match exactly.
-		    const wordStr = String(word)
-		    const page = this.page(wordStr)
-		    if (page?.from) {
-		      // if it could be an update to an existing word from parseless.
-		      this.get(word)
-		      if (this.all[word]) {
-		        return this(word, is)
+		  function set(key, value) {
+		    // Check if already in memory
+		    let existingItem = this.cache[key]
+		    if (existingItem) {
+		      return this(key, value) // Update via main function
+		    }
+		    const keyStr = String(key)
+		    const pageObj = this.page(keyStr)
+		    // Check if it's an update in parseless data
+		    if (pageObj?.from) {
+		      this.get(key)
+		      if (this.cache[key]) {
+		        return this(key, value)
 		      }
 		    }
-		    // MUST be an insert:
-		    hasSet = this.all[wordStr] = {
-		      is: is,
-		      page: page,
+		    // Insert new item
+		    existingItem = this.cache[keyStr] = {
+		      is: value,
+		      page: pageObj,
 		      substring: subt,
 		      toString: tot,
-		      word: wordStr
+		      word: keyStr
 		    }
-		    page.first = page.first < wordStr ? page.first : wordStr
-		    if (!page.limbo) {
-		      page.limbo = []
-		    }
-		    page.limbo.push(hasSet)
-		    this(word, is)
-		    page.size += size(wordStr) + size(is)
-		    if ((this.PAGE ?? PAGE) < page.size) {
-		      split(page, this)
+		    pageObj.first = pageObj.first < keyStr ? pageObj.first : keyStr
+		    if (!pageObj.limbo) pageObj.limbo = []
+		    pageObj.limbo.push(existingItem)
+		    this(key, value) // Update main function
+		    pageObj.size += size(keyStr) + size(value)
+		    if ((this.PAGE ?? PAGE) < pageObj.size) {
+		      split(pageObj, this)
 		    }
 		    return this
 		  }
 
 		  /**
 		   * Splits a page when it exceeds the size limit.
-		   * @param {Object} p - The page to split.
-		   * @param {Object} b - The book containing the page.
+		   * Creates a new page with the second half of items.
+		   * @param {Object} pageObj - The page to split.
+		   * @param {Object} book - The book containing the page.
 		   */
-		  function split(p, b) {
-		    // TODO: use closest hash instead of half.
-		    const L = sort(p)
-		    const l = L.length
-		    const i = (l / 2) >> 0
-		    const j = i
-		    const half = L[j]
-		    const next = {
-		      book: b,
-		      first: half.substring(),
-		      get: b,
+		  function split(pageObj, book) {
+		    const sortedItemsArray = sort(pageObj)
+		    const length = sortedItemsArray.length
+		    const midIndex = Math.floor(length / 2)
+		    const midItem = sortedItemsArray[midIndex]
+		    const newPageObj = {
+		      book: book,
+		      first: midItem.substring(), // Word of the middle item
+		      get: book,
 		      read: list,
 		      size: 0,
 		      substring: sub,
 		      toString: to
 		    }
-		    next.from = []
-		    const f = next.from
-		    L.forEach((tmp) => {
-		      f.push(tmp)
-		      next.size += (tmp.is || '').length || 1
-		      tmp.page = next
-		    })
-		    p.from = p.from.slice(0, j)
-		    p.size -= next.size
-		    b.list.splice(spot(next.first, b.list) + 1, 0, next) // TODO: BUG! Make sure next.first is decoded text. // TODO: BUG! spot may need parse too?
-		    if (b.split) {
-		      b.split(next, p)
+		    newPageObj.from = []
+		    const newFromArray = newPageObj.from
+		    // Move second half to new page
+		    for (let index = midIndex; index < length; index++) {
+		      const item = sortedItemsArray[index]
+		      newFromArray.push(item)
+		      newPageObj.size += size(item.word) + size(item.is)
+		      item.page = newPageObj
+		    }
+		    // Keep first half in original page
+		    pageObj.from = pageObj.from.slice(0, midIndex)
+		    pageObj.size -= newPageObj.size
+		    // Insert new page into book's list
+		    const insertIndex = spot(newPageObj.first, book.list, book.parse) + 1
+		    book.list.splice(insertIndex, 0, newPageObj)
+		    // Notify if split callback exists
+		    if (book.split) {
+		      book.split(newPageObj, pageObj)
 		    }
 		  }
 
 		  /**
 		   * Parses a serialized string into an array.
-		   * @param {string} t - The serialized string to parse.
+		   * @param {string} text - The serialized string to parse.
 		   * @returns {Array} The parsed array.
 		   */
-		  function slot(t) {
-		    t = t ?? ''
-		    return heal(t.substring(1, t.length - 1).split(t[0]), t[0])
+		  function slot(text) {
+		    text = text ?? ''
+		    return heal(text.substring(1, text.length - 1).split(text[0]), text[0])
 		  }
 		  B.slot = slot // TODO: check first=last & pass `s`.
 		  /**
 		   * Heals an array by rejoining escaped values split by a separator.
-		   * @param {Array} l - The array to heal.
-		   * @param {string} [s] - The separator, defaults to '|'.
+		   * Escaped values are marked by an empty string followed by length-prefixed data.
+		   * @param {Array} array - The array to heal.
+		   * @param {string} [separator] - The separator, defaults to '|'.
 		   * @returns {Array} The healed array.
 		   */
-		  function heal(l, s) {
-		    if (!Array.isArray(l)) return []
-		    if (typeof s !== 'string') s = '|'
-		    const i = l.indexOf('')
-		    if (0 > i) {
-		      return l
-		    } // ~700M ops/sec on 4KB of Math.random()s, even faster if escape does exist.
-		    if ('' === l[0] && 1 === l.length) {
+		  function heal(array, separator) {
+		    if (!Array.isArray(array)) return []
+		    if (typeof separator !== 'string') separator = '|'
+		    // Find the index of the empty string marker for escaped values
+		    const emptyIndex = array.indexOf('')
+		    if (emptyIndex < 0) {
+		      // No escaped values, return as is
+		      return array
+		    }
+		    if (array[0] === '' && array.length === 1) {
+		      // Handle edge case of single empty string
 		      return []
-		    } // annoying edge cases! how much does this slow us down?
-		    //if((c=i+2+parseInt(l[i+1])) !== c){ return [] } // maybe still faster than below?
-		    const originalE = l[i + 1]
-		    const parsed = parseInt(
-		      originalE.substring(0, originalE.indexOf('"')) || originalE,
+		    }
+		    // Extract the escaped segment info
+		    const originalEscape = array[emptyIndex + 1] // The element after empty contains length prefix and data
+		    const parsedLength = parseInt(
+		      originalEscape.substring(0, originalEscape.indexOf('"')) ||
+		        originalEscape,
 		      10
-		    )
-		    const e = i + 2 + parsed
-		    if (Number.isNaN(e)) {
+		    ) // Parse the length of the escaped value
+		    const endIndex = emptyIndex + 2 + parsedLength // Calculate the end index of the escaped segment
+		    if (Number.isNaN(endIndex)) {
+		      // Invalid length, return empty
 		      return []
-		    } // NaN check in JS is weird.
-		    l[i] = l.slice(i, e).join(s ?? '|') // rejoin the escaped value
-		    return l.slice(0, i + 1).concat(heal(l.slice(e), s)) // merge left with checked right.
+		    }
+		    // Rejoin the escaped parts into the original value
+		    array[emptyIndex] = array.slice(emptyIndex, endIndex).join(separator ?? '|')
+		    // Recursively heal the remaining parts
+		    return array
+		      .slice(0, emptyIndex + 1)
+		      .concat(heal(array.slice(endIndex), separator))
 		  }
 
 		  /**
-		   * @param {any} t
-		   * @returns {number}
+		   * Calculates the size of a value for storage purposes.
+		   * Returns the length of the string representation, or 1 if empty.
+		   * @param {any} value - The value to measure.
+		   * @returns {number} The size, at least 1.
 		   */
-		  function size(t) {
-		    return (t ?? '').length || 1
-		  } // bits/numbers less size? Bug or feature?
+		  function size(value) {
+		    return (value ?? '').length || 1
+		  }
 		  /**
-		   * @function subt
-		   * @param {number} _i - Unused parameter.
-		   * @param {number} _j - Unused parameter.
-		   * @returns {string} The word property of the context.
+		   * Returns the word property of the item.
+		   * @returns {string} The word.
 		   */
-		  function subt(_i, _j) {
+		  function subt() {
 		    return this.word
 		  }
-		  //function tot(){ return this.text = this.text || "'"+(this.word)+"'"+(this.is)+"'" }
+		  /**
+		   * Converts the item to its encoded string representation.
+		   * @returns {string} The encoded text.
+		   */
 		  function tot() {
-		    //if((tmp = this.page) && tmp.saving){ delete tmp.book.all[this.word]; } // TODO: BUG! Book can't know about RAD, this was from RAD, so this MIGHT be correct but we need to refactor. Make sure to add tests that will re-trigger this.
 		    this.text = this.text || `:${B.encode(this.word)}:${B.encode(this.is)}:`
 		    return this.text
-		    // tmp[this.word] = this.is;
-		    // return this.text = this.text || B.encode(tmp,'|',':').slice(1,-1);
-		    //return this.text = this.text || `'${this.word}'${this.is}'`;
 		  }
-		  function sub(i, j) {
+		  /**
+		   * Returns a substring of the first word or decoded value.
+		   * @param {number} startIndex - Start index.
+		   * @param {number} endIndex - End index.
+		   * @returns {string} The substring.
+		   */
+		  function sub(startIndex, endIndex) {
 		    return (
 		      this.first ||
 		      this.word ||
 		      B.decode((from(this) || '')[0] || '')
-		    ).substring(i, j)
+		    ).substring(startIndex, endIndex)
 		  }
+		  /**
+		   * Returns the string representation of the page.
+		   * @returns {string} The text.
+		   */
 		  function to() {
 		    this.text = this.text || text(this)
 		    return this.text
 		  }
-		  function text(p) {
+		  /**
+		   * Generates the serialized text for a page.
+		   * If the page has limbo items, sorts them first.
+		   * Empty page is represented as '||'.
+		   * @param {Object} pageObj - The page object.
+		   * @returns {string} The serialized string.
+		   */
+		  function text(pageObj) {
 		    // PERF: read->[*] : text->"*" no edit waste 1 time perf.
-		    if (p.limbo) {
-		      sort(p)
-		    } // TODO: BUG? Empty page meaning? undef, '', '||'?
-		    return 'string' === typeof p.from ? p.from : `|${(p.from || []).join('|')}|`
+		    if (pageObj.limbo) {
+		      sort(pageObj)
+		    }
+		    return typeof pageObj.from === 'string'
+		      ? pageObj.from
+		      : `|${(pageObj.from || []).join('|')}|`
 		  }
 
-		  function sort(p, l) {
-		    const f = 'string' === typeof p.from ? slot(p.from) : p.from || []
-		    p.from = f
-		    const limbo = l || p.limbo
+		  /**
+		   * Sorts the page's items, mixing in any limbo items.
+		   * @param {Object} pageObj - The page object.
+		   * @param {Array} [limboArray] - Optional limbo array.
+		   * @returns {Array} The sorted array.
+		   */
+		  function sort(pageObj, limboArray) {
+		    const fromArray =
+		      typeof pageObj.from === 'string' ? slot(pageObj.from) : pageObj.from || []
+		    pageObj.from = fromArray
+		    const limbo = limboArray || pageObj.limbo
 		    if (!limbo) {
-		      return f
+		      return fromArray
 		    }
-		    return mix(p, limbo).sort((a, b) =>
+		    return mix(pageObj, limbo).sort((a, b) =>
 		      (a.word || B.decode(String(a))) < (b.word || B.decode(String(b))) ? -1 : 1
 		    )
 		  }
-		  function mix(p, l) {
+		  /**
+		   * Merges limbo items into the page's from array.
+		   * @param {Object} pageObj - The page object.
+		   * @param {Array} [limboArray] - Optional limbo array.
+		   * @returns {Array} The merged array.
+		   */
+		  function mix(pageObj, limboArray) {
 		    // TODO: IMPROVE PERFORMANCE!!!! l[j] = i is 5X+ faster than .push(
-		    const limbo = l || p.limbo || []
-		    p.limbo = null
-		    const f = p.from
-		    limbo.forEach((i) => {
-		      if (got(i.word, p)) {
-		        f[got.i] = i // TODO: Trick: allow for a GUN'S HAM CRDT hook here.
+		    const limbo = limboArray || pageObj.limbo || []
+		    pageObj.limbo = null
+		    const fromArray = pageObj.from
+		    limbo.forEach((item) => {
+		      if (got(item.word, pageObj)) {
+		        fromArray[got.i] = item // TODO: Trick: allow for a GUN'S HAM CRDT hook here.
 		      } else {
-		        f.push(i)
+		        fromArray.push(item)
 		      }
 		    })
-		    return f
+		    return fromArray
 		  }
 
 		  /**
 		   * Encodes a value into a serialized string format.
-		   * @param {*} d - The value to encode.
-		   * @param {string} [s='|'] - The separator character.
-		   * @param {string} [u=' '] - The unit separator character.
+		   * @param {*} data - The value to encode.
+		   * @param {string} [separator='|'] - The separator character.
+		   * @param {string} [unitSeparator=' '] - The unit separator character.
 		   * @returns {string} The encoded string.
 		   */
-		  B.encode = (d, s, u) => {
-		    const sStr = s || '|'
-		    const uStr = u || String.fromCharCode(32)
-		    switch (typeof d) {
+		  B.encode = (data, separator, unitSeparator) => {
+		    const sepStr = separator || '|'
+		    const unitSepStr = unitSeparator || String.fromCharCode(32)
+		    switch (typeof data) {
 		      case 'string': {
 		        // text
-		        let i = d.indexOf(sStr)
-		        let c = 0
-		        while (i !== -1) {
-		          c++
-		          i = d.indexOf(sStr, i + 1)
+		        let index = data.indexOf(sepStr)
+		        let count = 0
+		        while (index !== -1) {
+		          count++
+		          index = data.indexOf(sepStr, index + 1)
 		        }
-		        return `${c ? `${sStr}${c}` : ''}"${d}`
+		        return `${count ? `${sepStr}${count}` : ''}"${data}`
 		      }
 		      case 'number':
-		        return d < 0 ? `${d}` : `+${d}`
+		        return data < 0 ? `${data}` : `+${data}`
 		      case 'boolean':
-		        return d ? '+' : '-'
+		        return data ? '+' : '-'
 		      case 'object': {
-		        if (!d) {
+		        if (!data) {
 		          return ' '
 		        } // TODO: BUG!!! Nested objects don't slot correctly
-		        const l = Object.keys(d).sort()
-		        return l.reduce(
-		          (t, k) =>
-		            `${t}${uStr}${B.encode(k, sStr, uStr)}${uStr}${B.encode(d[k], sStr, uStr)}${uStr}${sStr}`,
-		          sStr
+		        const keysArray = Object.keys(data).sort()
+		        return keysArray.reduce(
+		          (result, key) =>
+		            `${result}${unitSepStr}${B.encode(key, sepStr, unitSepStr)}${unitSepStr}${B.encode(data[key], sepStr, unitSepStr)}${unitSepStr}${sepStr}`,
+		          sepStr
 		        )
 		      }
 		    }
 		  }
 		  /**
 		   * Decodes a serialized string back into its original value.
-		   * @param {string} t - The encoded string to decode.
+		   * @param {string} text - The encoded string to decode.
 		   * @returns {*} The decoded value.
 		   */
-		  B.decode = (t) => {
-		    if ('string' !== typeof t) {
-		      return
+		  B.decode = (text) => {
+		    if (typeof text !== 'string') return
+		    if (text === ' ') return null
+		    if (text === '-') return false
+		    if (text === '+') return true
+		    if (text[0] === '"') return text.slice(1)
+		    if (text[0] === '-' || text[0] === '+') return parseFloat(text)
+		    if (text[0] === '|') {
+		      const quoteIndex = text.indexOf('"')
+		      if (quoteIndex > 0) {
+		        // Escaped string with separator count
+		        return text.slice(quoteIndex + 1)
+		      } else {
+		        // Object
+		        const partsArray = text.slice(1, -1).split('|')
+		        const resultObj = {}
+		        for (const currentPart of partsArray) {
+		          if (!currentPart) continue
+		          const trimmed = currentPart.trim()
+		          const parts = trimmed.split(' ')
+		          if (parts.length >= 2) {
+		            const [keyStr, valStr] = parts
+		            resultObj[B.decode(keyStr)] = B.decode(valStr)
+		          }
+		        }
+		        return resultObj
+		      }
 		    }
-		    switch (t) {
-		      case ' ':
-		        return null
-		      case '-':
-		        return false
-		      case '+':
-		        return true
-		    }
-		    switch (t[0]) {
-		      case '-':
-		      case '+':
-		        return parseFloat(t)
-		      case '"':
-		        return t.slice(1)
-		    }
-		    return t.slice(t.indexOf('"') + 1)
+		    return text
 		  }
 
 		  /**
 		   * Computes a hash value for a string.
-		   * @param {string} s - The string to hash.
-		   * @param {number} [c=0] - Initial hash value.
+		   * @param {string} inputStr - The string to hash.
+		   * @param {number} [initialHash=0] - Initial hash value.
 		   * @returns {number} The computed hash.
 		   */
-		  B.hash = (s, c) => {
+		  B.hash = (inputStr, initialHash) => {
 		    // via SO
-		    if (typeof s !== 'string') {
+		    if (typeof inputStr !== 'string') {
 		      return
 		    }
-		    const cVal = c || 0 // CPU schedule hashing by
-		    if (!s.length) {
-		      return cVal
+		    const hashValue = initialHash ?? 0 // CPU schedule hashing by
+		    if (!inputStr.length) {
+		      return hashValue
 		    }
-		    let cTemp = cVal
-		    for (let i = 0, l = s.length; i < l; ++i) {
-		      const n = s.charCodeAt(i)
-		      cTemp = (cTemp << 5) - cTemp + n
-		      cTemp |= 0
+		    let tempHash = hashValue
+		    for (let index = 0, length = inputStr.length; index < length; ++index) {
+		      const charCode = inputStr.charCodeAt(index)
+		      tempHash = (tempHash << 5) - tempHash + charCode
+		      tempHash |= 0
 		    }
-		    return cTemp
+		    return tempHash
 		  }
 
 		  try {
@@ -1237,22 +1296,28 @@ if (typeof module !== 'undefined') {
 
 		  /**
 		   * Utility function to manage request timeouts.
-		   * @param {object} obj - The request object with err property.
+		   * @param {object} request - The request object with timeoutId property.
 		   * @param {Function} callback - Function to execute on timeout.
 		   * @param {number} delay - Timeout delay in milliseconds.
 		   * @param {boolean} [clearExisting=false] - Whether to clear existing timeout before setting new one.
 		   */
-		  const setRequestTimeout = (obj, callback, delay, clearExisting = false) => {
-		    if (clearExisting) {
-		      clearTimeout(obj.err) // Clear existing timeout if requested
+		  const setRequestTimeout = (
+		    request,
+		    callback,
+		    delay,
+		    clearExisting = false
+		  ) => {
+		    if (clearExisting && request.timeoutId) {
+		      clearTimeout(request.timeoutId) // Clear existing timeout if requested and exists
 		    }
-		    obj.err = obj.err ?? setTimeout(callback, delay) // Set new timeout only if not already set
+		    if (!request.timeoutId) {
+		      request.timeoutId = setTimeout(callback, delay) // Set new timeout only if not already set
+		    }
 		  }
 		  /**
 		   * Generates a unique request ID, using provided ID if valid, otherwise random.
 		   * @param {object} [as] - Options object that may contain a '#' property for ID.
 		   * @returns {string} - The generated or provided ID.
-		   * @throws {Error} - If ID generation fails or is invalid.
 		   */
 		  const generateRequestId = (as) => {
 		    // Use provided ID if available and valid
@@ -1260,43 +1325,32 @@ if (typeof module !== 'undefined') {
 		    if (providedId && typeof providedId === 'string' && providedId.length > 0) {
 		      return providedId
 		    }
-		    // Fallback to random generation with error handling
-		    const random =
-		      String.random ??
-		      (() => {
-		        try {
-		          return Math.random().toString(36).slice(2)
-		        } catch (error) {
-		          throw new Error(`Failed to generate random ID: ${error.message}`)
-		        }
-		      })
-		    let generated
-		    try {
-		      generated = random()
-		    } catch (error) {
-		      throw new Error(`Random ID generation failed: ${error.message}`)
-		    }
-		    if (typeof generated !== 'string' || generated.length === 0) {
-		      throw new Error('Generated random string is invalid')
-		    }
-		    return generated.slice(0, 9)
+		    // Generate random ID
+		    return Math.random().toString(36).slice(2, 11) // 9-character random string
 		  }
 
 		  /**
-		   * Handles asking and acknowledging messages with timeout management.
-		   * @param {Function|string|object} cb - Callback function for ask, or ID/message for ack.
-		   * @param {object} [as] - Additional options or data.
-		   * @returns {string|boolean|undefined} - ID for ask, true for ack, or undefined.
+		   * Handles acknowledging messages with timeout management.
+		   * @param {object} self - The context object.
+		   * @param {Function|string|object} cb - ID or message for ack.
+		   * @param {object} [as] - Additional acknowledgment data.
+		   * @param {number} ackTimeout - Acknowledgment timeout duration in milliseconds.
+		   * @returns {boolean|undefined} - True if acknowledgment handled, undefined otherwise.
 		   */
-		  const handleAcknowledgment = (self, cb, as, lack) => {
+		  const handleAcknowledgment = (self, cb, as, ackTimeout) => {
 		    if (!cb) return // No callback provided, nothing to acknowledge
 		    const id = cb?.['#'] || cb // Extract message ID from callback object or use cb directly
-		    let tmp = self.tag?.[id] // Retrieve the pending request object from the tag map
-		    if (!tmp) return // No pending request found, ignore acknowledgment
+		    let pendingRequest = self.tag?.[id] // Retrieve the pending request object from the tag map
+		    if (!pendingRequest) return // No pending request found, ignore acknowledgment
 		    if (as) {
 		      // If acknowledgment data is provided
-		      tmp = self.on(id, as) // Update the request with acknowledgment data
-		      setRequestTimeout(tmp, () => tmp.off(), lack, true) // Clear existing and set new timeout to remove request after lack period
+		      pendingRequest = self.on(id, as) // Update the request with acknowledgment data
+		      setRequestTimeout(
+		        pendingRequest,
+		        () => pendingRequest.off(),
+		        ackTimeout,
+		        true
+		      ) // Clear existing and set new timeout to remove request after ackTimeout
 		    }
 		    return true // Acknowledgment handled successfully
 		  }
@@ -1307,19 +1361,19 @@ if (typeof module !== 'undefined') {
 		   * @param {Function} cb - Callback function for the ask.
 		   * @param {object} [as] - Additional options or data.
 		   * @param {string} id - Unique identifier for the request.
-		   * @param {number} lack - Timeout duration in milliseconds.
+		   * @param {number} ackTimeout - Timeout duration in milliseconds.
 		   * @returns {string} - The request ID.
 		   */
-		  const handleAsk = (self, cb, as, id, lack) => {
-		    const to = self.on(id, cb, as)
+		  const handleAsk = (self, cb, as, id, ackTimeout) => {
+		    const request = self.on(id, cb, as)
 		    // Set timeout to handle lack of acknowledgment if not already set
 		    setRequestTimeout(
-		      to,
+		      request,
 		      () => {
-		        to.off()
-		        to.next({ err: 'Error: No ACK yet.', lack: true })
+		        request.off()
+		        request.next({ err: 'No acknowledgment received yet.', lack: true })
 		      },
-		      lack,
+		      ackTimeout,
 		      false
 		    )
 		    return id
@@ -1335,37 +1389,38 @@ if (typeof module !== 'undefined') {
 		    if (!this.on) {
 		      throw new Error('Context must have an "on" method.')
 		    }
-		    const lack = this.opt?.lack ?? 9000
+		    const ackTimeout = this.opt?.lack ?? 9000
 
 		    if (typeof cb !== 'function') {
 		      // Handle acknowledgment for non-function cb (ack operation)
-		      return handleAcknowledgment(this, cb, as, lack)
+		      return handleAcknowledgment(this, cb, as, ackTimeout)
 		    }
 		    // Generate request ID for ask operation
 		    const id = generateRequestId(as)
-		    if (!cb) {
-		      // Edge case: return ID if callback is falsy (though unlikely for function)
-		      return id
-		    }
 		    // Set up ask operation with timeout
-		    return handleAsk(this, cb, as, id, lack)
+		    return handleAsk(this, cb, as, id, ackTimeout)
 		  }
 	})(USE, './ask');
 
 	;USE(function(module){
-		function Gun(o) {
-		    if (o instanceof Gun) {
+		// Gun.js - Decentralized Graph Database
+		  function Gun(options) {
+		    // Constructor for Gun instances
+		    if (options instanceof Gun) {
 		      this._ = { $: this }
 		      return this._.$
 		    }
 		    if (!(this instanceof Gun)) {
-		      return new Gun(o)
+		      return new Gun(options)
 		    }
-		    this._ = { $: this, opt: o }
+		    this._ = { $: this, opt: options }
 		    return Gun.create(this._)
 		  }
 
-		  Gun.is = ($) => $ instanceof Gun || ($?._ && $ === $._.$) || false
+		  Gun.is = (instance) =>
+		    instance instanceof Gun ||
+		    (instance?._ && instance === instance._.$) ||
+		    false
 
 		  Gun.version = 0.202
 
@@ -1397,354 +1452,376 @@ if (typeof module !== 'undefined') {
 		      at.once = 1
 		      return gun
 		    }
-		    function universe(msg) {
-		      //if(!F){ var eve = this; setTimeout(function(){ universe.call(eve, msg,1) },Math.random() * 100);return; } // ADD F TO PARAMS!
-		      if (!msg) {
+		    function universe(message) {
+		      // Central message processing hub for Gun's event system
+		      if (!message) {
 		        return
 		      }
-		      if (msg.out === universe) {
-		        this.to.next(msg)
+		      if (message.out === universe) {
+		        this.to.next(message)
 		        return
 		      }
-		      const as = this.as,
-		        at = as.at || as,
-		        gun = at.$,
-		        dup = at.dup,
-		        DBG = msg.DBG
-		      let tmp
-		      tmp = msg['#']
-		      if (!tmp) {
-		        tmp = msg['#'] = text_rand(9)
+		      const instance = this.as,
+		        context = instance.at || instance,
+		        gunInstance = context.$,
+		        deduplication = context.dup,
+		        debugInfo = message.DBG
+		      let temp
+		      temp = message['#']
+		      if (!temp) {
+		        temp = message['#'] = text_rand(9)
 		      }
-		      if (dup.check(tmp)) {
+		      if (deduplication.check(temp)) {
 		        return
 		      }
-		      dup.track(tmp)
-		      tmp = msg._
-		      msg._ = 'function' === typeof tmp ? tmp : () => {}
-		      const tmp$ = msg.$ && msg.$ === (msg.$._ || '').$
-		      if (!tmp$) {
-		        msg.$ = gun
+		      deduplication.track(temp)
+		      temp = message._
+		      message._ = 'function' === typeof temp ? temp : () => {}
+		      const hasValidGun = message.$ && message.$ === (message.$._ || '').$
+		      if (!hasValidGun) {
+		        message.$ = gunInstance
 		      }
-		      if (msg['@'] && !msg.put) {
-		        ack(msg)
+		      if (message['@'] && !message.put) {
+		        ack(message)
 		      }
-		      if (!at.ask(msg['@'], msg)) {
-		        // is this machine listening for an ack?
-		        if (DBG) {
-		          DBG.u = Date.now()
+		      if (!context.ask(message['@'], message)) {
+		        // Is this machine listening for an ack?
+		        if (debugInfo) {
+		          debugInfo.u = Date.now()
 		        }
-		        if (msg.put) {
-		          put(msg)
+		        if (message.put) {
+		          put(message)
 		          return
-		        } else if (msg.get) {
-		          Gun.on.get(msg, gun)
+		        } else if (message.get) {
+		          Gun.on.get(message, gunInstance)
 		        }
 		      }
-		      if (DBG) {
-		        DBG.uc = Date.now()
+		      if (debugInfo) {
+		        debugInfo.uc = Date.now()
 		      }
-		      this.to.next(msg)
-		      if (DBG) {
-		        DBG.ua = Date.now()
+		      this.to.next(message)
+		      if (debugInfo) {
+		        debugInfo.ua = Date.now()
 		      }
-		      if (msg.nts || msg.NTS) {
+		      if (message.nts || message.NTS) {
 		        return
 		      } // TODO: This shouldn't be in core, but fast way to prevent NTS spread. Delete this line after all peers have upgraded to newer versions.
-		      msg.out = universe
-		      at.on('out', msg)
-		      if (DBG) {
-		        DBG.ue = Date.now()
+		      message.out = universe
+		      context.on('out', message)
+		      if (debugInfo) {
+		        debugInfo.ue = Date.now()
 		      }
 		    }
-		    function put(msg) {
-		      if (!msg) {
+		    function put(message) {
+		      // Process put operations to store data in the graph
+		      if (!message) {
 		        return
 		      }
-		      const ctx = msg._ || ''
-		      ctx.$ = msg.$ || ''
-		      ctx.root = (ctx.$._ || '').root
-		      const root = ctx.root
-		      if (msg['@'] && ctx.faith && !ctx.miss) {
+		      const context = message._ || ''
+		      context.$ = message.$ || ''
+		      context.root = (context.$._ || '').root
+		      const root = context.root
+		      if (message['@'] && context.faith && !context.miss) {
 		        // TODO: AXE may split/route based on 'put' what should we do here? Detect @ in AXE? I think we don't have to worry, as DAM will route it on @.
-		        msg.out = universe
-		        root.on('out', msg)
+		        message.out = universe
+		        root.on('out', message)
 		        return
 		      }
-		      ctx.latch = root.hatch
-		      ctx.match = root.hatch = []
-		      const put = msg.put
-		      ctx.DBG = msg.DBG
-		      const DBG = ctx.DBG
-		      const S = Date.now()
-		      CT = CT || S
-		      if (put['#'] && put['.']) {
-		        /*root && root.on('put', msg);*/ return
+		      context.latch = root.hatch
+		      context.match = root.hatch = []
+		      const putData = message.put
+		      context.DBG = message.DBG
+		      const debugInfo = context.DBG
+		      const startTime = Date.now()
+		      CT = CT || startTime
+		      if (putData['#'] && putData['.']) {
+		        /*root && root.on('put', message);*/ return
 		      } // TODO: BUG! This needs to call HAM instead.
-		      if (DBG) {
-		        DBG.p = S
+		      if (debugInfo) {
+		        debugInfo.p = startTime
 		      }
-		      ctx['#'] = msg['#']
-		      ctx.msg = msg
-		      ctx.all = 0
-		      ctx.stun = 1
-		      const nl = Object.keys(put) //.sort(); // TODO: This is unbounded operation, large graphs will be slower. Write our own CPU scheduled sort? Or somehow do it in below? Keys itself is not O(1) either, create ES5 shim over ?weak map? or custom which is constant.
+		      context['#'] = message['#']
+		      context.msg = message
+		      context.all = 0
+		      context.stun = 1
+		      const nodeList = Object.keys(putData) //.sort(); // TODO: This is unbounded operation, large graphs will be slower. Write our own CPU scheduled sort? Or somehow do it in below? Keys itself is not O(1) either, create ES5 shim over ?weak map? or custom which is constant.
 		      if (console.STAT) {
-		        ;(DBG || ctx).pk = Date.now()
-		        console.STAT(S, (DBG || ctx).pk - S, 'put sort')
+		        ;(debugInfo || context).pk = Date.now()
+		        console.STAT(
+		          startTime,
+		          (debugInfo || context).pk - startTime,
+		          'put sort'
+		        )
 		      }
-		      let ni = 0
-		      let nj
-		      let kl
-		      let soul
-		      let node
-		      let states
-		      let err
-		      let tmp
-		      const pop = (o) => {
-		        if (nj !== ni) {
-		          nj = ni
-		          soul = nl[ni]
-		          if (!soul) {
+		      let nodeIndex = 0
+		      let nextNodeIndex
+		      let keyList
+		      let nodeId
+		      let nodeData
+		      let stateMap
+		      let error
+		      let temp
+		      const processNode = (offset) => {
+		        if (nextNodeIndex !== nodeIndex) {
+		          nextNodeIndex = nodeIndex
+		          nodeId = nodeList[nodeIndex]
+		          if (!nodeId) {
 		            if (console.STAT) {
-		              ;(DBG || ctx).pd = Date.now()
-		              console.STAT(S, (DBG || ctx).pd - S, 'put')
+		              ;(debugInfo || context).pd = Date.now()
+		              console.STAT(
+		                startTime,
+		                (debugInfo || context).pd - startTime,
+		                'put'
+		              )
 		            }
-		            fire(ctx)
+		            fire(context)
 		            return
 		          }
-		          node = put[soul]
-		          if (!node) {
-		            err = `${ERR + cut(soul)}no node.`
-		          } else tmp = node._
-		          if (!tmp) {
-		            err = `${ERR + cut(soul)}no meta.`
-		          } else if (soul !== tmp['#']) {
-		            err = `${ERR + cut(soul)}soul not same.`
-		          } else states = tmp['>']
-		          if (!states) {
-		            err = `${ERR + cut(soul)}no state.`
+		          nodeData = putData[nodeId]
+		          if (!nodeData) {
+		            error = `${ERR + cut(nodeId)}no node.`
+		          } else temp = nodeData._
+		          if (!temp) {
+		            error = `${ERR + cut(nodeId)}no meta.`
+		          } else if (nodeId !== temp['#']) {
+		            error = `${ERR + cut(nodeId)}soul not same.`
+		          } else stateMap = temp['>']
+		          if (!stateMap) {
+		            error = `${ERR + cut(nodeId)}no state.`
 		          }
-		          kl = Object.keys(node || {}) // TODO: .keys( is slow
+		          keyList = Object.keys(nodeData || {}) // TODO: .keys( is slow
 		        }
-		        if (err) {
-		          msg.err = ctx.err = err // invalid data should error and stun the message.
-		          fire(ctx)
-		          //console.log("handle error!", err) // handle!
+		        if (error) {
+		          message.err = context.err = error // Invalid data should error and stun the message.
+		          fire(context)
 		          return
 		        }
-		        let i = 0
-		        let key
-		        o = o || 0
-		        while (o++ < 9) {
-		          key = kl[i++]
-		          if (!key) {
+		        let keyIndex = 0
+		        let propertyKey
+		        offset = offset || 0
+		        while (offset++ < 9) {
+		          propertyKey = keyList[keyIndex++]
+		          if (!propertyKey) {
 		            break
 		          }
-		          if ('_' === key) {
+		          if ('_' === propertyKey) {
 		            continue
 		          }
-		          const val = node[key],
-		            state = states[key]
-		          if (u === state) {
-		            err = `${ERR + cut(key)}on${cut(soul)}no state.`
+		          const value = nodeData[propertyKey],
+		            timestamp = stateMap[propertyKey]
+		          if (u === timestamp) {
+		            error = `${ERR + cut(propertyKey)}on${cut(nodeId)}no state.`
 		            break
 		          }
-		          if (!valid(val)) {
-		            err = `${ERR + cut(key)}on${cut(soul)}bad ${typeof val}${cut(val)}`
+		          if (!valid(value)) {
+		            error = `${ERR + cut(propertyKey)}on${cut(nodeId)}bad ${typeof value}${cut(value)}`
 		            break
 		          }
-		          //ctx.all++; //ctx.ack[soul+key] = '';
-		          ham(val, key, soul, state, msg)
-		          ++C // courtesy count;
+		          ham(value, propertyKey, nodeId, timestamp, message)
+		          ++C // Courtesy count
 		        }
-		        kl = kl.slice(i)
-		        if (kl.length) {
-		          turn(pop)
+		        keyList = keyList.slice(keyIndex)
+		        if (keyList.length) {
+		          turn(processNode)
 		          return
 		        }
-		        ++ni
-		        kl = null
-		        pop(o)
+		        ++nodeIndex
+		        keyList = null
+		        processNode(offset)
 		      }
-		      pop()
+		      processNode()
 		    }
 		    Gun.on.put = put
 		    // TODO: MARK!!! clock below, reconnect sync, SEA certify wire merge, User.auth taking multiple times, // msg put, put, say ack, hear loop...
 		    // WASIS BUG! local peer not ack. .off other people: .open
-		    const ham = (val, key, soul, state, msg) => {
-		      const ctx = msg._ || {}
-		      const root = ctx.root
+		    const ham = (value, propertyKey, nodeId, timestamp, message) => {
+		      // Conflict resolution using HAM (Hash Array Mapped Trie) logic
+		      const context = message._ || {}
+		      const root = context.root
 		      const graph = root?.graph
-		      const vertex = graph?.[soul] || empty
-		      const was = state_is(vertex, key, 1)
-		      const known = vertex[key]
+		      const node = graph?.[nodeId] || empty
+		      const previousTimestamp = state_is(node, propertyKey, 1)
+		      const existingValue = node[propertyKey]
 
-		      const DBG = ctx.DBG
+		      const debugInfo = context.DBG
 		      if (console.STAT) {
-		        if (!graph?.[soul] || !known) {
+		        if (!graph?.[nodeId] || !existingValue) {
 		          console.STAT.has = (console.STAT.has || 0) + 1
 		        }
 		      }
 
-		      const now = State()
-		      if (state > now) {
-		        const tmp = state - now
-		        const delay = tmp > MD ? MD : tmp
-		        setTimeout(() => ham(val, key, soul, state, msg), delay)
+		      const currentTime = State()
+		      if (timestamp > currentTime) {
+		        const timeDifference = timestamp - currentTime
+		        const delay = timeDifference > MD ? MD : timeDifference
+		        setTimeout(
+		          () => ham(value, propertyKey, nodeId, timestamp, message),
+		          delay
+		        )
 		        if (console.STAT) {
-		          const hf = Date.now()
-		          if (DBG) DBG.Hf = hf
-		          console.STAT(hf, delay, 'future')
+		          const futureTime = Date.now()
+		          if (debugInfo) debugInfo.Hf = futureTime
+		          console.STAT(futureTime, delay, 'future')
 		        }
 		        return
 		      }
-		      if (state < was) {
+		      if (timestamp < previousTimestamp) {
 		        return
 		      }
-		      if (!ctx.faith) {
-		        if (state === was && (val === known || L(val) <= L(known))) {
-		          if (!ctx.miss) {
+		      if (!context.faith) {
+		        if (
+		          timestamp === previousTimestamp &&
+		          (value === existingValue || L(value) <= L(existingValue))
+		        ) {
+		          if (!context.miss) {
 		            return
 		          }
 		        }
 		      }
-		      ctx.stun++
-		      const aid = msg['#'] + ctx.all++
-		      const id = { _: ctx, toString: () => aid }
+		      context.stun++
+		      const uniqueId = message['#'] + context.all++
+		      const id = { _: context, toString: () => uniqueId }
 		      id.toJSON = id.toString
-		      root.dup.track(id)['#'] = msg['#']
-		      if (DBG) {
-		        DBG.ph = DBG.ph || Date.now()
+		      root.dup.track(id)['#'] = message['#']
+		      if (debugInfo) {
+		        debugInfo.ph = debugInfo.ph || Date.now()
 		      }
 		      root.on('put', {
-		        _: ctx,
-		        '@': msg['@'],
+		        _: context,
+		        '@': message['@'],
 		        '#': id,
-		        ok: msg.ok,
-		        put: { ':': val, '.': key, '#': soul, '>': state }
+		        ok: message.ok,
+		        put: { ':': value, '.': propertyKey, '#': nodeId, '>': timestamp }
 		      })
 		    }
-		    function map(msg) {
-		      const DBG = (msg._ || '').DBG
-		      if (DBG) {
-		        DBG.pa = Date.now()
-		        DBG.pm = DBG.pm || Date.now()
+		    function map(message) {
+		      // Map incoming put messages to update the local graph
+		      const debugInfo = (message._ || '').DBG
+		      if (debugInfo) {
+		        debugInfo.pa = Date.now()
+		        debugInfo.pm = debugInfo.pm || Date.now()
 		      }
 		      const root = this.as,
 		        graph = root.graph,
-		        ctx = msg._,
-		        put = msg.put,
-		        soul = put['#'],
-		        key = put['.'],
-		        val = put[':'],
-		        state = put['>']
-		      let tmp = ctx.msg
-		      if (tmp) {
-		        tmp = tmp.put
-		        if (tmp) {
-		          tmp = tmp[soul]
-		          if (tmp) {
-		            state_ify(tmp, key, state, val, soul)
+		        context = message._,
+		        putData = message.put,
+		        nodeId = putData['#'],
+		        propertyKey = putData['.'],
+		        value = putData[':'],
+		        timestamp = putData['>']
+		      let temp = context.msg
+		      if (temp) {
+		        temp = temp.put
+		        if (temp) {
+		          temp = temp[nodeId]
+		          if (temp) {
+		            state_ify(temp, propertyKey, timestamp, value, nodeId)
 		          }
 		        }
-		      } // necessary! or else out messages do not get SEA transforms.
-		      //var bytes = ((graph[soul]||'')[key]||'').length||1;
-		      graph[soul] = state_ify(graph[soul], key, state, val, soul)
-		      const tmp_next = (root.next || '')[soul]
-		      if (tmp_next) {
-		        //tmp.bytes = (tmp.bytes||0) + ((val||'').length||1) - bytes;
-		        //if(tmp.bytes > 2**13){ Gun.log.once('byte-limit', "Note: In the future, GUN peers will enforce a ~4KB query limit. Please see https://gun.eco/docs/Page") }
-		        tmp_next.on('in', msg)
+		      } // Necessary for SEA (Security, Encryption, Authorization) transforms on outgoing messages.
+		      graph[nodeId] = state_ify(
+		        graph[nodeId],
+		        propertyKey,
+		        timestamp,
+		        value,
+		        nodeId
+		      )
+		      const nextHandler = (root.next || '')[nodeId]
+		      if (nextHandler) {
+		        nextHandler.on('in', message)
 		      }
-		      fire(ctx)
-		      this.to.next(msg)
+		      fire(context)
+		      this.to.next(message)
 		    }
-		    const fire = (ctx, msg) => {
-		      if (ctx.stop) {
+		    const fire = (context, message) => {
+		      // Fire completion callbacks and send outgoing messages
+		      if (context.stop) {
 		        return
 		      }
-		      ctx.stun--
-		      if (!ctx.err && 0 < ctx.stun) {
+		      context.stun--
+		      if (!context.err && 0 < context.stun) {
 		        return
 		      } // TODO: 'forget' feature in SEA tied to this, bad approach, but hacked in for now. Any changes here must update there.
-		      ctx.stop = 1
-		      const root = ctx.root
+		      context.stop = 1
+		      const root = context.root
 		      if (!root) {
 		        return
 		      }
-		      let tmp = ctx.match
-		      tmp.end = 1
-		      if (tmp === root.hatch) {
-		        tmp = ctx.latch
-		        if (!tmp || tmp.end) {
+		      let matchList = context.match
+		      matchList.end = 1
+		      if (matchList === root.hatch) {
+		        matchList = context.latch
+		        if (!matchList || matchList.end) {
 		          delete root.hatch
 		        } else {
-		          root.hatch = tmp
+		          root.hatch = matchList
 		        }
 		      }
-		      ctx.hatch?.() // TODO: rename/rework how put & this interact.
-		      setTimeout.each(ctx.match, (cb) => {
-		        cb?.()
+		      context.hatch?.() // TODO: rename/rework how put & this interact.
+		      setTimeout.each(context.match, (callback) => {
+		        callback?.()
 		      })
-		      msg = ctx.msg
-		      if (!msg || ctx.err || msg.err) {
+		      message = context.msg
+		      if (!message || context.err || message.err) {
 		        return
 		      }
-		      msg.out = universe
-		      ctx.root.on('out', msg)
+		      message.out = universe
+		      context.root.on('out', message)
 
-		      CF() // courtesy check;
+		      CF() // Courtesy check for performance warnings
 		    }
-		    const ack = (msg) => {
-		      // aggregate ACKs.
-		      const id = msg['@'] || ''
-		      const ctx = id._
-		      if (!ctx) {
-		        let dup = msg.$?._?.root?.dup
-		        dup = dup?.check(id)
-		        if (!dup) {
+		    const ack = (message) => {
+		      // Aggregate acknowledgments (ACKs) for put operations
+		      const ackId = message['@'] || ''
+		      const context = ackId._
+		      if (!context) {
+		        let deduplication = message.$?._?.root?.dup
+		        deduplication = deduplication?.check(ackId)
+		        if (!deduplication) {
 		          return
 		        }
-		        msg['@'] = dup?.['#'] || msg['@'] // This doesn't do anything anymore, backtrack it to something else?
+		        message['@'] = deduplication?.['#'] || message['@'] // This doesn't do anything anymore, backtrack it to something else?
 		        return
 		      }
-		      ctx.acks = (ctx.acks || 0) + 1
-		      ctx.err = msg.err
-		      if (ctx.err) {
-		        msg['@'] = ctx['#']
-		        fire(ctx) // TODO: BUG? How it skips/stops propagation of msg if any 1 item is error, this would assume a whole batch/resync has same malicious intent.
+		      context.acks = (context.acks || 0) + 1
+		      context.err = message.err
+		      if (context.err) {
+		        message['@'] = context['#']
+		        fire(context) // TODO: BUG? How it skips/stops propagation of msg if any 1 item is error, this would assume a whole batch/resync has same malicious intent.
 		      }
-		      ctx.ok = msg.ok || ctx.ok
-		      if (!ctx.stop && !ctx.crack) {
-		        ctx.crack = ctx.match?.push(() => {
-		          back(ctx)
+		      context.ok = message.ok || context.ok
+		      if (!context.stop && !context.crack) {
+		        context.crack = context.match?.push(() => {
+		          back(context)
 		        })
-		      } // handle synchronous acks. NOTE: If a storage peer ACKs synchronously then the PUT loop has not even counted up how many items need to be processed, so ctx.STOP flags this and adds only 1 callback to the end of the PUT loop.
-		      back(ctx)
+		      } // Handle synchronous acks. NOTE: If a storage peer ACKs synchronously then the PUT loop has not even counted up how many items need to be processed, so ctx.STOP flags this and adds only 1 callback to the end of the PUT loop.
+		      back(context)
 		    }
-		    const back = (ctx) => {
-		      if (!ctx?.root) {
+		    const back = (context) => {
+		      // Send back acknowledgment to the originator
+		      if (!context?.root) {
 		        return
 		      }
-		      if (ctx.stun || ctx.acks !== ctx.all) {
+		      if (context.stun || context.acks !== context.all) {
 		        return
 		      }
-		      ctx.root.on('in', {
-		        '@': ctx['#'],
-		        err: ctx.err,
-		        ok: ctx.err ? u : ctx.ok || { '': 1 }
+		      context.root.on('in', {
+		        '@': context['#'],
+		        err: context.err,
+		        ok: context.err ? u : context.ok || { '': 1 }
 		      })
 		    }
 
+		    // Error messages and utilities
 		    const ERR = 'Error: Invalid graph!'
-		    const cut = (s) => ` '${(`${s}`).slice(0, 9)}...' `
+		    const cut = (str) => ` '${(`${str}`).slice(0, 9)}...' `
 		    const L = JSON.stringify,
 		      MD = 2147483647,
 		      State = Gun.state
 		    let C = 0
 		    let CT
 		    let CF = () => {
+		      // Performance check for high-frequency operations
 		      const oldCT = CT
 		      CT = Date.now()
 		      if (C > 999 && C / -(oldCT - CT) > 1) {
@@ -1760,182 +1837,183 @@ if (typeof module !== 'undefined') {
 		  })()
 
 		  ;(() => {
-		    Gun.on.get = (msg, gun) => {
-		      const root = gun._,
-		        get = msg.get,
-		        soul = get['#'],
-		        has = get['.']
-		      let node = root.graph[soul]
+		    Gun.on.get = (message, gunInstance) => {
+		      // Handle get requests by retrieving data from the graph
+		      const root = gunInstance._,
+		        getRequest = message.get,
+		        nodeId = getRequest['#'],
+		        propertyKey = getRequest['.']
+		      let node = root.graph[nodeId]
 		      if (!root.next) root.next = {}
-		      const next = root.next
-		      const at = next[soul]
+		      const nextMap = root.next
+		      const handler = nextMap[nodeId]
 
 		      // TODO: Azarattum bug, what is in graph is not same as what is in next. Fix!
 
-		      // queue concurrent GETs?
+		      // Queue concurrent GETs?
 		      // TODO: consider tagging original message into dup for DAM.
 		      // TODO: ^ above? In chat app, 12 messages resulted in same peer asking for `#user.pub` 12 times. (same with #user GET too, yipes!) // DAM note: This also resulted in 12 replies from 1 peer which all had same ##hash but none of them deduped because each get was different.
 		      // TODO: Moving quick hacks fixing these things to axe for now.
 		      // TODO: a lot of GET #foo then GET #foo."" happening, why?
 		      // TODO: DAM's ## hash check, on same get ACK, producing multiple replies still, maybe JSON vs YSON?
 		      // TMP note for now: viMZq1slG was chat LEX query #.
-		      /*if(gun !== (tmp = msg.$) && (tmp = (tmp||'')._)){
-		    if(tmp.Q){ tmp.Q[msg['#']] = ''; return } // chain does not need to ask for it again.
-		    tmp.Q = {};
-		   }*/
-		      /*if(u === has){
-		    if(at.Q){
-		     //at.Q[msg['#']] = '';
-		     //return;
-		    }
-		    at.Q = {};
-		   }*/
-		      const ctx = msg._ || {}
-		      ctx.DBG = msg.DBG
-		      const DBG = ctx.DBG
-		      if (DBG) DBG.g = Date.now()
-		      //console.log("GET:", get, node, has, at);
-		      //if(!node && !at){ return root.on('get', msg) }
-		      //if(has && node){ // replace 2 below lines to continue dev?
+		      const context = message._ || {}
+		      context.DBG = message.DBG
+		      const debugInfo = context.DBG
+		      if (debugInfo) debugInfo.g = Date.now()
 		      if (!node) {
-		        return root.on('get', msg)
+		        return root.on('get', message)
 		      }
-		      if (has) {
-		        if ('string' !== typeof has || u === node[has]) {
-		          if (!at?.next?.[has]) {
-		            root.on('get', msg)
+		      if (propertyKey) {
+		        if ('string' !== typeof propertyKey || u === node[propertyKey]) {
+		          if (!handler?.next?.[propertyKey]) {
+		            root.on('get', message)
 		            return
 		          }
 		        }
-		        node = state_ify({}, has, state_is(node, has), node[has], soul)
+		        node = state_ify(
+		          {},
+		          propertyKey,
+		          state_is(node, propertyKey),
+		          node[propertyKey],
+		          nodeId
+		        )
 		        // If we have a key in-memory, do we really need to fetch?
 		        // Maybe... in case the in-memory key we have is a local write
 		        // we still need to trigger a pull/merge from peers.
 		      }
-		      //Gun.window? Gun.obj.copy(node) : node; // HNPERF: If !browser bump Performance? Is this too dangerous to reference root graph? Copy / shallow copy too expensive for big nodes. Gun.obj.to(node); // 1 layer deep copy // Gun.obj.copy(node); // too slow on big nodes
-		      node && ack(msg, node)
-		      root.on('get', msg) // send GET to storage adapters.
+		      node && ack(message, node)
+		      root.on('get', message) // Send GET to storage adapters.
 		    }
-		    const ack = (msg, node) => {
-		      let S = Date.now()
-		      const ctx = msg._ || {}
-		      ctx.DBG = msg.DBG
-		      const DBG = ctx.DBG
-		      const keys = Object.keys(node || '').sort()
-		      const to = msg['#']
-		      let id = text_rand(9)
-		      const soul = ((node || '')._ || '')['#']
-		      const root = msg.$._.root
-		      const F = node === root.graph[soul]
-		      const gk = Date.now()
-		      if (DBG) DBG.gk = gk
-		      else ctx.gk = gk
-		      console.STAT?.(S, gk - S, 'got keys')
+		    const ack = (message, node) => {
+		      // Acknowledge get requests by sending back the retrieved data
+		      let startTime = Date.now()
+		      const context = message._ || {}
+		      context.DBG = message.DBG
+		      const debugInfo = context.DBG
+		      const propertyKeys = Object.keys(node || '').sort()
+		      const messageId = message['#']
+		      let batchId = text_rand(9)
+		      const nodeId = ((node || '')._ || '')['#']
+		      const root = message.$._.root
+		      const isFromGraph = node === root.graph[nodeId]
+		      const keysTime = Date.now()
+		      if (debugInfo) debugInfo.gk = keysTime
+		      else context.gk = keysTime
+		      console.STAT?.(startTime, keysTime - startTime, 'got keys')
 		      // PERF: Consider commenting this out to force disk-only reads for perf testing? // TODO: .keys( is slow
 		      node &&
 		        (() => {
-		          const go = () => {
-		            S = Date.now()
-		            let put = {}
-		            const batch = keys.splice(0, 9)
-		            for (const k of batch) {
-		              state_ify(put, k, state_is(node, k), node[k], soul)
+		          const sendBatch = () => {
+		            startTime = Date.now()
+		            let putData = {}
+		            const batch = propertyKeys.splice(0, 9)
+		            for (const key of batch) {
+		              state_ify(putData, key, state_is(node, key), node[key], nodeId)
 		            }
-		            const tmpObj = {}
-		            tmpObj[soul] = put
-		            put = tmpObj
-		            const faith = F ? () => {} : undefined
+		            const wrappedPut = {}
+		            wrappedPut[nodeId] = putData
+		            putData = wrappedPut
+		            const faith = isFromGraph ? () => {} : undefined
 		            if (faith) {
 		              faith.ram = faith.faith = true
 		            } // HNPERF: We're testing performance improvement by skipping going through security again, but this should be audited.
-		            const tmp = keys.length
-		            const newS = Date.now()
-		            console.STAT?.(S, -(S - newS), 'got copied some')
-		            S = newS
-		            if (DBG) DBG.ga = Date.now()
-		            if (tmp) {
-		              id = text_rand(9)
+		            const remaining = propertyKeys.length
+		            const copyTime = Date.now()
+		            console.STAT?.(
+		              startTime,
+		              -(startTime - copyTime),
+		              'got copied some'
+		            )
+		            startTime = copyTime
+		            if (debugInfo) debugInfo.ga = Date.now()
+		            if (remaining) {
+		              batchId = text_rand(9)
 		            }
 		            root.on('in', {
 		              _: faith,
-		              '@': to,
-		              '#': id,
-		              '%': tmp ? id : u,
+		              '@': messageId,
+		              '#': batchId,
+		              '%': remaining ? batchId : u,
 		              $: root.$,
-		              DBG: DBG,
-		              put: put
+		              DBG: debugInfo,
+		              put: putData
 		            })
-		            console.STAT?.(S, Date.now() - S, 'got in')
-		            if (!tmp) {
+		            console.STAT?.(startTime, Date.now() - startTime, 'got in')
+		            if (!remaining) {
 		              return
 		            }
-		            setTimeout.turn(go)
+		            setTimeout.turn(sendBatch)
 		          }
-		          go()
+		          sendBatch()
 		        })()
 		      if (!node) {
-		        root.on('in', { '@': msg['#'] })
+		        root.on('in', { '@': message['#'] })
 		      } // TODO: I don't think I like this, the default lS adapter uses this but "not found" is a sensitive issue, so should probably be handled more carefully/individually.
 		    }
 		    Gun.on.get.ack = ack
 		  })()
 
 		  ;(() => {
-		    Gun.chain.opt = function (opt) {
-		      opt = opt || {}
-		      const at = this._
-		      let tmp = opt.peers || opt
-		      if (!Object.plain(opt)) {
-		        opt = {}
+		    Gun.chain.opt = function (options) {
+		      // Configure Gun instance options, including peers
+		      options = options || {}
+		      const context = this._
+		      let peers = options.peers || options
+		      if (!Object.plain(options)) {
+		        options = {}
 		      }
-		      if (!Object.plain(at.opt)) {
-		        at.opt = opt
+		      if (!Object.plain(context.opt)) {
+		        context.opt = options
 		      }
-		      if ('string' === typeof tmp) {
-		        tmp = [tmp]
+		      if ('string' === typeof peers) {
+		        peers = [peers]
 		      }
-		      if (!Object.plain(at.opt.peers)) {
-		        at.opt.peers = {}
+		      if (!Object.plain(context.opt.peers)) {
+		        context.opt.peers = {}
 		      }
-		      if (Array.isArray(tmp)) {
-		        opt.peers = {}
-		        tmp.forEach((url) => {
-		          const p = {}
-		          p.id = p.url = url
-		          opt.peers[url] = at.opt.peers[url] = at.opt.peers[url] || p
+		      if (Array.isArray(peers)) {
+		        options.peers = {}
+		        peers.forEach((url) => {
+		          const peer = {}
+		          peer.id = peer.url = url
+		          options.peers[url] = context.opt.peers[url] =
+		            context.opt.peers[url] || peer
 		        })
 		      }
-		      const each = (k) => {
-		        const v = opt[k]
+		      const processOption = (key) => {
+		        const value = options[key]
 		        if (
-		          (opt && Object.hasOwn(opt, k)) ||
-		          'string' === typeof v ||
-		          Object.empty(v)
+		          (options && Object.hasOwn(options, key)) ||
+		          'string' === typeof value ||
+		          Object.empty(value)
 		        ) {
-		          opt[k] = v
+		          options[key] = value
 		          return
 		        }
-		        if (v && v.constructor !== Object && !Array.isArray(v)) {
+		        if (value && value.constructor !== Object && !Array.isArray(value)) {
 		          return
 		        }
-		        obj_each(v, each)
+		        obj_each(value, processOption)
 		      }
-		      obj_each(opt, each)
-		      at.opt.from = opt
-		      Gun.on('opt', at)
-		      at.opt.uuid =
-		        at.opt.uuid ||
-		        function uuid(l) {
+		      obj_each(options, processOption)
+		      context.opt.from = options
+		      Gun.on('opt', context)
+		      context.opt.uuid =
+		        context.opt.uuid ||
+		        function uuid(length) {
 		          return (
-		            Gun.state().toString(36).replace('.', '') + String.random(l || 12)
+		            Gun.state().toString(36).replace('.', '') +
+		            String.random(length || 12)
 		          )
 		        }
 		      return this
 		    }
 		  })()
 
-		  const obj_each = (o, f) => {
-		    Object.keys(o).forEach(f, o)
+		  // Utility functions
+		  const obj_each = (object, callback) => {
+		    Object.keys(object).forEach(callback, object)
 		  }
 		  const text_rand = String.random
 		  const turn = setTimeout.turn
@@ -1945,22 +2023,24 @@ if (typeof module !== 'undefined') {
 		  const u = undefined
 		  const empty = {}
 
+		  // Logging utilities
 		  Gun.log = (...args) => {
 		    if (!Gun.log.off) {
 		      C.log.apply(C, args)
 		    }
 		    return args.join(' ')
 		  }
-		  Gun.log.once = (w, s, o) => {
-		    o = Gun.log.once
-		    o[w] = o[w] || 0
-		    const count = o[w]++
+		  Gun.log.once = (warning, message, storage) => {
+		    storage = Gun.log.once
+		    storage[warning] = storage[warning] || 0
+		    const count = storage[warning]++
 		    if (count === 0) {
-		      Gun.log(s)
+		      Gun.log(message)
 		    }
 		    return count
 		  }
 
+		  // Browser globals
 		  if (typeof window !== 'undefined') {
 		    window.GUN = Gun
 		    window.Gun = Gun
@@ -1973,16 +2053,18 @@ if (typeof module !== 'undefined') {
 		  } catch {}
 		  module.exports = Gun
 
+		  // Console setup
 		  ;(Gun.window || {}).console = Gun.window?.console || { log: () => {} }
 		  const C = console
-		  C.only = (i, s, ...args) => {
-		    if (C.only.i && i === C.only.i) {
+		  C.only = (index, message, ...args) => {
+		    if (C.only.i && index === C.only.i) {
 		      C.only.i++
-		      C.log(i, s, ...args)
-		      return s
+		      C.log(index, message, ...args)
+		      return message
 		    }
 		  }
 
+		  // Welcome message
 		  ;('Please do not remove welcome log unless you are paying for a monthly sponsorship, thanks!')
 		  Gun.log.once(
 		    'welcome',
@@ -1992,6 +2074,61 @@ if (typeof module !== 'undefined') {
 
 	;USE(function(module){
 		const Gun = USE('./root')
+
+		  /**
+		   * Traverses an array path in the given context, recursively checking back if not found.
+		   * @param {Object} context - The current context object.
+		   * @param {Array} path - The array path to traverse.
+		   * @returns {*} The value at the path or undefined if not found.
+		   */
+		  function traverseArrayPath(context, path) {
+		    // Try to find the path in the current context
+		    const result = path.reduce((acc, key) => acc?.[key], context)
+		    if (result !== undefined) {
+		      return result
+		    }
+		    // If not found, recursively check the back context
+		    const backContext = context.back
+		    if (backContext) {
+		      return traverseArrayPath(backContext, path)
+		    }
+		    return undefined
+		  }
+
+		  /**
+		   * Traverses backwards using a test function until it returns a defined value.
+		   * @param {Object} context - The starting context.
+		   * @param {Function} testFn - The function to test each context.
+		   * @param {*} opt - Optional parameter passed to the test function.
+		   * @returns {*} The result of the test function or undefined.
+		   */
+		  function traverseWithTestFunction(context, testFn, opt) {
+		    let current = context
+		    while (current) {
+		      const result = testFn(current, opt)
+		      if (result !== undefined) {
+		        return result
+		      }
+		      current = current.back
+		    }
+		    return undefined
+		  }
+
+		  /**
+		   * Traverses back by a specified number of levels in the chain.
+		   * @param {Object} chain - The starting chain node.
+		   * @param {number} levels - The number of levels to go back.
+		   * @returns {Object} The chain node after traversing back.
+		   */
+		  function traverseBackLevels(chain, levels) {
+		    let currentChain = chain
+		    for (let i = 0; i < levels; i++) {
+		      const internalContext = currentChain._
+		      currentChain = (internalContext.back || internalContext).$
+		    }
+		    return currentChain
+		  }
+
 		  /**
 		   * Traverses back in the chain by a specified number of levels or path.
 		   * @param {number|string|Array|function} n - The number of levels to go back, a dot-separated string path, an array path, or a function to test.
@@ -1999,46 +2136,25 @@ if (typeof module !== 'undefined') {
 		   * @returns {*} The node at the specified back position or the result of the function.
 		   */
 		  Gun.chain.back = function (n, opt) {
-		    const empty = {}
-		    n = n || 1
+		    n = n ?? 1
 		    if (n === -1 || n === Infinity) {
 		      return this._.root.$
-		    } else if (n === 1) {
+		    }
+		    if (n === 1) {
 		      return (this._.back || this._).$
 		    }
-		    const at = this._
+		    const context = this._
 		    if (typeof n === 'string') {
 		      n = n.split('.')
 		    }
 		    if (Array.isArray(n)) {
-		      const tmp = n.reduce((acc, key) => acc?.[key] ?? empty[key], at)
-		      if (undefined !== tmp) {
-		        return opt ? this : tmp
-		      } else {
-		        const backTmp = at.back
-		        if (backTmp) {
-		          return backTmp.$.back(n, opt)
-		        }
-		      }
-		      return
+		      return traverseArrayPath(context, n)
 		    }
 		    if (typeof n === 'function') {
-		      let yes
-		      let tmp = { back: at }
-		      while (tmp.back) {
-		        tmp = tmp.back
-		        yes = n(tmp, opt)
-		        if (undefined !== yes) break
-		      }
-		      return yes
+		      return traverseWithTestFunction(context, n, opt)
 		    }
 		    if (typeof n === 'number') {
-		      let node = this
-		      for (let i = 0; i < n; i++) {
-		        const at = node._
-		        node = (at.back || at).$
-		      }
-		      return node
+		      return traverseBackLevels(this, n)
 		    }
 		    return this
 		  }
@@ -2058,6 +2174,12 @@ if (typeof module !== 'undefined') {
 		  const u = undefined
 		  const text_rand = String.random
 		  const valid = Gun.valid
+		  /**
+		   * Checks if an object or map has a property.
+		   * @param {Object|Map} o - The object or map to check.
+		   * @param {string} k - The key to check for.
+		   * @returns {boolean} True if the object or map has the key.
+		   */
 		  const obj_has = (o, k) =>
 		    o && (o instanceof Map ? o.has(k) : Object.hasOwn(o, k))
 		  const state = Gun.state
@@ -2065,494 +2187,501 @@ if (typeof module !== 'undefined') {
 		  const state_ify = state.ify
 
 		  /**
-		   * Creates a new chain instance.
-		   * @param {Function} [sub] - Optional subclass constructor.
-		   * @returns {Object} The new chain instance.
+		   * Ensures the context has an ask Map, initializing it if necessary.
+		   * @param {Object} context - The chain context.
+		   * @returns {Map} The ask Map.
 		   */
-		  Gun.chain.chain = function (sub) {
-		    const at = this._
-		    const chain = new (sub || this).constructor(this)
-		    const cat = chain._
-		    const root = at.root
-		    cat.root = root
-		    cat.id = ++root.once
-		    cat.back = this._
-		    cat.on = Gun.on
-		    cat.on('in', Gun.on.in, cat) // For 'in' if I add my own listeners to each then I MUST do it before in gets called. If I listen globally for all incoming data instead though, regardless of individual listeners, I can transform the data there and then as well.
-		    cat.on('out', Gun.on.out, cat) // However for output, there isn't really the global option. I must listen by adding my own listener individually BEFORE this one is ever called.
-		    return chain
+		  const ensureAskMap = (context) => {
+		    if (!context.ask) {
+		      context.ask = new Map()
+		    }
+		    return context.ask
 		  }
 
 		  /**
-		   * Handles outgoing messages for the chain.
+		   * Creates a new chain instance, setting up its context and event listeners.
+		   * @param {Function} [subConstructor] - Optional subclass constructor.
+		   * @returns {Object} The new chain instance.
+		   */
+		  Gun.chain.chain = function (subConstructor) {
+		    const currentContext = this._
+		    const newChain = new (subConstructor || this).constructor(this)
+		    const newContext = newChain._
+		    const root = currentContext.root
+
+		    newContext.root = root
+		    newContext.id = ++root.once
+		    newContext.back = this._
+		    newContext.on = Gun.on
+
+		    // Set up input listener; must be done before any custom listeners
+		    newContext.on('in', Gun.on.in, newContext)
+
+		    // Set up output listener; no global option, must be individual
+		    newContext.on('out', Gun.on.out, newContext)
+
+		    return newChain
+		  }
+
+		  /**
+		   * Handles outgoing messages for the chain, managing requests and cached data.
 		   * @param {Object} msg - The message to output.
 		   */
 		  function output(msg) {
-		    let get
-		    const at = this.as
-		    let back = at.back
-		    const root = at.root
-		    let tmp
+		    let request
+		    const context = this.as
+		    let parent = context.back
+		    const root = context.root
+		    let temp
+
 		    if (!msg.$) {
-		      msg.$ = at.$
+		      msg.$ = context.$
 		    }
+
 		    this.to.next(msg)
-		    if (at.err) {
-		      at.put = u
-		      at.on('in', { $: at.$, put: at.put })
+
+		    if (context.err) {
+		      context.put = u
+		      context.on('in', { $: context.$, put: context.put })
 		      return
 		    }
+
 		    if (msg.get) {
-		      get = msg.get
-		      /*if(u !== at.put){
-					at.on('in', at);
-					return;
-				}*/
+		      request = msg.get
 		      if (root.pass) {
-		        root.pass[at.id] = at
-		      } // will this make for buggy behavior elsewhere?
-		      if (at.lex) {
-		        tmp = msg.get = msg.get || {}
-		        Object.assign(tmp, at.lex)
+		        root.pass[context.id] = context
+		      } // Note: May cause buggy behavior elsewhere
+
+		      if (context.lex) {
+		        temp = msg.get = msg.get || {}
+		        Object.assign(temp, context.lex)
 		      }
-		      if (get['#'] || at.soul) {
-		        get['#'] = get['#'] || at.soul
-		        //root.graph[get['#']] = root.graph[get['#']] || {_:{'#':get['#'],'>':{}}};
+
+		      if (request['#'] || context.soul) {
+		        request['#'] = request['#'] || context.soul
 		        if (!msg['#']) {
 		          msg['#'] = text_rand(9)
-		        } // A3120 ?
-		        back = root.$.get(get['#'])._
-		        get = get['.']
-		        if (!get) {
-		          // soul
-		          tmp = back.ask?.get('') // check if we have already asked for the full node
-		          if (!back.ask) {
-		            back.ask = new Map()
+		        }
+		        parent = root.$.get(request['#'])._
+		        request = request['.']
+		        const parentSoul = parent.soul
+
+		        if (!request) {
+		          // Requesting full node (soul)
+		          temp = parent.ask?.get('')
+		          ensureAskMap(parent).set('', parent)
+		          if (u !== parent.put) {
+		            parent.on('in', parent) // Send cached data
+		            if (temp) {
+		              return // Already asked
+		            }
 		          }
-		          back.ask.set('', back) // add a flag that we are now.
-		          if (u !== back.put) {
-		            // if we already have data,
-		            back.on('in', back) // send what is cached down the chain
-		            if (tmp) {
-		              return
-		            } // and don't ask for it again.
-		          }
-		          msg.$ = back.$
-		        } else if (obj_has(back.put, get)) {
-		          // TODO: support #LEX !
-		          tmp = back.ask?.get(get)
-		          if (!back.ask) {
-		            back.ask = new Map()
-		          }
-		          back.ask.set(get, back.$.get(get)._)
-		          back.on('in', {
-		            get: get,
+		          msg.$ = parent.$
+		        } else if (obj_has(parent.put, request)) {
+		          // Requesting specific property
+		          temp = parent.ask?.get(request)
+		          ensureAskMap(parent).set(request, parent.$.get(request)._)
+		          parent.on('in', {
+		            get: request,
 		            put: {
-		              ':': back.put[get],
-		              '.': get,
-		              '#': back.soul,
-		              '>': state_is(root.graph[back.soul], get)
+		              ':': parent.put[request],
+		              '.': request,
+		              '#': parentSoul,
+		              '>': state_is(root.graph[parentSoul], request)
 		            }
 		          })
-		          if (tmp) {
-		            return
+		          if (temp) {
+		            return // Already asked
 		          }
 		        }
-		        /*put = (back.$.get(get)._);
-						if(!(tmp = put.ack)){ put.ack = -1 }
-						back.on('in', {
-							$: back.$,
-							put: Gun.state.ify({}, get, Gun.state(back.put, get), back.put[get]),
-							get: back.get
-						});
-						if(tmp){ return }
-					} else
-					if('string' != typeof get){
-						let put = {}, meta = (back.put||{})._;
-						Gun.obj.map(back.put, function(v,k){
-							if(!Gun.text.match(k, get)){ return }
-							put[k] = v;
-						})
-						if(!Gun.obj.empty(put)){
-							put._ = meta;
-							back.on('in', {$: back.$, put: put, get: back.get})
-						}
-						if(tmp = at.lex){
-							tmp = (tmp._) || (tmp._ = function(){});
-							if(back.ack < tmp.ask){ tmp.ask = back.ack }
-							if(tmp.ask){ return }
-							tmp.ask = 1;
-						}
-					}
-					*/
-		        root.ask(ack, msg) // A3120 ?
+
+		        root.ask(ack, msg)
 		        return root.on('in', msg)
 		      }
-		      //if(root.now){ root.now[at.id] = root.now[at.id] || true; at.pass = {} }
-		      if (get['.']) {
-		        if (at.get) {
-		          msg = { $: at.$, get: { '.': at.get } }
-		          if (!back.ask) {
-		            back.ask = new Map()
-		          }
-		          back.ask.set(at.get, msg.$._) // TODO: PERFORMANCE? More elegant way?
-		          return back.on('out', msg)
+
+		      if (request['.']) {
+		        if (context.get) {
+		          msg = { $: context.$, get: { '.': context.get } }
+		          ensureAskMap(parent).set(context.get, msg.$._)
+		          return parent.on('out', msg)
 		        }
-		        msg = { $: at.$, get: at.lex ? msg.get : {} }
-		        return back.on('out', msg)
+		        msg = { $: context.$, get: context.lex ? msg.get : {} }
+		        return parent.on('out', msg)
 		      }
-		      if (!at.ask) {
-		        at.ask = new Map()
-		      }
-		      at.ask.set('', at) //at.ack = at.ack || -1;
-		      if (at.get) {
-		        get['.'] = at.get
-		        if (!back.ask) {
-		          back.ask = new Map()
-		        }
-		        back.ask.set(at.get, msg.$._) // TODO: PERFORMANCE? More elegant way?
-		        return back.on('out', msg)
+
+		      ensureAskMap(context).set('', context)
+
+		      if (context.get) {
+		        request['.'] = context.get
+		        ensureAskMap(parent).set(context.get, msg.$._)
+		        return parent.on('out', msg)
 		      }
 		    }
-		    return back.on('out', msg)
+
+		    return parent.on('out', msg)
 		  }
 
 		  /**
-		   * Handles incoming messages for the chain.
+		   * Handles incoming messages for the chain, processing data updates and propagating to listeners.
 		   * @param {Object} msg - The incoming message.
-		   * @param {Object} [cat] - The chain context.
+		   * @param {Object} [context] - The chain context (optional, defaults to this.as).
 		   */
-		  function input(msg, cat) {
-		    cat = cat || this.as // TODO: V8 may not be able to optimize functions with different parameter calls, so try to do benchmark to see if there is any actual difference.
-		    const root = cat.root
+		  function input(msg, context) {
+		    context = context || this.as
+		    const root = context.root
 		    if (!msg.$) {
-		      msg.$ = cat.$
+		      msg.$ = context.$
 		    }
 		    let gun = msg.$
-		    const at = (gun || '')._ || empty
-		    let tmp = msg.put || ''
-		    let soul = tmp['#']
-		    let key = tmp['.']
-		    const change = u !== tmp['='] ? tmp['='] : tmp[':']
-		    const state = tmp['>'] || -Infinity
-		    let sat // eve = event, at = data at, cat = chain at, sat = sub at (children chains).
+		    const msgData = (gun || '')._ || empty
+		    let temp = msg.put || {}
+		    let soul = temp['#']
+		    let key = temp['.']
+		    const change = u !== temp['='] ? temp['='] : temp[':']
+		    const state = temp['>'] || -Infinity
+		    let subChain // Sub-chain for children
+
+		    // Handle old format conversion
 		    if (
 		      u !== msg.put &&
-		      (u === tmp['#'] ||
-		        u === tmp['.'] ||
-		        (u === tmp[':'] && u === tmp['=']) ||
-		        u === tmp['>'])
+		      (u === temp['#'] ||
+		        u === temp['.'] ||
+		        (u === temp[':'] && u === temp['=']) ||
+		        u === temp['>'])
 		    ) {
-		      // convert from old format
-		      if (!valid(tmp)) {
-		        soul = ((tmp || '')._ || '')['#']
+		      if (!valid(temp)) {
+		        soul = ((temp || '')._ || '')['#']
 		        if (!soul) {
-		          console.log('chain not yet supported for', tmp, '...', msg, cat)
+		          console.log('chain not yet supported for', temp, '...', msg, context)
 		          return
 		        }
-		        gun = cat.root.$.get(soul)
-		        return setTimeout.each(Object.keys(tmp).sort(), (k) => {
-		          // TODO: .keys( is slow // BUG? ?Some re-in logic may depend on this being sync?
-		          const state = state_is(tmp, k)
+		        gun = context.root.$.get(soul)
+		        // Process each key asynchronously; note: Object.keys is slow
+		        return setTimeout.each(Object.keys(temp).sort(), (k) => {
+		          const state = state_is(temp, k)
 		          if ('_' === k || u === state) {
 		            return
 		          }
-		          cat.on('in', {
+		          context.on('in', {
 		            $: gun,
-		            put: { '.': k, '#': soul, '=': tmp[k], '>': state },
+		            put: { '.': k, '#': soul, '=': temp[k], '>': state },
 		            VIA: msg
 		          })
 		        })
 		      }
-		      soul = at.back.soul
-		      key = at.has || at.get
-		      cat.on('in', {
-		        $: at.back.$,
+		      soul = msgData.back.soul
+		      key = msgData.has || msgData.get
+		      context.on('in', {
+		        $: msgData.back.$,
 		        put: {
 		          '.': key,
 		          '#': soul,
-		          '=': tmp,
-		          '>': state_is(at.back.put, key)
+		          '=': temp,
+		          '>': state_is(msgData.back.put, key)
 		        },
 		        via: msg
-		      }) // TODO: This could be buggy! It assumes/approximates data, other stuff could have corrupted it.
+		      }) // Note: This approximation may be buggy if data is corrupted
 		      return
 		    }
-		    if ((msg.seen || '')[cat.id]) {
+
+		    // Prevent processing duplicate messages
+		    if (msg.seen?.[context.id]) {
 		      return
 		    }
 		    if (!msg.seen) {
 		      msg.seen = {}
 		    }
-		    msg.seen[cat.id] = cat // help stop some infinite loops
+		    msg.seen[context.id] = context
 
-		    if (cat !== at) {
-		      // don't worry about this when first understanding the code, it handles changing contexts on a message. A soul chain will never have a different context.
-		      tmp = { ...msg } // make copy of message
-		      tmp.get = cat.get || tmp.get
-		      if (!cat.soul && !cat.has) {
-		        // if we do not recognize the chain type
-		        tmp.$$$ = tmp.$$$ || cat.$ // make a reference to wherever it came from.
-		      } else if (at.soul) {
-		        // a has (property) chain will have a different context sometimes if it is linked (to a soul chain). Anything that is not a soul or has chain, will always have different contexts.
-		        tmp.$ = cat.$
-		        tmp.$$ = tmp.$$ || at.$
+		    // Adjust message context if needed
+		    if (context !== msgData) {
+		      temp = { ...msg }
+		      temp.get = context.get || temp.get
+		      if (!context.soul && !context.has) {
+		        temp.$$$ = temp.$$$ || context.$
+		      } else if (msgData.soul) {
+		        temp.$ = context.$
+		        temp.$$ = temp.$$ || msgData.$
 		      }
-		      msg = tmp // use the message with the new context instead;
+		      msg = temp
 		    }
-		    unlink(msg, cat)
 
-		    if (
-		      (cat.soul /* && (cat.ask||'')['']*/ || msg.$$) &&
-		      state >= state_is(root.graph[soul], key)
-		    ) {
-		      // The root has an in-memory cache of the graph, but if our peer has asked for the data then we want a per deduplicated chain copy of the data that might have local edits on it.
-		      tmp = root.$.get(soul)._
-		      tmp.put = state_ify(tmp.put, key, state, change, soul)
+		    unlink(msg, context)
+
+		    // Update cache for soul chains or linked messages
+		    if ((context.soul || msg.$$) && state >= state_is(root.graph[soul], key)) {
+		      temp = root.$.get(soul)._
+		      temp.put = state_ify(temp.put, key, state, change, soul)
 		    }
-		    if (
-		      !at.soul /*&& (at.ask||'')['']*/ &&
-		      state >= state_is(root.graph[soul], key)
-		    ) {
-		      sat = (root.$.get(soul)._.next || '')[key]
-		      if (sat) {
-		        // Same as above here, but for other types of chains. // TODO: Improve perf by preventing echoes re-caching.
-		        sat.put = change // update cache
-		        const tmp = valid(change)
-		        if (typeof tmp === 'string') {
-		          sat.put = root.$.get(tmp)._.put || change // share same cache as what we're linked to.
+
+		    // Update cache for non-soul chains
+		    if (!msgData.soul && state >= state_is(root.graph[soul], key)) {
+		      subChain = root.$.get(soul)._.next?.[key]
+		      if (subChain) {
+		        subChain.put = change
+		        const validatedChange = valid(change)
+		        if (typeof validatedChange === 'string') {
+		          subChain.put = root.$.get(validatedChange)._.put || change
 		        }
 		      }
 		    }
 
-		    this.to?.next(msg) // 1st API job is to call all chain listeners.
-		    // TODO: Make input more reusable by only doing these (some?) calls if we are a chain we recognize? This means each input listener would be responsible for when listeners need to be called, which makes sense, as they might want to filter.
-		    if (cat.any) {
+		    // Propagate to next listener in chain
+		    this.to?.next(msg)
+
+		    // Handle any listeners
+		    if (context.any) {
 		      void Promise.all(
-		        Object.keys(cat.any).map((any) => {
-		          const anyValue = cat.any[any]
-		          return anyValue ? Promise.resolve(anyValue(msg)) : Promise.resolve()
+		        Object.keys(context.any).map((listenerId) => {
+		          const listener = context.any[listenerId]
+		          return listener ? Promise.resolve(listener(msg)) : Promise.resolve()
 		        })
 		      )
 		    }
-		    if (cat.echo) {
+
+		    // Handle echo listeners
+		    if (context.echo) {
 		      void Promise.all(
-		        Object.keys(cat.echo).map((lat) => {
-		          const latValue = cat.echo[lat]
-		          return latValue
-		            ? Promise.resolve(latValue.on('in', msg))
+		        Object.keys(context.echo).map((echoId) => {
+		          const echoChain = context.echo[echoId]
+		          return echoChain
+		            ? Promise.resolve(echoChain.on('in', msg))
 		            : Promise.resolve()
 		        })
 		      )
 		    }
 
-		    if (((msg.$$ || '')._ || at).soul) {
-		      // comments are linear, but this line of code is non-linear, so if I were to comment what it does, you'd have to read 42 other comments first... but you can't read any of those comments until you first read this comment. What!? // shouldn't this match link's check?
-		      // is there cases where it is a $$ that we do NOT want to do the following?
-		      sat = cat.next?.[key]
-		      if (sat) {
-		        // TODO: possible trick? Maybe have `ion map` code set a sat? // TODO: Maybe we should do `cat.ask` instead? I guess does not matter.
-		        tmp = {}
-		        Object.assign(tmp, msg)
-		        tmp.get = key
-		        tmp.$ = msg.$$?.get(tmp.get) || msg.$?.get(tmp.get)
-		        delete tmp.$$
-		        delete tmp.$$$
-		        sat.on('in', tmp)
+		    // Propagate to sub-chains if applicable
+		    if (((msg.$$ || '')._ || msgData).soul) {
+		      subChain = context.next?.[key]
+		      if (subChain) {
+		        temp = { ...msg }
+		        temp.get = key
+		        temp.$ = msg.$$?.get(temp.get) || msg.$?.get(temp.get)
+		        delete temp.$$
+		        delete temp.$$$
+		        subChain.on('in', temp)
 		      }
 		    }
 
-		    link(msg, cat)
+		    link(msg, context)
 		  }
 
 		  /**
-		   * Links chains for data propagation.
-		   * @param {Object} msg - The message.
-		   * @param {Object} cat - The chain context.
+		   * Links chains for data propagation, establishing connections between related data nodes.
+		   * @param {Object} msg - The message containing link information.
+		   * @param {Object} context - The chain context (optional, defaults to this.as or msg.$._).
 		   */
-		  function link(msg, cat) {
-		    cat = cat || this.as || msg.$._
-		    let sat
+		  function link(msg, context) {
+		    context = context || this.as || msg.$._
+		    let targetChain
+
+		    // Ignore messages from linked sources unless called directly
 		    if (msg.$$ && this !== Gun.on) {
 		      return
-		    } // $$ means we came from a link, so we are at the wrong level, thus ignore it unless overruled manually by being called directly.
-		    if (!msg.put || cat.soul) {
+		    }
+
+		    // Cannot link to nothing or link a soul chain
+		    if (!msg.put || context.soul) {
 		      return
-		    } // But you cannot overrule being linked to nothing, or trying to link a soul chain - that must never happen.
-		    const put = msg.put || ''
-		    let link = put['='] || put[':']
-		    let tmp
-		    const root = cat.root
-		    const tat = root.$.get(put['#']).get(put['.'])._
-		    link = valid(link)
-		    if (typeof link !== 'string') {
+		    }
+
+		    const put = msg.put || {}
+		    let linkTarget = put['='] || put[':']
+		    let temp
+		    const root = context.root
+		    const targetChainContext = root.$.get(put['#']).get(put['.'])._
+
+		    linkTarget = valid(linkTarget)
+		    if (typeof linkTarget !== 'string') {
+		      // Allow explicit linking to simple data when called from Gun.on
 		      if (this === Gun.on) {
-		        tat.echo = tat.echo || {}
-		        tat.echo[cat.id] = cat
-		      } // allow some chain to explicitly force linking to simple data.
-		      return // by default do not link to data that is not a link.
+		        targetChainContext.echo = targetChainContext.echo || {}
+		        targetChainContext.echo[context.id] = context
+		      }
+		      return // Do not link to non-link data by default
 		    }
-		    tat.echo = tat.echo || {}
-		    if (
-		      tat.echo?.[cat.id] && // we've already linked ourselves so we do not need to do it again. Except... (annoying implementation details)
-		      !root.pass?.[cat.id]
-		    ) {
-		      return
-		    } // if a new event listener was added, we need to make a pass through for it. The pass will be on the chain, not always the chain passed down.
-		    tmp = root.pass
-		    if (tmp?.[link + cat.id]) {
+
+		    targetChainContext.echo = targetChainContext.echo || {}
+
+		    // Avoid redundant linking unless a new listener requires a pass
+		    if (targetChainContext.echo[context.id] && !root.pass?.[context.id]) {
 		      return
 		    }
-		    if (tmp) {
-		      tmp[link + cat.id] = 1
-		    } // But the above edge case may "pass through" on a circular graph causing infinite passes, so we hackily add a temporary check for that.
 
-		    tat.echo = tat.echo || {}
-		    tat.echo[cat.id] = cat // set ourself up for the echo! // TODO: BUG? Echo to self no longer causes problems? Confirm.
+		    temp = root.pass
+		    // Prevent infinite passes on circular graphs
+		    if (temp?.[linkTarget + context.id]) {
+		      return
+		    }
+		    if (temp) {
+		      temp[linkTarget + context.id] = 1
+		    }
 
-		    if (cat.has) {
-		      cat.link = link
+		    // Set up echo for self
+		    targetChainContext.echo[context.id] = context
+
+		    if (context.has) {
+		      context.link = linkTarget
 		    }
-		    tat.link = link
-		    sat = root.$.get(link)?._ // grab what we're linking to.
-		    if (!sat?.echo) {
-		      if (sat) sat.echo = {}
+		    targetChainContext.link = linkTarget
+
+		    // Get the target chain we're linking to
+		    targetChain = root.$.get(linkTarget)?._
+		    if (targetChain && !targetChain.echo) {
+		      targetChain.echo = {}
 		    }
-		    if (sat?.echo) sat.echo[tat.id] = tat // link it.
-		    tmp = cat.ask || new Map() // ask the chain for what needs to be loaded next!
-		    if (cat.ask?.has('') || cat.lex) {
-		      // we might need to load the whole thing // TODO: cat.lex probably has edge case bugs to it, need more test coverage.
-		      sat?.on('out', { get: { '#': link } })
+		    if (targetChain?.echo) {
+		      targetChain.echo[targetChainContext.id] = targetChainContext
 		    }
+
+		    // Request data for pending asks
+		    temp = ensureAskMap(context)
+		    if (context.ask?.has('') || context.lex) {
+		      // Load the entire linked node; note: context.lex may have edge cases
+		      targetChain?.on('out', { get: { '#': linkTarget } })
+		    }
+
+		    // Request specific properties for sub-chains
 		    void Promise.all(
-		      [...tmp.keys()].map((get) => {
-		        // if sub chains are asking for data.
-		        const sat = tmp.get(get)
-		        if (!get || !sat) {
+		      [...temp.keys()].map((property) => {
+		        const subChain = temp.get(property)
+		        if (!property || !subChain) {
 		          return Promise.resolve()
 		        }
-		        return Promise.resolve(sat.on('out', { get: { '.': get, '#': link } })) // go get it.
+		        return Promise.resolve(
+		          subChain.on('out', { get: { '.': property, '#': linkTarget } })
+		        )
 		      })
 		    )
 		  }
 
 		  /**
-		   * Unlinks chains when data is removed.
-		   * @param {Object} msg - The message.
-		   * @param {Object} cat - The chain context.
+		   * Unlinks chains when data is removed, cleaning up connections and caches.
+		   * @param {Object} msg - The message indicating data removal.
+		   * @param {Object} context - The chain context.
 		   */
-		  function unlink(msg, cat) {
-		    // ugh, so much code for seemingly edge case behavior.
-		    const put = msg.put || ''
-		    const change = u !== put['='] ? put['='] : put[':']
-		    const root = cat.root
-		    let link
-		    let tmp
-		    if (u === change) {
-		      // 1st edge case: If we have a brand new database, no data will be found.
-		      // TODO: BUG! because emptying cache could be async from below, make sure we are not emptying a newer cache. So maybe pass an Async ID to check against?
-		      // TODO: BUG! What if this is a map? // Warning! Clearing things out needs to be robust against sync/async ops, or else you'll see `map val get put` test catastrophically fail because map attempts to link when parent graph is streamed before child value gets set. Need to differentiate between lack acks and force clearing.
-		      if (cat.soul && u !== cat.put) {
-		        return
-		      } // data may not be found on a soul, but if a soul already has data, then nothing can clear the soul as a whole.
-		      //if(!cat.has){ return }
-		      tmp = msg.$$?._ || msg.$?._ || ''
-		      if (msg?.['@'] && (u !== tmp.put || u !== cat.put)) {
-		        return
-		      } // a "not found" from other peers should not clear out data if we have already found it.
-		      //if(cat.has && u === cat.put && !(root.pass||'')[cat.id]){ return } // if we are already unlinked, do not call again, unless edge case. // TODO: BUG! This line should be deleted for "unlink deeply nested".
-		      link = cat.link || msg.linked
-		      if (link) {
-		        delete root.$.get(link)?._?.echo?.[cat.id]
+		  function unlink(msg, context) {
+		    const put = msg.put || {}
+		    const value = u !== put['='] ? put['='] : put[':']
+		    const root = context.root
+		    let linkTarget
+		    let temp
+
+		    if (u === value) {
+		      // Handle case where data is being cleared (e.g., not found or deleted)
+		      // Note: Potential bug with async cache clearing; may need async ID check
+		      // Note: Map handling may have issues with sync/async operations
+		      if (context.soul && u !== context.put) {
+		        return // Soul chains with existing data cannot be fully cleared
 		      }
-		      if (cat.has) {
-		        // TODO: Empty out links, maps, echos, acks/asks, etc.?
-		        cat.link = null
+
+		      temp = msg.$$?._ || msg.$?._ || {}
+		      if (msg['@'] && (u !== temp.put || u !== context.put)) {
+		        return // Don't clear if we have data and received not-found from peers
 		      }
-		      cat.put = u // empty out the cache if, for example, alice's car's color no longer exists (relative to alice) if alice no longer has a car.
-		      // TODO: BUG! For maps, proxy this so the individual sub is triggered, not all subs.
+
+		      linkTarget = context.link || msg.linked
+		      if (linkTarget) {
+		        delete root.$.get(linkTarget)?._?.echo?.[context.id]
+		      }
+
+		      if (context.has) {
+		        // TODO: Consider clearing links, maps, echoes, acks/asks
+		        context.link = null
+		      }
+
+		      context.put = u // Clear cache
+
+		      // Clear sub-chains
+		      // Note: For maps, may need to trigger individual subs instead of all
 		      void Promise.all(
-		        Object.keys(cat.next || {}).map((get) => {
-		          // empty out all sub chains.
-		          const sat = cat.next?.[get]
-		          if (!sat) {
+		        Object.keys(context.next || {}).map((property) => {
+		          const subChain = context.next?.[property]
+		          if (!subChain) {
 		            return Promise.resolve()
 		          }
-		          //if(cat.has && u === sat.put && !(root.pass||'')[sat.id]){ return } // if we are already unlinked, do not call again, unless edge case. // TODO: BUG! This line should be deleted for "unlink deeply nested".
-		          if (link) {
-		            delete root.$.get(link)?.get(get)?._?.echo?.[sat.id]
+		          if (linkTarget) {
+		            delete root.$.get(linkTarget)?.get(property)?._?.echo?.[subChain.id]
 		          }
-		          return Promise.resolve(sat.on('in', { $: sat.$, get: get, put: u })) // TODO: BUG? Add recursive seen check?
+		          return Promise.resolve(
+		            subChain.on('in', { $: subChain.$, get: property, put: u })
+		          )
 		        })
 		      )
 		      return
 		    }
-		    if (cat.soul) {
-		      return
-		    } // a soul cannot unlink itself.
+
+		    if (context.soul) {
+		      return // Soul chains cannot unlink themselves
+		    }
+
 		    if (msg.$$) {
-		      return
-		    } // a linked chain does not do the unlinking, the sub chain does. // TODO: BUG? Will this cancel maps?
-		    link = valid(change) // need to unlink anytime we are not the same link, though only do this once per unlink (and not on init).
-		    tmp = msg.$?._ || ''
-		    if (link === tmp?.link || (cat.has && !tmp?.link)) {
-		      if (root.pass?.[cat.id] && 'string' !== typeof link) {
+		      return // Linked chains don't handle unlinking; sub-chains do
+		    }
+
+		    linkTarget = valid(value) // Validate new link target
+		    temp = msg.$?._ || {}
+
+		    // Avoid redundant unlinking
+		    if (linkTarget === temp.link || (context.has && !temp.link)) {
+		      if (root.pass?.[context.id] && typeof linkTarget !== 'string') {
+		        // Allow during pass for non-string links
 		      } else {
 		        return
 		      }
 		    }
-		    delete tmp?.echo?.[cat.id]
-		    const linkedValue = msg.linked || tmp.link
-		    msg.linked = linkedValue
+
+		    delete temp.echo?.[context.id]
+		    const previousLink = msg.linked || temp.link
+		    msg.linked = previousLink
+
+		    // Recursively unlink sub-chains
 		    unlink(
 		      {
 		        $: msg.$,
-		        get: cat.get,
-		        linked: linkedValue,
+		        get: context.get,
+		        linked: previousLink,
 		        put: u
 		      },
-		      cat
-		    ) // unlink our sub chains.
+		      context
+		    )
 		  }
 
 		  /**
-		   * Handles acknowledgments for messages.
-		   * @param {Object} msg - The message.
+		   * Handles acknowledgments for messages, processing responses to requests.
+		   * @param {Object} msg - The acknowledgment message.
 		   */
 		  function ack(msg) {
-		    //if(!msg['%'] && (this||'').off){ this.off() } // do NOT memory leak, turn off listeners! Now handled by .ask itself
-		    // manhattan:
-		    const as = this.as
-		    const at = as.$._
-		    const get = as.get || ''
-		    const tmp = (msg.put || '')[get['#']] || ''
-		    if (
-		      !msg.put ||
-		      (typeof get?.['.'] === 'string' && u === tmp?.[get?.['.']])
-		    ) {
-		      if (u !== at.put) {
+		    // Memory leak prevention is now handled by .ask itself.
+		    const context = this.as
+		    const data = context.$._
+		    const req = context.get || {}
+		    const resp = msg.put?.[req['#']] || {}
+
+		    // Check if the response indicates no data found
+		    if (!msg.put || (typeof req['.'] === 'string' && u === resp[req['.']])) {
+		      // If we already have cached data, don't process
+		      if (u !== data.put) {
 		        return
 		      }
-		      if (!at.soul && !at.has) {
+		      // Only core chains (soul or has) handle not-found responses to avoid bugs
+		      if (!data.soul && !data.has) {
 		        return
-		      } // TODO: BUG? For now, only core-chains will handle not-founds, because bugs creep in if non-core chains are used as $ but we can revisit this later for more powerful extensions.
-		      at.ack = (at.ack || 0) + 1
-		      at.put = u
-		      at.on('in', {
+		      }
+		      data.ack = (data.ack || 0) + 1
+		      data.put = u
+		      data.on('in', {
 		        '@': msg['@'],
-		        $: at.$,
-		        get: at.get,
-		        put: at.put
+		        $: data.$,
+		        get: data.get,
+		        put: data.put
 		      })
-		      /*(tmp = at.Q) && setTimeout.each(Object.keys(tmp), function(id){ // TODO: Temporary testing, not integrated or being used, probably delete.
-					Object.keys(msg).forEach(function(k){ tmp[k] = msg[k] }, tmp = {}); tmp['@'] = id; // copy message
-					root.on('in', tmp);
-				}); delete at.Q;*/
 		      return
 		    }
+		    // Mark as a miss and delegate to put handler
 		    ;(msg._ || {}).miss = 1
 		    Gun.on.put(msg)
-		    return // eom
 		  }
 
 		  Gun.on.out = output
@@ -2572,63 +2701,74 @@ if (typeof module !== 'undefined') {
 		  const PATH_KEY = '.'
 
 		  /**
-		   * Handles retrieval for string keys.
+		   * Handles retrieval for string keys by returning or creating a cached chain.
 		   * @param {string} key - The string key to retrieve.
-		   * @param {function} [cb] - Optional callback function.
-		   * @param {object} context - The gun context.
-		   * @returns {object} The gun chain for the key.
+		   * @param {function} [callback] - Optional callback function for errors.
+		   * @param {object} chainContext - The Gun chain context.
+		   * @returns {object} The Gun chain for the key.
 		   */
-		  function handleStringKey(key, cb, context) {
+		  function handleStringKey(key, callback, chainContext) {
 		    if (key.length === 0) {
-		      const nodeChain = context.chain()
-		      nodeChain._.err = { err: Gun.log('0 length key!', key) }
-		      if (cb) {
-		        cb.call(nodeChain, nodeChain._.err)
+		      // Invalid: empty key
+		      const errorChain = chainContext.chain()
+		      errorChain._.err = { err: Gun.log('0 length key!', key) }
+		      if (callback) {
+		        callback.call(errorChain, errorChain._.err)
 		      }
-		      return nodeChain
+		      return errorChain
 		    }
-		    const currentContext = context._
-		    const nextChains = currentContext.next || EMPTY_OBJECT
-		    let nodeChain = nextChains[key]
-		    if (!nodeChain) {
-		      nodeChain = key && createCachedChain(key, context)
+		    const context = chainContext._
+		    const cachedChains = context.next || EMPTY_OBJECT
+		    let targetChain = cachedChains[key]
+		    if (!targetChain) {
+		      // Create and cache a new chain for this key
+		      targetChain = createCachedChain(key, chainContext)
 		    }
-		    return nodeChain?.$
+		    return targetChain?.$ // Return the chain's public interface
 		  }
 		  /**
-		   * Processes message data for get operations, handling links and not options.
-		   * @param {object} msg - The message object.
-		   * @param {object} getOptions - Options for the get operation.
-		   * @param {object} rootContext - The root context.
-		   * @returns {object} Processed data with at, nodeData, sat, and shouldSkip.
+		   * Processes message data for get operations, handling links and 'not' options.
+		   * Extracts node data from the message, resolving links if necessary.
+		   * @param {object} msg - The incoming message object.
+		   * @param {object} getOptions - Options for the get operation, including 'not' flag.
+		   * @param {object} rootContext - The root Gun context.
+		   * @returns {object} Processed data: { currentContext, nodeData, linkedContext, shouldSkip }
 		   */
 		  function processMessageData(msg, getOptions, rootContext) {
-		    const at = msg.$._
-		    const sat = (msg.$$ || '')._
-		    let nodeData = (sat || at).put
-		    if ((!at.has && !at.soul) || undefined === nodeData) {
-		      // Handle non-core data: extract from msg.put using core keys
-		      const passData = msg.put
+		    const currentContext = msg.$._
+		    const linkedContext = (msg.$$ || '')._
+		    let nodeData = (linkedContext || currentContext).put
+
+		    // If no core data (no soul or has), extract from msg.put using special keys
+		    if (
+		      (!currentContext.has && !currentContext.soul) ||
+		      nodeData === undefined
+		    ) {
+		      const messagePut = msg.put
+		      // Prefer '=' key, then ':' key, fallback to entire put
 		      nodeData =
-		        undefined === (passData || '')[CORE_KEY_EQUALS]
-		          ? undefined === (passData || '')[CORE_KEY_COLON]
-		            ? passData
-		            : passData[CORE_KEY_COLON]
-		          : passData[CORE_KEY_EQUALS]
+		        messagePut?.[CORE_KEY_EQUALS] !== undefined
+		          ? messagePut[CORE_KEY_EQUALS]
+		          : messagePut?.[CORE_KEY_COLON] !== undefined
+		            ? messagePut[CORE_KEY_COLON]
+		            : messagePut
 		    }
-		    let passData = Gun.valid(nodeData)
-		    const isLink = 'string' === typeof passData
+
+		    const validatedData = Gun.valid(nodeData)
+		    const isLink = typeof validatedData === 'string'
 		    if (isLink) {
-		      passData = rootContext.$.get(passData)._.put
+		      // Resolve link: get the linked node's data
+		      const linkedNodeData = rootContext.$.get(validatedData)._.put
 		      nodeData =
-		        undefined === passData
+		        linkedNodeData === undefined
 		          ? getOptions.not
 		            ? undefined
-		            : nodeData
-		          : passData
+		            : nodeData // If 'not' option and no data, return undefined
+		          : linkedNodeData
 		    }
-		    const shouldSkip = getOptions.not && undefined === nodeData
-		    return { at, nodeData, sat, shouldSkip }
+
+		    const shouldSkip = getOptions.not && nodeData === undefined
+		    return { at: currentContext, nodeData, sat: linkedContext, shouldSkip }
 		  }
 
 		  /**
@@ -2866,70 +3006,79 @@ if (typeof module !== 'undefined') {
 		    return nodeChain
 		  }
 		  /**
-		   * Creates a cached chain for the given key and back context.
+		   * Creates a cached chain for the given key and parent context.
+		   * Caches the chain to avoid recreating it for repeated accesses.
 		   * @param {string} key - The key for the chain.
-		   * @param {object} back - The back context.
-		   * @returns {object} The new chain context.
+		   * @param {object} parent - The parent Gun chain context.
+		   * @returns {object} The new child chain context.
 		   */
-		  function createCachedChain(key, back) {
-		    const backContext = back._
-		    backContext.next ??= {}
-		    const nextChains = backContext.next
-		    const newChain = back.chain()
-		    const newChainContext = newChain._
-		    newChainContext.get = key
-		    nextChains[key] = newChainContext
-		    if (back === backContext.root.$) {
-		      newChainContext.soul = key
-		    } else if (backContext.soul || backContext.has) {
-		      newChainContext.has = key
+		  function createCachedChain(key, parent) {
+		    const parentContext = parent._
+		    parentContext.next ??= {}
+		    const nextChains = parentContext.next
+		    const childChain = parent.chain()
+		    const childContext = childChain._
+		    childContext.get = key
+		    nextChains[key] = childContext
+
+		    // Determine if this is a root soul or a property/has
+		    if (parent === parentContext.root.$) {
+		      childContext.soul = key // Root-level key is a soul
+		    } else if (parentContext.soul || parentContext.has) {
+		      childContext.has = key // Child of soul or has is a property
 		    }
-		    return newChainContext
+
+		    return childContext
 		  }
 		  /**
-		   * Extracts the soul from the gun context.
-		   * @param {object} gun - The gun instance.
-		   * @param {function} cb - The callback function.
-		   * @param {*} _opt - Options (unused).
-		   * @param {*} as - Additional context.
-		   * @returns {object} The gun instance.
+		   * Extracts the soul (unique identifier) from the Gun context.
+		   * If soul is not immediately available, queues the callback and waits for network acknowledgments.
+		   * @param {object} gun - The Gun chain instance.
+		   * @param {function} callback - The callback function to receive the soul.
+		   * @param {*} _options - Unused options parameter.
+		   * @param {*} additionalContext - Additional context passed to callback.
+		   * @returns {object} The Gun instance.
 		   */
-		  function extractSoul(gun, cb, _opt, as) {
-		    const gunContext = gun._
-		    const soulValue = gunContext.soul || gunContext.link
-		    if (soulValue) {
-		      return cb(soulValue, as, gunContext)
+		  function extractSoul(gun, callback, _options, additionalContext) {
+		    const context = gun._
+		    const soul = context.soul || context.link
+		    if (soul) {
+		      // Soul is already available, call callback immediately
+		      return callback(soul, additionalContext, context)
 		    }
-		    if (gunContext.jam) {
-		      return gunContext.jam.push([cb, as])
+		    if (context.jam) {
+		      // Queue is already set up, add to existing queue
+		      return context.jam.push([callback, additionalContext])
 		    }
-		    gunContext.jam = [[cb, as]]
-		    let ackCount = 0
+		    // Initialize queue with this callback
+		    context.jam = [[callback, additionalContext]]
+		    let acknowledgmentCount = 0
 		    gun.get(
-		      (msg, eve) => {
-		        const peerCount = Object.keys(gunContext.root.opt.peers).length
+		      (message, event) => {
+		        const peerCount = Object.keys(context.root.opt.peers).length
 		        if (
-		          undefined === msg.put &&
-		          !gunContext.root.opt.super &&
+		          message.put === undefined &&
+		          !context.root.opt.super &&
 		          peerCount &&
-		          ++ackCount <= peerCount
+		          ++acknowledgmentCount <= peerCount
 		        ) {
-		          // Wait for acknowledgments from all peers before extracting soul to ensure data consistency across the network
+		          // Wait for acknowledgments from all peers to ensure data consistency
 		          return
 		        }
-		        eve.rid(msg)
-		        const msgContext = msg.$ ? msg.$._ : {}
-		        const jamQueue = gunContext.jam
-		        delete gunContext.jam
-		        jamQueue.forEach((callbackArgs) => {
+		        event.rid(message)
+		        const messageContext = message.$ ? message.$._ : {}
+		        const callbackQueue = context.jam
+		        delete context.jam
+		        callbackQueue.forEach((callbackArgs) => {
 		          if (!callbackArgs) return
 		          const [cb, args] = callbackArgs
+		          // Extract soul ID from various possible sources
 		          const soulId =
-		            msgContext.link ||
-		            msgContext.soul ||
-		            Gun.valid(msg.put) ||
-		            msg.put?._?.['#']
-		          cb?.(soulId, args, msg, eve)
+		            messageContext.link ||
+		            messageContext.soul ||
+		            Gun.valid(message.put) ||
+		            message.put?._?.['#']
+		          cb?.(soulId, args, message, event)
 		        })
 		      },
 		      { out: { get: { [PATH_KEY]: true } } }
@@ -3263,11 +3412,17 @@ if (typeof module !== 'undefined') {
 		   * @module core
 		   * Core module that loads all Gun components and exports the Gun constructor.
 		   */
+		  // Load the root Gun constructor and base functionality
 		  const Gun = USE('./root')
+		  // Load chain methods for data manipulation and traversal
 		  USE('./chain')
+		  // Load backend and storage integration functionality
 		  USE('./back')
+		  // Load put operations for data writing
 		  USE('./put')
+		  // Load get operations for data reading
 		  USE('./get')
+		  // Export the Gun constructor as the module's main export
 		  module.exports = Gun
 	})(USE, './core');
 
@@ -3864,311 +4019,328 @@ if (typeof module !== 'undefined') {
 	;USE(function(module){
 		USE('./shim')
 
-		  /**
-		   * No-op function.
-		   */
-		  const noop = () => {}
-
-		  /**
-		   * Retry helper for async operations.
-		   * @param {function} fn - Function to retry.
-		   * @param {number} maxRetries - Maximum retries.
-		   * @returns {function} Retried function.
-		   */
-		  const retry =
-		    (fn, maxRetries = 3) =>
-		    (...args) => {
-		      const cb = args[args.length - 2] // assuming cb is second last
-		      let attempts = 0
-		      const attempt = () => {
-		        fn(...args.slice(0, -1), (err, ...rest) => {
-		          if (err && attempts < maxRetries) {
-		            attempts++
-		            setTimeout(attempt, 10)
-		            return
-		          }
-		          cb(err, ...rest)
-		        })
-		      }
-		      attempt()
-		    }
-
-		  /**
-		   * Asynchronous JSON parse with retries and validation.
-		   * @param {string} t - JSON string to parse.
-		   * @param {function} cb - Callback (err, result, time).
-		   * @param {function} r - Reviver function.
-		   */
 		  const parse =
 		    JSON.parseAsync ||
-		    retry((t, cb, r) => {
-		      if (typeof t !== 'string')
-		        return cb(new Error('Invalid input: not a string'))
-		      t = t.trim()
+		    ((t, cb, r) => {
 		      const d = Date.now()
 		      try {
-		        cb(null, JSON.parse(t, r), json.sucks(Date.now() - d))
+		        cb(undefined, JSON.parse(t, r), json.sucks(Date.now() - d))
 		      } catch (e) {
 		        cb(e)
 		      }
 		    })
-
-		  /**
-		   * Asynchronous JSON stringify with retries.
-		   * @param {*} v - Value to stringify.
-		   * @param {function} cb - Callback (err, result, time).
-		   * @param {function} r - Replacer function.
-		   * @param {number|string} s - Space.
-		   */
 		  const json =
 		    JSON.stringifyAsync ||
-		    retry((v, cb, r, s) => {
+		    ((v, cb, r, s) => {
 		      const d = Date.now()
 		      try {
-		        cb(null, JSON.stringify(v, r, s), json.sucks(Date.now() - d))
+		        cb(undefined, JSON.stringify(v, r, s), json.sucks(Date.now() - d))
 		      } catch (e) {
 		        cb(e)
 		      }
 		    })
-
-		  /**
-		   * Warns if JSON operation takes too long.
-		   * @param {number} d - Duration in ms.
-		   */
 		  json.sucks = (d) => {
 		    if (d > 99) {
 		      console.log(
 		        'Warning: JSON blocking CPU detected. Add `gun/lib/yson.js` to fix.'
 		      )
-		      json.sucks = noop
+		      json.sucks = () => {}
 		    }
 		  }
 
 		  /**
-		   * Creates a mesh instance for peer communication and message handling.
-		   * @param {object} root - The Gun root instance.
-		   * @returns {object} The mesh instance with hear, say, hi, bye methods.
+		   * Creates a mesh network handler for Gun.js peer-to-peer communication.
+		   * Manages message routing, deduplication, batching, and peer connections.
+		   * @param {object} root - The root Gun instance containing options and event handlers.
+		   * @returns {object} Mesh object with hear, say, hi, bye, and other networking methods.
 		   */
 		  function Mesh(root) {
 		    const mesh = () => {}
 		    const opt = root.opt || {}
-		    opt.log = opt.log || console.log
-		    opt.gap = opt.gap || opt.wait || 0
-		    opt.max = opt.max || (opt.memory ? opt.memory * 999 * 999 : 300000000) * 0.3
-		    opt.pack = opt.pack || opt.max * 0.01 * 0.01
-		    opt.puff = opt.puff || 9
-
+		    opt.log ||= console.log
+		    opt.gap ||= opt.wait || 0
+		    opt.max ||= (opt.memory ? opt.memory * 999 * 999 : 300000000) * 0.3
+		    opt.pack ||= opt.max * 0.01 * 0.01
+		    opt.puff ||= 9 // IDEA: do a start/end benchmark, divide ops/result.
 		    const puff = setTimeout.turn || setTimeout
 
 		    const dup = root.dup
 		    const dup_check = dup.check
 		    const dup_track = dup.track
 
-		    mesh.hear = function (raw, peer) {
-		      if (!raw) return
+		    /**
+		     * Processes incoming messages from peers, handling JSON parsing, deduplication, and message routing.
+		     * @param {string|object} raw - The raw message data received from the peer.
+		     * @param {object} peer - The peer object representing the sender.
+		     */
+		    const hear = function (raw, peer) {
+		      if (!raw) {
+		        return
+		      }
 		      if (opt.max <= raw.length) {
 		        return mesh.say({ dam: '!', err: 'Message too big!' }, peer)
 		      }
 		      if (mesh === this) {
 		        hear.d += raw.length || 0
 		        ++hear.c
-		      }
-		      peer.SH = Date.now()
-		      const S = peer.SH
+		      } // STATS!
+		      const S = Date.now()
+		      peer.SH = S
 		      const tmp = raw[0]
 		      let msg
-
+		      //raw && raw.slice && console.log("hear:", ((peer.wire||'').headers||'').origin, raw.length, raw.slice && raw.slice(0,50)); //tc-iamunique-tc-package-ds1
 		      if ('[' === tmp) {
 		        parse(raw, (err, msg) => {
-		          if (err || !msg)
+		          if (err || !msg) {
 		            return mesh.say({ dam: '!', err: 'DAM JSON parse error.' }, peer)
+		          }
 		          console.STAT?.(Date.now(), msg.length, '# on hear batch')
-		          const P = opt.puff
-		          ;(function go() {
+		          const P = opt.puff /**
+		           * Processes a batch of messages asynchronously to prevent blocking the event loop.
+		           */
+		          ;(function processMessageBatch() {
 		            const S = Date.now()
-		            msg.splice(0, P).forEach((m) => {
-		              if (m) mesh.hear(m, peer)
-		            })
+		            let i = 0
+		            let m
+		            while (i < P) {
+		              m = msg[i]
+		              i++
+		              mesh.hear(m, peer)
+		            }
+		            msg = msg.slice(i) // slicing after is faster than shifting during.
 		            console.STAT?.(S, Date.now() - S, 'hear loop')
-		            flush(peer)
-		            if (!msg.length) return
-		            puff(go, 0)
+		            flush(peer) // force send all synchronously batched acks.
+		            if (!msg.length) {
+		              return
+		            }
+		            puff(processMessageBatch, 0) // Yield to event loop for batch processing to prevent blocking.
 		          })()
 		        })
-		        raw = ''
+		        raw = '' //
 		        return
 		      }
-
 		      if ('{' === tmp) {
 		        parse(raw, (err, msg) => {
-		          if (err || !msg)
+		          if (err || !msg) {
 		            return mesh.say({ dam: '!', err: 'DAM JSON parse error.' }, peer)
+		          }
 		          hear.one(msg, peer, S)
 		        })
 		        return
 		      }
-
 		      if (raw['#'] || Object.plain(raw)) {
 		        msg = raw
-		        return hear.one(msg, peer, S)
+		        if (msg) {
+		          return hear.one(msg, peer, S)
+		        }
+		        parse(raw, (err, msg) => {
+		          if (err || !msg) {
+		            return mesh.say({ dam: '!', err: 'DAM JSON parse error.' }, peer)
+		          }
+		          hear.one(msg, peer, S)
+		        })
+		        return
 		      }
 		    }
-
-		    const hear = mesh.hear
-
+		    mesh.hear = hear
 		    hear.one = (msg, peer, S) => {
+		      // S here is temporary! Undo.
 		      let id, hash, tmp, ash, DBG
-		      if (msg.DBG) msg.DBG = DBG = { DBG: msg.DBG }
+		      if (msg.DBG) {
+		        msg.DBG = DBG = { DBG: msg.DBG }
+		      }
 		      if (DBG) {
 		        DBG.h = S
 		        DBG.hp = Date.now()
 		      }
 		      id = msg['#']
-		      if (!id) id = msg['#'] = String.random(9)
-		      tmp = dup_check(id)
-		      if (tmp) return
-		      if (hash) {
-		        tmp = msg['@'] || (msg.get && id)
-		        ash = tmp + hash
-		        if (dup.check(ash)) {
-		          return
-		        }
+		      if (!id) {
+		        id = String.random(9)
+		        msg['#'] = id
 		      }
+		      tmp = dup_check(id)
+		      if (tmp) {
+		        return
+		      }
+		      // DAM logic:
+		      hash = msg['##']
+		      // disable hashing for now // TODO: impose warning/penalty instead (?)
+		      tmp = msg['@'] || (msg.get && id)
+		      ash = tmp + hash
+		      if (hash && tmp && dup.check(ash)) {
+		        return
+		      } // Imagine A <-> B <=> (C & D), C & D reply with same ACK but have different IDs, B can use hash to dedup. Or if a GET has a hash already, we shouldn't ACK if same.
 		      msg._ = () => {}
 		      msg._.via = mesh.leap = peer
 		      tmp = msg['><']
-		      if (tmp && typeof tmp === 'string') {
+		      if (tmp && 'string' === typeof tmp) {
 		        msg._.yo = {}
-		        for (const k of Iterator.from(tmp.slice(0, 99).split(',')).take(99)) {
+		        for (const k of tmp.slice(0, 99).split(',')) {
 		          msg._.yo[k] = 1
 		        }
-		      }
-		      tmp = msg.dam
-		      if (tmp) {
-		        ;(dup_track(id) || {}).via = peer
-		        tmp = mesh.hear[tmp]
-		        if (tmp) tmp(msg, peer, root)
+		      } // Peers already sent to, do not resend.
+		      // DAM ^
+		      if (msg.dam && mesh.hear[msg.dam]) {
+		        mesh.hear[msg.dam](msg, peer, root)
+		        dup_track(id)
 		        return
 		      }
 		      tmp = msg.ok
-		      if (tmp) msg._.near = tmp['/']
-		      const SS = Date.now()
-		      if (DBG) DBG.is = SS
+		      if (tmp) {
+		        msg._.near = tmp['/']
+		      }
+		      const S_inner = Date.now()
+		      if (DBG) DBG.is = S_inner
 		      peer.SI = id
 		      dup_track.ed = (d) => {
-		        if (id !== d) return
+		        if (id !== d) {
+		          return
+		        }
 		        dup_track.ed = 0
 		        d = dup.s[id]
-		        if (!d) return
+		        if (!d) {
+		          return
+		        }
 		        d.via = peer
-		        if (msg.get) d.it = msg
+		        if (msg.get) {
+		          d.it = msg
+		        }
 		      }
 		      mesh.last = msg
-		      root.on('in', mesh.last)
+		      root.on('in', msg)
 		      if (DBG) DBG.hd = Date.now()
 		      console.STAT?.(
-		        SS,
-		        Date.now() - SS,
+		        S_inner,
+		        Date.now() - S_inner,
 		        msg.get ? 'msg get' : msg.put ? 'msg put' : 'msg'
 		      )
-		      dup_track(id)
-		      if (ash) dup_track(ash)
-		      mesh.leap = mesh.last = null
+		      dup_track(id) // in case 'in' does not call track.
+		      if (ash) {
+		        dup_track(ash)
+		      } //dup.track(tmp+hash, true).it = it(msg);
+		      mesh.leap = mesh.last = null // warning! mesh.leap could be buggy.
 		    }
-
 		    hear.c = hear.d = 0
 
 		    ;(() => {
-		      let noPeerAckCount = 0
+		      let SMIA = 0
 		      let loop
-
-		      /**
-		       * Hashes the message put data and sends the message.
-		       * @param {object} msg - The message to hash.
-		       * @param {object} peer - The target peer.
-		       */
 		      mesh.hash = (msg, peer) => {
-		        let h, s, t
-		        const S = Date.now()
+		        let currentHash
+		        let remainingText
+		        let fullJsonText
+		        const hashStartTime = Date.now()
 		        json(
 		          msg.put,
-		          function hash(_err, text) {
-		            if (!s) {
-		              t = text || ''
-		              s = t
+		          /**
+		           * Processes JSON text in chunks to compute a hash without blocking the event loop.
+		           * @param {Error|null} _error - Potential error from JSON serialization.
+		           * @param {string} jsonText - The serialized JSON text.
+		           */
+		          function processHashChunk(_error, jsonText) {
+		            if (!remainingText) {
+		              remainingText = fullJsonText = jsonText || ''
 		            }
-		            const ss = s.slice(0, 32768)
-		            h = String.hash(ss, h)
-		            s = s.slice(32768)
-		            if (s) {
-		              puff(hash, 0)
+		            const chunk = remainingText.slice(0, 32768) // Process in 32KB chunks to avoid blocking.
+		            currentHash = String.hash(chunk, currentHash)
+		            remainingText = remainingText.slice(32768)
+		            if (remainingText) {
+		              puff(processHashChunk, 0) // Continue hashing in next tick to avoid blocking.
 		              return
 		            }
-		            console.STAT?.(S, Date.now() - S, 'say json+hash')
-		            msg._.$put = t
-		            msg['##'] = h
+		            console.STAT?.(
+		              hashStartTime,
+		              Date.now() - hashStartTime,
+		              'say json+hash'
+		            )
+		            msg._.$put = fullJsonText
+		            msg['##'] = currentHash
 		            mesh.say(msg, peer)
 		            delete msg._.$put
 		          },
-		          sort
+		          sortObjectKeysForHashing
 		        )
 		      }
-
-		      function sort(_k, v) {
-		        if (!(v instanceof Object)) return v
-		        const sorted = {}
-		        Object.keys(v).sort().forEach(sorta, { on: v, to: sorted })
-		        return sorted
+		      /**
+		       * Sorts object keys alphabetically for consistent JSON hashing.
+		       * @param {string} _key - The key (unused).
+		       * @param {*} value - The value to process.
+		       * @returns {*} The sorted object or original value.
+		       */
+		      const sortObjectKeysForHashing = (_key, value) => {
+		        if (!(value instanceof Object)) {
+		          return value
+		        }
+		        const sortedObject = {}
+		        for (const key of Object.keys(value).sort()) {
+		          sortedObject[key] = value[key]
+		        }
+		        return sortedObject
 		      }
-		      function sorta(k) {
-		        this.to[k] = this.on[k]
-		      }
 
+		      /**
+		       * Sends a message to a specific peer or broadcasts it, handling serialization, batching, deduplication, and routing.
+		       * @param {object} msg - The message object to send.
+		       * @param {object} [peer] - The target peer; if omitted, broadcasts to all known peers.
+		       * @returns {boolean|undefined} False if sending failed, otherwise undefined.
+		       */
 		      mesh.say = function (msg, peer) {
 		        let tmp
 		        tmp = this
-		        const to = tmp ? tmp.to : null
-		        if (tmp && to && to.next) to.next(msg)
-		        if (!msg) return false
-		        let id,
-		          hash,
-		          raw,
-		          ack = msg['@']
+		        if (tmp) {
+		          tmp = tmp.to
+		          if (tmp?.next) {
+		            tmp.next(msg)
+		          }
+		        } // compatible with middleware adapters.
+		        if (!msg) {
+		          return false
+		        }
+		        let id
+		        let raw
+		        const ack = msg['@']
 		        let meta = msg._
-		        if (!meta) meta = msg._ = () => {}
-		        const DBG = msg.DBG
-		        const S = Date.now()
-		        meta.y = meta.y || S
+		        if (!meta) {
+		          meta = () => {}
+		          msg._ = meta
+		        }
+		        const DBG = msg.DBG,
+		          S = Date.now()
+		        meta.y ||= S
 		        if (!peer) {
 		          if (DBG) DBG.y = S
 		        }
 		        id = msg['#']
-		        if (!id) id = msg['#'] = String.random(9)
-		        !loop && dup_track(id)
-		        hash = msg['##']
+		        if (!id) {
+		          id = String.random(9)
+		          msg['#'] = id
+		        }
+		        !loop && dup_track(id) //.it = it(msg); // track for 9 seconds, default. Earth<->Mars would need more! // always track, maybe move this to the 'after' logic if we split function.
+		        const hash = msg['##']
 		        if (!hash && undefined !== msg.put && !meta.via && ack) {
 		          mesh.hash(msg, peer)
 		          return
-		        }
+		        } // TODO: Should broadcasts be hashed?
 		        if (!peer && ack) {
-		          const leftTmp = dup.s[ack]
-		          const left = leftTmp && (leftTmp.via || leftTmp.it?._?.via)
-		          const rightTmp = mesh.last
-		          const right = rightTmp && ack === rightTmp['#'] && mesh.leap
-		          peer = left || right
-		        }
+		          peer =
+		            dup.s[ack]?.via ||
+		            dup.s[ack]?.it?._?.via ||
+		            (mesh.last && ack === mesh.last['#'] && mesh.leap)
+		        } // warning! mesh.leap could be buggy! mesh last check reduces this. // TODO: CLEAN UP THIS LINE NOW? `.it` should be reliable.
 		        if (!peer && ack) {
-		          if (dup.s[ack]) return
-		          console.STAT?.(
-		            Date.now(),
-		            ++noPeerAckCount,
-		            'total no peer to ack to'
-		          )
+		          // still no peer, then ack daisy chain 'tunnel' got lost.
+		          if (dup.s[ack]) {
+		            return
+		          } // in dups but no peer hints that this was ack to ourself, ignore.
+		          console.STAT?.(Date.now(), ++SMIA, 'total no peer to ack to') // TODO: Delete this now. Dropping lost ACKs is protocol fine now.
 		          return false
+		        } // TODO: Temporary? If ack via trace has been lost, acks will go to all peers, which trashes browser bandwidth. Not relaying the ack will force sender to ask for ack again. Note, this is technically wrong for mesh behavior.
+		        if (ack && !msg.put && !hash && dup.s[ack]?.it?.['##']) {
+		          return false
+		        } // If we're saying 'not found' but a relay had data, do not bother sending our not found. // Is this correct, return false? // NOTE: ADD PANIC TEST FOR THIS!
+		        if (!peer && mesh.way) {
+		          return mesh.way(msg)
 		        }
-		        if (ack && !msg.put && !hash && ((dup.s[ack] || '').it || '')['##'])
-		          return false
-		        if (!peer && mesh.way) return mesh.way(msg)
 		        if (DBG) DBG.yh = Date.now()
 		        raw = meta.raw
 		        if (!raw) {
@@ -4176,52 +4348,70 @@ if (typeof module !== 'undefined') {
 		          return
 		        }
 		        if (DBG) DBG.yr = Date.now()
-
 		        if (!peer || !peer.id) {
-		          if (!Object.plain(peer || opt.peers)) return false
-		          const SS = Date.now()
-		          ps = opt.peers
-		          pl = Object.keys(peer || opt.peers || {})
-		          console.STAT?.(SS, Date.now() - SS, 'peer keys')
-		          ;(function go() {
-		            const SS = Date.now()
+		          if (!Object.plain(peer || opt.peers)) {
+		            return false
+		          }
+		          const S = Date.now()
+		          let _P = opt.puff,
+		            ps = opt.peers,
+		            pl = Object.keys(peer || opt.peers || {}) // TODO: .keys( is slow
+		          console.STAT?.(S, Date.now() - S, 'peer keys') /**
+		           * Processes a batch of messages asynchronously to prevent blocking the event loop.
+		           */
+		          ;(function processMessageBatch() {
+		            const S = Date.now()
+		            //Type.obj.map(peer || opt.peers, each); // in case peer is a peer list.
 		            loop = 1
 		            const wr = meta.raw
-		            meta.raw = raw
-		            let i = 0,
-		              p
-		            p = (pl || '')[i++]
-		            while (i < 9 && p) {
+		            meta.raw = raw // quick perf hack
+		            let i = 0
+		            let p
+		            while (i < 9) {
+		              p = (pl || '')[i]
+		              i++
 		              p = ps[p] || (peer || '')[p]
 		              if (!p) {
-		                p = (pl || '')[i++]
 		                continue
 		              }
 		              mesh.say(msg, p)
-		              p = (pl || '')[i++]
 		            }
 		            meta.raw = wr
 		            loop = 0
-		            pl = pl.slice(i)
-		            console.STAT?.(SS, Date.now() - SS, 'say loop')
-		            if (!pl.length) return
-		            puff(go, 0)
-		            ack && dup_track(ack)
+		            pl = pl.slice(i) // slicing after is faster than shifting during.
+		            console.STAT?.(S, Date.now() - S, 'say loop')
+		            if (!pl.length) {
+		              return
+		            }
+		            puff(processMessageBatch, 0) // Process next batch of peers asynchronously.
+		            ack && dup_track(ack) // keep for later
 		          })()
 		          return
 		        }
-
-		        if (!peer.wire && mesh.wire) mesh.wire(peer)
-		        if (id === peer.last) return
-		        peer.last = id
-		        if (peer === meta.via) return false
-		        tmp = meta.yo
-		        if (tmp && (tmp[peer.url] || tmp[peer.pid] || tmp[peer.id]))
+		        // TODO: PERF: consider splitting function here, so say loops do less work.
+		        if (!peer.wire && mesh.wire) {
+		          mesh.wire(peer)
+		        }
+		        if (id === peer.last) {
+		          return
+		        }
+		        peer.last = id // was it just sent?
+		        if (peer === meta.via) {
 		          return false
-		        ;(DBG || meta).yp = Date.now()
-		        console.STAT?.(S, (DBG || meta).yp - (meta.y || S), 'say prep')
-		        !loop && ack && dup_track(ack)
-
+		        } // don't send back to self.
+		        if (meta.yo?.[peer.url] || meta.yo?.[peer.pid] || meta.yo?.[peer.id]) {
+		          return false
+		        }
+		        console.STAT?.(
+		          S,
+		          (() => {
+		            const yp = Date.now()
+		            ;(DBG || meta).yp = yp
+		            return yp
+		          })() - (meta.y || S),
+		          'say prep'
+		        )
+		        !loop && ack && dup_track(ack) // streaming long responses needs to keep alive the ack.
 		        if (peer.batch) {
 		          tmp = peer.tail || 0
 		          peer.tail = tmp + raw.length
@@ -4231,79 +4421,91 @@ if (typeof module !== 'undefined') {
 		          }
 		          flush(peer)
 		        }
-
-		        peer.batch = '['
+		        peer.batch = '[' // Prevents double JSON!
 		        const ST = Date.now()
 		        setTimeout(() => {
 		          console.STAT?.(ST, Date.now() - ST, '0ms TO')
 		          flush(peer)
-		        }, opt.gap)
+		        }, opt.gap) // Batch messages with delay to allow accumulation; may impact latency.
 		        send(raw, peer)
 		        console.STAT &&
 		          ack === peer.SI &&
 		          console.STAT(S, Date.now() - peer.SH, 'say ack')
 		      }
-
 		      mesh.say.c = mesh.say.d = 0
-
-		      mesh.raw = (msg, peer) => {
-		        if (!msg) return ''
+		      // TODO: this caused a out-of-memory crash!
+		      mesh.raw = (msg, _peer) => {
+		        // TODO: Clean this up / delete it / move logic out!
+		        if (!msg) {
+		          return ''
+		        }
 		        const meta = msg._ || {}
-		        let put, tmp
+		        let put
+		        let tmp
 		        tmp = meta.raw
-		        if (tmp) return tmp
-		        if (typeof msg === 'string') return msg
-		        const hash = msg['##'],
-		          ack = msg['@']
-
+		        if (tmp) {
+		          return tmp
+		        }
+		        if (typeof msg === 'string') {
+		          return msg
+		        }
+		        const hash = msg['##']
+		        const ack = msg['@']
 		        if (hash && ack) {
-		          if (!meta.via && dup_check(ack + hash)) return false
-		          tmp = (dup.s[ack] || '').it
+		          if (!meta.via && dup_check(ack + hash)) {
+		            return false
+		          } // for our own out messages, memory & storage may ack the same thing, so dedup that. Tho if via another peer, we already tracked it upon hearing, so this will always trigger false positives, so don't do that!
+		          tmp = dup.s[ack]?.it
 		          if (tmp) {
-		            if (hash === tmp['##']) return false
-		            if (!tmp['##']) tmp['##'] = hash
+		            if (hash === tmp['##']) {
+		              return false
+		            } // if ask has a matching hash, acking is optional.
+		            if (!tmp['##']) {
+		              tmp['##'] = hash
+		            } // if none, add our hash to ask so anyone we relay to can dedup. // NOTE: May only check against 1st ack chunk, 2nd+ won't know and still stream back to relaying peers which may then dedup. Any way to fix this wasted bandwidth? I guess force rate limiting breaking change, that asking peer has to ask for next lexical chunk.
 		          }
 		        }
-
 		        if (!msg.dam && !msg['@']) {
-		          tmp = opt.peers
-		          const to = Object.keys(tmp)
-		            .slice(0, 7)
-		            .map((k) => tmp[k].url || tmp[k].pid || tmp[k].id)
-		          if (to.length > 1) msg['><'] = to.join()
-		        }
-
-		        if (msg.put) {
-		          tmp = msg.ok
-		          if (tmp) {
-		            msg.ok = {
-		              '@': (tmp['@'] || 1) - 1,
-		              '/': tmp['/'] === msg._.near ? mesh.near : tmp['/']
+		          const to = []
+		          for (const [_k, p] of Object.entries(opt.peers)) {
+		            to.push(p.url || p.pid || p.id)
+		            if (to.length > 6) {
+		              break
 		            }
+		          }
+		          if (to.length > 1) {
+		            msg['><'] = to.join()
+		          } // TODO: BUG! This gets set regardless of peers sent to! Detect?
+		        }
+		        tmp = msg.ok
+		        if (msg.put && tmp) {
+		          msg.ok = {
+		            '@': (tmp['@'] ?? 1) - 1,
+		            '/': tmp['/'] === msg._.near ? mesh.near : tmp['/']
 		          }
 		        }
 
 		        put = meta.$put
 		        if (put) {
-		          tmp = {}
-		          Object.keys(msg).forEach((k) => {
-		            tmp[k] = msg[k]
-		          })
-		          tmp.put = ':])([:'
+		          const tmp = { ...msg }
+		          tmp.put = ':])([:' // Placeholder to avoid double serialization of put data.
 		          json(tmp, (err, raw) => {
-		            if (err) return
+		            if (err) {
+		              return
+		            } // TODO: Handle!!
 		            const S = Date.now()
-		            tmp = raw.indexOf('"put":":])([:"')
-		            const newRaw = raw.slice(0, tmp + 6) + put + raw.slice(tmp + 14)
-		            res(undefined, newRaw)
+		            const tmp = raw.indexOf('"put":":])([:"')
+		            raw = raw.slice(0, tmp + 6) + put + raw.slice(tmp + 14) // Replace placeholder with actual put data.
+		            handleSerializationResult(undefined, raw)
 		            console.STAT?.(S, Date.now() - S, 'say slice')
 		          })
 		          return
 		        }
-
-		        json(msg, res)
-		        function res(err, raw) {
-		          if (err) return
+		        json(msg, handleSerializationResult)
+		        function handleSerializationResult(err, raw) {
+		          if (err) {
+		            return
+		          } // TODO: Handle!!
 		          meta.raw = raw
 		          mesh.say(msg, peer)
 		        }
@@ -4313,21 +4515,29 @@ if (typeof module !== 'undefined') {
 		    function flush(peer) {
 		      let tmp = peer.batch
 		      const t = typeof tmp === 'string'
-		      if (t) tmp += ']'
+		      if (t) {
+		        tmp += ']'
+		      } // TODO: Prevent double JSON!
 		      peer.batch = peer.tail = null
-		      if (!tmp) return
-		      if (t ? 3 > tmp.length : !tmp.length) return
+		      if (!tmp) {
+		        return
+		      }
+		      if (t ? 3 > tmp.length : !tmp.length) {
+		        return
+		      } // TODO: ^
 		      if (!t) {
 		        try {
-		          tmp = tmp.length === 1 ? tmp[0] : JSON.stringify(tmp)
+		          tmp = 1 === tmp.length ? tmp[0] : JSON.stringify(tmp)
 		        } catch (e) {
 		          return opt.log('DAM JSON stringify error', e)
 		        }
 		      }
-		      if (!tmp) return
+		      if (!tmp) {
+		        return
+		      }
 		      send(tmp, peer)
 		    }
-
+		    // for now - find better place later.
 		    function send(raw, peer) {
 		      try {
 		        const wire = peer.wire
@@ -4337,14 +4547,18 @@ if (typeof module !== 'undefined') {
 		          wire.send(raw)
 		        }
 		        mesh.say.d += raw.length || 0
-		        ++mesh.say.c
+		        ++mesh.say.c // STATS!
 		      } catch (_e) {
-		        peer.queue = peer.queue || []
+		        peer.queue = peer.queue || [] // Queue message for retry if send fails.
 		        peer.queue.push(raw)
 		      }
 		    }
 
 		    mesh.near = 0
+		    /**
+		     * Initializes a new peer connection, sets up peer state, and processes any queued messages.
+		     * @param {object} peer - The peer object to connect and initialize.
+		     */
 		    mesh.hi = (peer) => {
 		      const wire = peer.wire
 		      let tmp
@@ -4357,17 +4571,19 @@ if (typeof module !== 'undefined') {
 		      } else {
 		        tmp = peer.id = peer.id || peer.url || String.random(9)
 		        opt.peers[tmp] = peer
-		        mesh.say({ dam: '?', pid: root.opt.pid }, opt.peers[tmp])
-		        delete dup.s[peer.last]
+		        mesh.say({ dam: '?', pid: root.opt.pid }, peer)
+		        delete dup.s[peer.last] // IMPORTANT: see https://gun.eco/docs/DAM#self
 		      }
 		      if (!peer.met) {
 		        mesh.near++
 		        peer.met = Date.now()
 		        root.on('hi', peer)
 		      }
+		      // @rogowski I need this here by default for now to fix go1dfish's bug
 		      tmp = peer.queue
 		      peer.queue = []
 		      setTimeout.each(
+		        // Send queued messages in batches to avoid overwhelming the peer.
 		        tmp || [],
 		        (msg) => {
 		          send(msg, peer)
@@ -4376,7 +4592,10 @@ if (typeof module !== 'undefined') {
 		        9
 		      )
 		    }
-
+		    /**
+		     * Handles disconnection of a peer, cleans up state, and updates connection metrics.
+		     * @param {object} peer - The peer object to disconnect.
+		     */
 		    mesh.bye = (peer) => {
 		      peer.met && --mesh.near
 		      delete peer.met
@@ -4385,30 +4604,37 @@ if (typeof module !== 'undefined') {
 		      tmp = tmp - (peer.met || tmp)
 		      mesh.bye.time = ((mesh.bye.time || tmp) + tmp) / 2
 		    }
-
 		    mesh.hear['!'] = (msg, _peer) => {
 		      opt.log('Error:', msg.err)
 		    }
 		    mesh.hear['?'] = (msg, peer) => {
 		      if (msg.pid) {
-		        if (!peer.pid) peer.pid = msg.pid
-		        if (msg['@']) return
+		        if (!peer.pid) {
+		          peer.pid = msg.pid
+		        }
+		        if (msg['@']) {
+		          return
+		        }
 		      }
 		      mesh.say({ '@': msg['#'], dam: '?', pid: opt.pid }, peer)
-		      delete dup.s[peer.last]
+		      delete dup.s[peer.last] // IMPORTANT: see https://gun.eco/docs/DAM#self
 		    }
-
 		    mesh.hear.mob = (msg, peer) => {
-		      if (!msg.peers) return
-		      const peers = Object.keys(msg.peers)
-		      const one = peers[(Math.random() * peers.length) >> 0]
-		      if (!one) return
+		      // NOTE: AXE will overload this with better logic.
+		      if (!msg.peers) {
+		        return
+		      }
+		      const peers = Object.keys(msg.peers),
+		        one = peers[Math.floor(Math.random() * peers.length)]
+		      if (!one) {
+		        return
+		      }
 		      mesh.bye(peer)
 		      mesh.hi(one)
 		    }
 
 		    root.on('create', function (root) {
-		      root.opt.pid = root.opt.pid || String.random(9)
+		      root.opt.pid ||= String.random(9)
 		      this.to.next(root)
 		      root.on('out', mesh.say)
 		    })
@@ -4420,33 +4646,41 @@ if (typeof module !== 'undefined') {
 		        peer.bye()
 		      } else {
 		        tmp = peer.wire
-		        if (tmp?.close) tmp.close()
+		        tmp?.close?.()
 		      }
 		      delete opt.peers[peer.id]
 		      peer.wire = null
 		    })
 
-		    const gets = new Set()
+		    const gets = {}
 		    root.on('bye', function (peer, tmp) {
 		      this.to.next(peer)
 		      tmp = console.STAT
-		      if (tmp) tmp.peers = mesh.near
+		      if (tmp) {
+		        tmp.peers = mesh.near
+		      }
 		      tmp = peer.url
-		      if (!tmp) return
-		      gets.add(tmp)
+		      if (!tmp) {
+		        return
+		      }
+		      gets[tmp] = true
 		      setTimeout(() => {
-		        gets.delete(tmp)
+		        delete gets[tmp]
 		      }, opt.lack || 9000)
 		    })
-
 		    root.on('hi', function (peer, tmp) {
 		      this.to.next(peer)
 		      tmp = console.STAT
-		      if (tmp) tmp.peers = mesh.near
-		      if (opt.super) return
-		      const souls = Object.keys(root.next || '')
+		      if (tmp) {
+		        tmp.peers = mesh.near
+		      }
+		      if (opt.super) {
+		        return
+		      } // temporary (?) until we have better fix/solution?
+		      const souls = Object.keys(root.next || '') // TODO: .keys( is slow
 		      if (souls.length > 9999 && !console.SUBS) {
-		        console.SUBS = 'Warning: You have more than 10K live GETs...'
+		        console.SUBS =
+		          'Warning: You have more than 10K live GETs, which might use more bandwidth than your screen can show - consider `.off()`.'
 		        console.log(console.SUBS)
 		      }
 		      setTimeout.each(souls, (soul) => {
@@ -4456,7 +4690,10 @@ if (typeof module !== 'undefined') {
 		          return
 		        }
 		        setTimeout.each(Object.keys(node.ask || ''), (key) => {
-		          if (!key) return
+		          if (!key) {
+		            return
+		          }
+		          // is the lack of ## a !onion hint?
 		          mesh.say(
 		            {
 		              '##': String.hash((root.graph[soul] || '')[key]),
@@ -4464,6 +4701,7 @@ if (typeof module !== 'undefined') {
 		            },
 		            peer
 		          )
+		          // TODO: Switch this so Book could route?
 		        })
 		      })
 		    })
@@ -4926,38 +5164,34 @@ if (typeof module !== 'undefined') {
     })
   Type.text.match =
     Type.text.match ||
-    ((t, o) => {
-      let tmp, u
+    ((text, options) => {
       DEP('text.match')
-      if (typeof t !== 'string') {
+      if (typeof text !== 'string') {
         return false
       }
-      if (typeof o === 'string') {
-        o = { '=': o }
+      if (typeof options === 'string') {
+        options = { '=': options }
       }
-      o = o || {}
-      tmp = o['='] || o['*'] || o['>'] || o['<']
-      if (t === tmp) {
-        return true
+      options = options || {}
+      // Check exact match
+      if (options['='] !== undefined) {
+        return text === options['=']
       }
-      if (u !== o['=']) {
-        return false
+      // Check prefix match
+      if (options['*'] !== undefined) {
+        return text.startsWith(options['*'])
       }
-      tmp = o['*'] || o['>'] || o['<']
-      if (t.slice(0, (tmp || '').length) === tmp) {
-        return true
+      // Check range
+      const hasMin = options['>'] !== undefined
+      const hasMax = options['<'] !== undefined
+      if (hasMin && hasMax) {
+        return text >= options['>'] && text <= options['<']
       }
-      if (u !== o['*']) {
-        return false
+      if (hasMin) {
+        return text >= options['>']
       }
-      if (u !== o['>'] && u !== o['<']) {
-        return !!(t >= o['>'] && t <= o['<'])
-      }
-      if (u !== o['>'] && t >= o['>']) {
-        return true
-      }
-      if (u !== o['<'] && t <= o['<']) {
-        return true
+      if (hasMax) {
+        return text <= options['<']
       }
       return false
     })
@@ -5017,7 +5251,7 @@ if (typeof module !== 'undefined') {
       return obj_map(l, c, _)
     })
   Type.list.index = 1 // change this to 0 if you want non-logical, non-mathematical, non-matrix, non-convenient array notation
-  Type.obj = Type.boj || {
+  Type.obj = Type.obj || {
     is: (o) => {
       DEP('obj')
       return o
@@ -5074,19 +5308,18 @@ if (typeof module !== 'undefined') {
       return o
     })
   ;(() => {
-    const u = undefined
-    function map(v, k) {
-      if (obj_has(this, k) && u !== this[k]) {
-        return
+    // Copy properties from 'from' to 'to', setting only if key is missing or value is undefined
+    function copyPropertyIfNotPresent(value, key) {
+      if (!(key in this) || this[key] === undefined) {
+        this[key] = value
       }
-      this[k] = v
     }
     Type.obj.to =
       Type.obj.to ||
       ((from, to) => {
         DEP('obj.to')
         to = to || {}
-        obj_map(from, map, to)
+        obj_map(from, copyPropertyIfNotPresent, to)
         return to
       })
   })()
@@ -5097,98 +5330,128 @@ if (typeof module !== 'undefined') {
       return !o ? o : JSON.parse(JSON.stringify(o)) // is shockingly faster than anything else, and our data has to be a subset of JSON anyways!
     })
   ;(() => {
-    function empty(_v, i) {
-      let n = this.n,
-        u
-      if (n && (i === n || (obj_is(n) && obj_has(n, i)))) {
-        return
+    // Check if object has any keys not in the excluded set (excluded can be a value or object of keys to exclude)
+    function isNonExcludedKey(_value, key) {
+      const excluded = this.excluded
+      if (excluded) {
+        if (
+          typeof excluded === 'object' &&
+          obj_is(excluded) &&
+          obj_has(excluded, key)
+        ) {
+          return // key is excluded
+        }
+        if (key === excluded) {
+          return // key matches excluded value
+        }
       }
-      if (u !== i) {
-        return true
+      if (key !== undefined) {
+        return true // found a non-excluded key
       }
     }
     Type.obj.empty =
       Type.obj.empty ||
-      ((o, n) => {
+      ((o, excluded) => {
         DEP('obj.empty')
         if (!o) {
           return true
         }
-        return !obj_map(o, empty, { n: n })
+        return !obj_map(o, isNonExcludedKey, { excluded: excluded })
       })
   })()
   ;(() => {
-    function t(...args) {
+    // Result collector function: if 2 args, sets key-value in object; if 1 arg, pushes to array
+    function resultCollector(...args) {
       if (args.length === 2) {
         const [k, v] = args
-        t.r = t.r || {}
-        t.r[k] = v
+        resultCollector.results = resultCollector.results || {}
+        resultCollector.results[k] = v
         return
       }
       const [k] = args
-      t.r = t.r || []
-      t.r.push(k)
+      resultCollector.results = resultCollector.results || []
+      resultCollector.results.push(k)
     }
     const keys = Object.keys
     let map, _u
     Object.keys =
       Object.keys ||
       ((o) =>
-        map(o, (_v, k, t) => {
-          t(k)
+        map(o, (_v, k, resultCollector) => {
+          resultCollector(k)
         }))
     Type.obj.map = map =
       Type.obj.map ||
-      ((l, c, _) => {
+      ((listOrObj, callbackOrValue, context) => {
         DEP('obj.map')
         const u = undefined
         let i = 0,
           x,
-          r,
-          ll,
-          lle,
-          ii,
-          f = 'function' === typeof c
-        t.r = u
-        if (keys && obj_is(l)) {
-          ll = keys(l)
-          lle = true
+          result,
+          objKeys,
+          hasObjKeys,
+          index,
+          isFunction = 'function' === typeof callbackOrValue
+        resultCollector.results = u
+        if (keys && obj_is(listOrObj)) {
+          objKeys = keys(listOrObj)
+          hasObjKeys = true
         }
-        _ = _ || {}
-        if (list_is(l) || ll) {
-          x = (ll || l).length
+        context = context || {}
+        if (list_is(listOrObj) || objKeys) {
+          x = (objKeys || listOrObj).length
           for (; i < x; i++) {
-            ii = i + Type.list.index
-            if (f) {
-              r = lle ? c.call(_, l[ll[i]], ll[i], t) : c.call(_, l[i], ii, t)
-              if (r !== u) {
-                return r
+            index = i + Type.list.index
+            if (isFunction) {
+              result = hasObjKeys
+                ? callbackOrValue.call(
+                    context,
+                    listOrObj[objKeys[i]],
+                    objKeys[i],
+                    resultCollector
+                  )
+                : callbackOrValue.call(
+                    context,
+                    listOrObj[i],
+                    index,
+                    resultCollector
+                  )
+              if (result !== u) {
+                return result
               }
             } else {
-              //if(Type.test.is(c,l[i])){ return ii } // should implement deep equality testing!
-              if (c === l[lle ? ll[i] : i]) {
-                return ll ? ll[i] : ii
-              } // use this for now
+              // If callbackOrValue is not a function, treat as value to find
+              // TODO: implement deep equality testing
+              if (callbackOrValue === listOrObj[hasObjKeys ? objKeys[i] : i]) {
+                return hasObjKeys ? objKeys[i] : index
+              }
             }
           }
         } else {
-          for (i in l) {
-            if (f) {
-              if (obj_has(l, i)) {
-                r = _ ? c.call(_, l[i], i, t) : c(l[i], i, t)
-                if (r !== u) {
-                  return r
+          for (i in listOrObj) {
+            if (isFunction) {
+              if (obj_has(listOrObj, i)) {
+                result = context
+                  ? callbackOrValue.call(
+                      context,
+                      listOrObj[i],
+                      i,
+                      resultCollector
+                    )
+                  : callbackOrValue(listOrObj[i], i, resultCollector)
+                if (result !== u) {
+                  return result
                 }
               }
             } else {
-              //if(a.test.is(c,l[i])){ return i } // should implement deep equality testing!
-              if (c === l[i]) {
+              // TODO: implement deep equality testing
+              if (callbackOrValue === listOrObj[i]) {
                 return i
-              } // use this for now
+              }
             }
           }
         }
-        return f ? t.r : Type.list.index ? 0 : -1
+        return isFunction ? resultCollector.results : Type.list.index ? 0 : -1
       })
   })()
   Type.time = Type.time || {}
@@ -5229,23 +5492,24 @@ if (typeof module !== 'undefined') {
       DEP('val.link.is') // this defines whether an object is a soul relation or not, they look like this: {'#': 'UUID'}
       if (v?.[rel_] && !v._ && obj_is(v)) {
         // must be an object.
-        const o = {}
-        obj_map(v, map, o)
-        if (o.id) {
+        const validationResult = {}
+        obj_map(v, validateRelationProperty, validationResult)
+        if (validationResult.id) {
           // we found an id.
-          return o.id // yay! Return it.
+          return validationResult.id // yay! Return it.
         }
       }
       return false // the value was not a valid soul relation.
     }
-    function map(s, k) {
-      if (this.id) {
+    // Ensure the object has exactly one property: the relation key with a string value
+    function validateRelationProperty(value, key) {
+      if (this.id !== undefined) {
         this.id = false
         return
       } // if ID is already defined AND we're still looping through the object, it is considered invalid.
-      if (k === rel_ && text_is(s)) {
+      if (key === rel_ && text_is(value)) {
         // the key should be '#' and have a text value.
-        this.id = s // we found the soul!
+        this.id = value // we found the soul!
       } else {
         this.id = false // if there exists anything else on the object that isn't the soul, then it is considered invalid.
       }
@@ -5281,59 +5545,60 @@ if (typeof module !== 'undefined') {
       if (!obj_is(n)) {
         return false
       } // must be an object.
-      const s = Node.soul(n)
-      if (s) {
+      const soul = Node.soul(n)
+      if (soul) {
         // must have a soul on it.
-        return !obj_map(n, map, { as: as, cb: cb, n: n, s: s })
+        return !obj_map(n, validateNodeValue, { as: as, cb: cb, n: n, s: soul })
       }
       return false // nope! This was not a valid node.
     }
-    function map(v, k) {
-      // we invert this because the way we check for this is via a negation.
-      if (k === Node._) {
+    // Validate each property of the node
+    function validateNodeValue(value, key) {
+      if (key === Node._) {
         return
       } // skip over the metadata.
-      if (!Val.is(v)) {
+      if (!Val.is(value)) {
         return true
       } // it is true that this is an invalid node.
       if (this.cb) {
-        this.cb.call(this.as, v, k, this.n, this.s)
+        this.cb.call(this.as, value, key, this.n, this.s)
       } // optionally callback each key/value.
     }
   })()
   ;(() => {
-    Node.ify = (obj, o, as) => {
+    Node.ify = (obj, options, as) => {
       DEP('node.ify') // returns a node from a shallow object.
-      if (!o) {
-        o = {}
-      } else if (typeof o === 'string') {
-        o = { soul: o }
-      } else if ('function' === typeof o) {
-        o = { map: o }
+      if (!options) {
+        options = {}
+      } else if (typeof options === 'string') {
+        options = { soul: options }
+      } else if ('function' === typeof options) {
+        options = { map: options }
       }
-      if (o.map) {
-        o.node = o.map.call(as, obj, u, o.node || {})
+      if (options.map) {
+        options.node = options.map.call(as, obj, u, options.node || {})
       }
-      o.node = Node.soul.ify(o.node || {}, o)
-      if (o.node) {
-        obj_map(obj, map, { as: as, o: o })
+      options.node = Node.soul.ify(options.node || {}, options)
+      if (options.node) {
+        obj_map(obj, processObjectProperty, { as: as, o: options })
       }
-      return o.node // This will only be a valid node if the object wasn't already deep!
+      return options.node // This will only be a valid node if the object wasn't already deep!
     }
-    function map(v, k) {
-      const o = this.o
-      let tmp
-      if (o.map) {
-        tmp = o.map.call(this.as, v, `${k}`, o.node)
-        if (u === tmp) {
-          obj_del(o.node, k)
-        } else if (o.node) {
-          o.node[k] = tmp
+    // Process each property of the object to build the node
+    function processObjectProperty(value, key) {
+      const options = this.o
+      let transformed
+      if (options.map) {
+        transformed = options.map.call(this.as, value, key, options.node)
+        if (transformed === undefined) {
+          obj_del(options.node, key)
+        } else if (options.node) {
+          options.node[key] = transformed
         }
         return
       }
-      if (Val.is(v)) {
-        o.node[k] = v
+      if (Val.is(value)) {
+        options.node[key] = value
       }
     }
   })()
@@ -5359,33 +5624,34 @@ if (typeof module !== 'undefined') {
       DEP('state.map')
       const u = undefined
       const temp = cb || s
-      const o = obj_is(temp) ? temp : null
+      const stateObj = obj_is(temp) ? temp : null
       cb = fn_is(temp) ? temp : null
-      if (o && !cb) {
+      if (stateObj && !cb) {
         s = num_is(s) ? s : State()
-        o[N_] = o[N_] || {}
-        obj_map(o, map, { o: o, s: s })
-        return o
+        stateObj[N_] = stateObj[N_] || {}
+        obj_map(stateObj, setKeyState, { o: stateObj, s: s })
+        return stateObj
       }
       as = as || obj_is(s) ? s : u
       s = num_is(s) ? s : State()
       return function (v, k, o, opt) {
         if (!cb) {
-          map.call({ o: o, s: s }, v, k)
+          setKeyState.call({ o: o, s: s }, v, k)
           return v
         }
         cb.call(as || this || {}, v, k, o, opt)
         if (obj_has(o, k) && u === o[k]) {
           return
         }
-        map.call({ o: o, s: s }, v, k)
+        setKeyState.call({ o: o, s: s }, v, k)
       }
     }
-    function map(_v, k) {
-      if (N_ === k) {
+    // Set state for the key if not metadata
+    function setKeyState(_value, key) {
+      if (key === N_) {
         return
       }
-      State.ify(this.o, k, this.s)
+      State.ify(this.o, key, this.s)
     }
   })()
   const N_ = Node._
@@ -5397,31 +5663,35 @@ if (typeof module !== 'undefined') {
       if (!g || !obj_is(g) || obj_empty(g)) {
         return false
       } // must be an object.
-      return !obj_map(g, map, { as: as, cb: cb, fn: fn }) // makes sure it wasn't an empty object.
+      return !obj_map(g, validateGraphSoul, { as: as, cb: cb, fn: fn }) // makes sure it wasn't an empty object.
     }
-    function map(n, s) {
-      // we invert this because the way we check for this is via a negation.
-      if (!n || s !== Node.soul(n) || !Node.is(n, this.fn, this.as)) {
+    // Validate that each node in the graph is valid
+    function validateGraphSoul(node, soul) {
+      if (
+        !node ||
+        soul !== Node.soul(node) ||
+        !Node.is(node, this.fn, this.as)
+      ) {
         return true
       } // it is true that this is an invalid graph.
       if (!this.cb) {
         return
       }
-      nf.n = n
-      nf.as = this.as // sequential race conditions aren't races.
-      this.cb.call(nf.as, n, s, nf)
+      nodeValidator.n = node
+      nodeValidator.as = this.as // sequential race conditions aren't races.
+      this.cb.call(nodeValidator.as, node, soul, nodeValidator)
     }
-    function nf(fn) {
-      // optional callback for each node.
-      if (fn) {
-        Node.is(nf.n, fn, nf.as)
-      } // where we then have an optional callback for each key/value.
+    // Callback function for node validation
+    function nodeValidator(callback) {
+      if (callback) {
+        Node.is(nodeValidator.n, callback, nodeValidator.as)
+      }
     }
   })()
   ;(() => {
     Graph.ify = (obj, env, as) => {
       DEP('graph.ify')
-      const at = { obj: obj, path: [] }
+      const context = { obj: obj, path: [] }
       if (!env) {
         env = {}
       } else if (typeof env === 'string') {
@@ -5434,41 +5704,42 @@ if (typeof module !== 'undefined') {
         as = u
       }
       if (env.soul) {
-        at.link = Val.link.ify(env.soul)
+        context.link = Val.link.ify(env.soul)
       }
       env.shell = as?.shell
       env.graph = env.graph || {}
       env.seen = env.seen || []
       env.as = env.as || as
-      node(env, at)
-      env.root = at.node
+      processGraphNode(env, context)
+      env.root = context.node
       return env.graph
     }
-    function node(env, at) {
-      let tmp
-      tmp = seen(env, at)
-      if (tmp) {
-        return tmp
+    // Process a node in the object graph, handling cycles
+    function processGraphNode(env, context) {
+      const existing = findPreviouslySeenObject(env, context)
+      if (existing) {
+        return existing
       }
-      at.env = env
-      at.soul = soul
-      if (Node.ify(at.obj, map, at)) {
-        at.link = at.link || Val.link.ify(Node.soul(at.node))
-        if (at.obj !== env.shell) {
-          env.graph[Val.link.is(at.link)] = at.node
+      context.env = env
+      context.soul = updateNodeSoul
+      if (Node.ify(context.obj, processGraphValue, context)) {
+        context.link = context.link || Val.link.ify(Node.soul(context.node))
+        if (context.obj !== env.shell) {
+          env.graph[Val.link.is(context.link)] = context.node
         }
       }
-      return at
+      return context
     }
-    function map(v, k, n) {
+    // Process each value in the object, validating and linking
+    function processGraphValue(v, k, n) {
       const env = this.env
-      let is
+      let isValid
       let tmp
       if (Node._ === k && obj_has(v, Val.link._)) {
         return n._ // TODO: Bug?
       }
-      is = valid(v, k, n, this, env)
-      if (!is) {
+      isValid = validateGraphValue(v, k, n, this, env)
+      if (!isValid) {
         return
       }
       if (!k) {
@@ -5490,8 +5761,8 @@ if (typeof module !== 'undefined') {
             return
           }
 
-          is = valid(v, k, n, this, env)
-          if (!is) {
+          isValid = validateGraphValue(v, k, n, this, env)
+          if (!isValid) {
             return
           }
         }
@@ -5499,16 +5770,17 @@ if (typeof module !== 'undefined') {
       if (!k) {
         return this.node
       }
-      if (true === is) {
+      if (true === isValid) {
         return v
       }
-      tmp = node(env, { obj: v, path: this.path.concat(k) })
+      tmp = processGraphNode(env, { obj: v, path: this.path.concat(k) })
       if (!tmp.node) {
         return
       }
       return tmp.link //{'#': Node.soul(tmp.node)};
     }
-    function soul(id) {
+    // Update the soul of the current context
+    function updateNodeSoul(id) {
       const prev = Val.link.is(this.link),
         graph = this.env.graph
       this.link = this.link || Val.link.ify(id)
@@ -5521,7 +5793,8 @@ if (typeof module !== 'undefined') {
         obj_del(graph, prev)
       }
     }
-    function valid(v, k, n, at, env) {
+    // Validate the value for inclusion in the graph
+    function validateGraphValue(v, k, n, context, env) {
       let tmp
       if (Val.is(v)) {
         return true
@@ -5532,24 +5805,25 @@ if (typeof module !== 'undefined') {
       tmp = env.invalid
       if (tmp) {
         v = tmp.call(env.as || {}, v, k, n)
-        return valid(v, k, n, at, env)
+        return validateGraphValue(v, k, n, context, env)
       }
-      env.err = `Invalid value at '${at.path.concat(k).join('.')}'!`
+      env.err = `Invalid value at '${context.path.concat(k).join('.')}'!`
       if (Type.list.is(v)) {
         env.err += ' Use `.set(item)` instead of an Array.'
       }
     }
-    function seen(env, at) {
+    // Find if the object has been seen before to avoid cycles
+    function findPreviouslySeenObject(env, context) {
       let arr = env.seen,
         i = arr.length,
         has
       while (i--) {
         has = arr[i]
-        if (at.obj === has.obj) {
+        if (context.obj === has.obj) {
           return has
         }
       }
-      arr.push(at)
+      arr.push(context)
     }
   })()
   Graph.node = (node) => {
@@ -5568,29 +5842,38 @@ if (typeof module !== 'undefined') {
       }
       const obj = {}
       opt = opt || { seen: {} }
-      obj_map(graph[root], map, { graph: graph, obj: obj, opt: opt })
+      obj_map(graph[root], convertGraphValue, {
+        graph: graph,
+        obj: obj,
+        opt: opt
+      })
       return obj
     }
-    function map(v, k) {
-      let tmp, obj
-      if (Node._ === k) {
-        if (obj_empty(v, Val.link._)) {
+    // Convert graph node back to object, resolving links recursively
+    function convertGraphValue(value, key) {
+      let linkId, resolved
+      if (key === Node._) {
+        if (obj_empty(value, Val.link._)) {
           return
         }
-        this.obj[k] = obj_copy(v)
+        this.obj[key] = obj_copy(value)
         return
       }
-      tmp = Val.link.is(v)
-      if (!tmp) {
-        this.obj[k] = v
+      linkId = Val.link.is(value)
+      if (!linkId) {
+        this.obj[key] = value
         return
       }
-      obj = this.opt.seen[tmp]
-      if (obj) {
-        this.obj[k] = obj
+      resolved = this.opt.seen[linkId]
+      if (resolved) {
+        this.obj[key] = resolved
         return
       }
-      this.obj[k] = this.opt.seen[tmp] = Graph.to(this.graph, tmp, this.opt)
+      this.obj[key] = this.opt.seen[linkId] = Graph.to(
+        this.graph,
+        linkId,
+        this.opt
+      )
     }
   })()
   Type.graph = Type.graph || Graph
