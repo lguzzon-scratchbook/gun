@@ -7,7 +7,7 @@
   /**
    * Validates if a value is a valid Gun value.
    * Valid values include null, strings, booleans, finite numbers, and soul relations (objects with a single '#' key).
-   * @param {*} v - The value to validate.
+   * @param {*} value - The value to validate.
    * @returns {boolean} - Returns true if the value is valid, false otherwise.
    * @example
    * // Valid values
@@ -22,23 +22,23 @@
    * valid({}); // false
    * valid([]); // false
    */
-  module.exports = (v) => {
+  module.exports = (value) => {
     // "deletes", nulling out keys.
     return (
       // Allow null values (used for deletions)
-      v === null ||
+      value === null ||
       // Allow string values
-      'string' === typeof v ||
+      'string' === typeof value ||
       // Allow boolean values
-      'boolean' === typeof v ||
+      'boolean' === typeof value ||
       // Allow finite numbers (exclude Infinity and NaN)
-      Number.isFinite(v) ||
+      Number.isFinite(value) ||
       // Allow soul relations: objects with exactly one key '#' that is a non-empty string
-      (!!v &&
-        Object.hasOwn(v, '#') &&
-        typeof v['#'] === 'string' &&
-        Object.keys(v).length === 1 &&
-        v['#'])
+      (!!value &&
+        Object.hasOwn(value, '#') &&
+        typeof value['#'] === 'string' &&
+        Object.keys(value).length === 1 &&
+        value['#'])
     )
   }
 })()

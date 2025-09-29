@@ -2,20 +2,20 @@
   // Utility Functions
   /** @function noop @returns {void} No-op function. */
   const noop = () => {}
-  /** @function getSoul @param {object|string} lex - Input lex. @returns {string} Soul if present. */
-  const getSoul = (lex) => {
+  /** @function extractSoul @param {object|string} lex - Input lex. @returns {string} Soul if present. */
+  const extractSoul = (lex) => {
     if (!lex) return ''
     const tmp = lex?.['#'] || ''
     if (Array.isArray(tmp)) return tmp[0] || ''
     return tmp?.['='] || tmp
   }
-  /** @function getLexPattern @param {object|string} lex - Input lex. @returns {string} Lex pattern. */
-  const getLexPattern = (lex) => {
+  /** @function extractLexPattern @param {object|string} lex - Input lex. @returns {string} Lex pattern. */
+  const extractLexPattern = (lex) => {
     if (!lex) return ''
     return lex?.['.'] || lex?.['#'] || lex
   }
-  /** @function checkMapField @param {string|object} field - Field to check. @returns {boolean} True if valid map field. @throws {Error} For invalid inputs. */
-  const checkMapField = (field) => {
+  /** @function isValidMapField @param {string|object} field - Field to check. @returns {boolean} True if valid map field. @throws {Error} For invalid inputs. */
+  const isValidMapField = (field) => {
     return (
       typeof field === 'string' ||
       (field && typeof field === 'object' && !Array.isArray(field))
@@ -24,7 +24,7 @@
   /** @function invokeLexSafely @param {Object} gun - Gun instance. @param {string|Object} query - Lex query. @param {function} next - Next function. @param {function} noop - Noop function. @returns {*} Result of lex or fallback. */
   const invokeLexSafely = (gun, query, next, noop) => {
     try {
-      return lex(gun, query, next, noop)
+      return processLex(gun, query, next, noop)
     } catch (error) {
       if (!gun._) {
         console.warn('GUN map.get.next: Internal fallback for missing gun._')
@@ -33,8 +33,8 @@
       throw error
     }
   }
-  const Gun = require('./root'),
-    next = Gun.chain.get.next
+  const Gun = require('./root')
+  const next = Gun.chain.get.next
   /** @function validateLexInput @param {object} node - Gun node instance. @param {string|object} lexQuery - Lex query. @throws {Error} For invalid node or lexQuery. */
   const validateLexInput = (node, lexQuery) => {
     if (!node || typeof node !== 'object')
@@ -53,7 +53,10 @@
   const createHandleLexEvent = (chainTmp, lexQuery) =>
     function (eve) {
       if (
-        String.match(eve.get || (eve.put || '')['.'], getLexPattern(lexQuery))
+        String.match(
+          eve.get || (eve.put || '')['.'],
+          extractLexPattern(lexQuery)
+        )
       ) {
         chainTmp.on('in', eve)
       }
@@ -66,15 +69,15 @@
    * @param {function} [noop=() => {}]
    * @returns {IGunChainReference} Chain with optional off method
    * @throws {Error} Invalid inputs
-   * @example lex(node, '#soul', cb)
+   * @example processLex(node, '#soul', cb)
    */
-  const lex = (node, lexQuery, next, noop) => {
+  const processLex = (node, lexQuery, next, noop) => {
     validateLexInput(node, lexQuery)
     // Handles non-plain objects by direct callback
     if (!Object.plain(lexQuery)) {
       return (next || noop)(node, lexQuery)
     }
-    const soul = getSoul(lexQuery)
+    const soul = extractSoul(lexQuery)
     if (soul) {
       return node.get(soul)
     }
@@ -102,19 +105,19 @@
     ) {
       throw new Error('GUN map.get.next: Invalid gun instance')
     }
-    if (!query || !checkMapField(query))
+    if (!query || !isValidMapField(query))
       throw new Error('GUN map.get.next: Invalid lex query')
     return invokeLexSafely(gun, query, next, noop)
   }
   /** @function validateMapCallback @param {*} cb - Callback or field. @throws {Error} For invalid cb. */
   const validateMapCallback = (cb) => {
-    if (cb != null && !checkMapField(cb) && typeof cb !== 'function')
+    if (cb != null && !isValidMapField(cb) && typeof cb !== 'function')
       throw new Error('Invalid map argument')
   }
   /** @function isValidMapNode @param {object} at - Gun at object. @param {object} msg - Message. @returns {boolean} True if valid node. */
   const isValidMapNode = (at, msg) => at.soul || msg.$$
-  /** @function handleMapCallbackResult @param {object} chain - Chain. @param {*} data - Data. @param {string} key - Key. @param {object} msg - Message. @param {object} _eve - Event. @param {*} next - Next value. */
-  const handleMapCallbackResult = (chain, data, key, msg, _eve, next) => {
+  /** @function handleMapCallbackResult @param {object} chain - Chain. @param {*} data - Data. @param {string} key - Key. @param {object} msg - Message. @param {*} next - Next value. */
+  const handleMapCallbackResult = (chain, data, key, msg, next) => {
     // Handle different types of callback results: ignore undefined, pass through data, Gun instances, or transform to new put
     if (undefined === next) return
     if (data === next) return chain._.on('in', msg)
@@ -135,10 +138,10 @@
   Gun.chain.map = function (cb, _opt, _t) {
     const cat = this._
     validateMapCallback(cb)
-    let lex
-    if (checkMapField(cb)) {
+    let lexQuery
+    if (isValidMapField(cb)) {
       // If cb is a field, convert to lex query and set cb to undefined
-      lex = cb['.'] ? cb : { '.': cb }
+      lexQuery = cb['.'] ? cb : { '.': cb }
       cb = undefined
     }
     if (!cb) {
@@ -146,7 +149,7 @@
       if (chain) return chain
       const newChain = this.chain()
       cat.each = newChain
-      newChain._.lex = lex || newChain._.lex || cat.lex
+      newChain._.lex = lexQuery || newChain._.lex || cat.lex
       newChain._.nix = this.back('nix')
       this.on('in', map, newChain._)
       return newChain
@@ -158,7 +161,7 @@
     const chain = this.chain()
     this.map().on((data, key, msg, eve) => {
       const next = (cb || noop).call(this, data, key, msg, eve)
-      handleMapCallbackResult(chain, data, key, msg, eve, next)
+      handleMapCallbackResult(chain, data, key, msg, next)
     })
     return chain
   }
@@ -169,24 +172,25 @@
    * @param {Object} put - The put object.
    * @returns {boolean} True if matches, false otherwise.
    */
-  const checkLex = (cat, msg, put) => {
+  const isLexMatch = (cat, msg, put) => {
     const lex = cat.lex
     return (
-      !lex || String.match(msg?.get || (put || '')?.['.'], getLexPattern(lex))
+      !lex ||
+      String.match(msg?.get || (put || '')?.['.'], extractLexPattern(lex))
     )
   }
   /**
    * Internal map function to handle messages.
    * @param {Object} msg - The message object.
    */
-  function map(msg) {
+  const map = function (msg) {
     this.to.next(msg)
     const cat = this.as
     const gun = msg.$
     const at = gun._
     const put = msg.put
     if (!isValidMapNode(at, msg)) return
-    if (!checkLex(cat, msg, put)) return
+    if (!isLexMatch(cat, msg, put)) return
     Gun.on.link(msg, cat)
   }
   const _event = { off: noop, stun: noop }

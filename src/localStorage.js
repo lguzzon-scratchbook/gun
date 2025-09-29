@@ -49,7 +49,7 @@
    * Sets up event listeners for get and put operations to persist data.
    * @param {Object} root - The GUN root instance.
    */
-  Gun.on('create', function lg(root) {
+  Gun.on('create', function localStoragePlugin(root) {
     this.to.next(root)
     const opt = root.opt
     const _graph = root.graph
@@ -64,11 +64,12 @@
     opt.prefix = opt.file || 'gun/'
     try {
       const item = store.getItem(opt.prefix)
-      disk = lg[opt.prefix] =
-        lg[opt.prefix] || new Map(Object.entries(JSON.parse(item) || {})) // Load persisted data from localStorage (blocking, but limited to 5MB)
+      disk = localStoragePlugin[opt.prefix] =
+        localStoragePlugin[opt.prefix] ||
+        new Map(Object.entries(JSON.parse(item) || {})) // Load persisted data from localStorage (blocking, but limited to 5MB)
       size = (item || '').length
     } catch (_e) {
-      disk = lg[opt.prefix] = new Map()
+      disk = localStoragePlugin[opt.prefix] = new Map()
       size = 0
     }
 

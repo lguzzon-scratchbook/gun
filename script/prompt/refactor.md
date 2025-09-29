@@ -1,3 +1,289 @@
+# Kilo Code Workflow: Refactor and Test JavaScript Files in 'src' Directory
+
+Here's the optimized workflow using Kilo Code best practices and tools:
+
+## Phase 1: Discovery and Planning
+
+1. **List and analyze JavaScript files by size:**
+
+```
+@/src List all .js files and their approximate sizes, sorted from smallest to largest
+```
+
+2. **Create a todo list for tracking progress:**
+
+```
+<update_todo_list>
+<todos>
+[ ] Analyze file structure and dependencies
+[ ] Refactor [smallest-file.js]
+[ ] Refactor [medium-file.js]
+[ ] Refactor [largest-file.js]
+[ ] Run comprehensive tests
+[ ] Fix any remaining issues
+</todos>
+</update_todo_list>
+```
+
+## Phase 2: File-by-File Refactoring
+
+For each JavaScript file (starting with the smallest), follow this pattern:
+
+### Step 1: Initial Analysis
+
+```
+@/src/[filename].js List the functions and classes in this file, noting any obvious issues with variable declarations, naming, or structure.
+```
+
+### Step 2: Targeted Refactoring
+
+Break down large refactoring tasks into smaller, focused changes:
+
+```
+@/src/[filename].js Refactor variable declarations to use let/const instead of var, starting with the innermost functions first.
+```
+
+```
+@/src/[filename].js Improve variable and function naming for clarity in the [specific-function] function.
+```
+
+```
+@/src/[filename].js Add necessary comments and optimize logic in [specific-area] while maintaining existing functionality.
+```
+
+### Step 3: Code Quality Check
+
+```
+<bash>
+bunx @biomejs/biome check --write --max-diagnostics=100 src/[filename].js
+</bash>
+```
+
+**Important**: Fix all reported errors and warnings iteratively. If issues remain, use targeted fixes:
+
+```
+@/src/[filename].js Fix the [specific-error] reported by Biome at line [X]
+```
+
+### Step 4: Update Progress
+
+```
+<update_todo_list>
+<todos>
+[ ] Analyze file structure and dependencies
+[x] Refactor [completed-file.js]
+[-] Refactor [current-file.js] (in progress)
+[ ] Refactor [pending-file.js]
+[ ] Run comprehensive tests
+[ ] Fix any remaining issues
+</todos>
+</update_todo_list>
+```
+
+## Phase 3: Testing and Validation
+
+### Step 1: Run Tests After Each File
+
+```
+<bash>
+npm test
+</bash>
+```
+
+If tests fail, use search functionality to understand dependencies:
+
+```
+<search_files>
+<path>src</path>
+<regex>[function-name]</regex>
+<file_pattern>*.js</file_pattern>
+</search_files>
+```
+
+### Step 2: Final Comprehensive Testing
+
+```
+<bash>
+npm test
+</bash>
+```
+
+### Step 3: Final Biome Check on All Files
+
+```
+<bash>
+bunx @biomejs/biome check --write --max-diagnostics=100 src/
+</bash>
+```
+
+## Phase 4: Completion Summary
+
+```
+<attempt_completion>
+<result>
+Successfully refactored all JavaScript files in the 'src' directory. Changes include:
+
+1. [file1.js]: Converted var declarations to let/const, improved function naming, added documentation
+2. [file2.js]: Optimized nested functions, eliminated code duplication, enhanced readability
+3. [file3.js]: Fixed logical errors, improved variable naming, added error handling
+
+All files now pass:
+- Biome linting with zero errors/warnings
+- All existing tests continue to pass
+- Code follows consistent styling and improved maintainability
+
+Total files refactored: [X]
+Test results: All tests passing ✅
+Biome check: Clean ✅
+</result>
+</attempt_completion>
+```
+
+## Best Practices Applied
+
+- **Context Management**: Use file-specific context mentions only when needed- **Iterative Approach**: Make small, incremental changes for large files- **Task Breakdown**: Divide the large refactoring task into focused sub-tasks- **Progress Tracking**: Use todo lists to track progress across multiple files- **Validation**: Ensure each step is tested before proceeding to the next fileThis workflow ensures systematic refactoring while maintaining code quality and functionality throughout the process.
+
+---
+
+## Task: Refactor and Test JavaScript Files in `src` Directory
+
+### Files
+
+All `.js` files within the `src/` directory, processed in sorted order from smallest to largest file size.### Workflow:
+
+For **each file** in the specified order:
+
+1. **Analyze File**  
+    First, gain a high-level structural overview of the file by listing its primary definitions. Then, read the entire file content for a deep understanding of its logic.
+
+    ```xml
+    <!-- Example for a specific file -->
+    <tool_code>
+    // Get a structural overview
+    list_code_definition_names('src/example.js')
+    
+    // Read the full content
+    read_file('src/example.js')
+    </tool_code>
+    ```
+
+2. **Refactor and Lint**  
+    Modify the code, focusing on functions from the innermost to the outermost scope. Apply the following rules:
+    - Replace one-line multiple `var` declarations with `let` and `const`, being mindful of variable hoisting.
+    - Enhance clarity with readable variable/function names and add comments where necessary.
+    - Correct any logical errors found during analysis.
+    - Improve maintainability by reducing code duplication and adhering to a consistent style.
+
+    After refactoring, execute the linter to automatically fix issues and report any remaining problems. Resolve all reported diagnostics until none remain.
+
+    ```xml
+    <execute_command>
+      <command>bunx @biomejs/biome check --write --max-diagnostics=100 <file_path></command>
+    </execute_command>
+    ```
+
+3. **Run Codebase Tests**  
+    Execute the project's test suite to ensure that your changes have not introduced any regressions. Resolve all errors or warnings across the entire codebase until the tests pass cleanly.
+
+    ```xml
+    <execute_command>
+      <command>npm test</command>
+    </execute_command>
+    ```
+
+### Output
+
+- After processing each file, provide a brief summary of the changes made (e.g., logic fixes, style improvements, refactoring details).
+- Confirm that the final, committed code passes all tests without any warnings.
+
+### Constraints
+
+- Maintain all existing functionality.
+- Adhere to the project's existing coding style guide.
+- Do not introduce any new external dependencies.
+
+---
+
+# Task: Refactor and test all JavaScript (.js) files in 'src' directory; use sorted from the smaller to the bigger
+
+For each file:
+
+1. Analyze the entire file to understand its purpose and logic.
+2. Refactor functions starting from the innermost to the outermost:
+   - No one-line multi var declaration and use let and cost constructs managing the var hoistings.
+   - Optimize for clarity (readable variable/function names, comments where needed).
+   - Ensure correctness by fixing logical errors.
+   - Improve maintainability (reduce code duplication, follow consistent styling).
+   - ALWAYS Run `bunx @biomejs/biome check --write --max-diagnostics=100 <file>`:
+     - ALWAYS Fix all reported errors and warnings until none remain.
+3. ALWAYS Run `npm test`:
+   - Resolve any remaining errors/warnings across the codebase until none remain.
+
+Output:
+
+- Provide a brief summary of changes for each file.
+- Ensure the final code passes all tests without warnings.
+
+Constraints:
+
+- Maintain existing functionality unless explicitly stated otherwise.
+- Follow project’s style guide if available.
+- Do not introduce external dependencies unless approved.
+
+---
+
+## Task: Refactor and Test JavaScript Files in Sorted Order (Smallest → Largest)
+
+### Files
+
+`lib/radix.js`, `lib/radisk.js`, `lib/store.js`, `lib/rindexed.js`
+
+### Workflow
+
+For **each file** in the above list (sorted from smallest to largest by file size):
+
+1. **Analyze Entire File**  
+   Use `list_code_definition_names` to identify and understand all top-level definitions and structural elements.  
+   Read the file's content using the **read-file** tool for full context.
+
+2. **Refactor Functions (Innermost → Outermost)**  
+   - Eliminate one-line multiple `var` declarations; use `let` and `const` appropriately, managing variable hoisting.  
+   - Improve clarity with meaningful variable/function names and comments.  
+   - Correct any detected logical errors.  
+   - Reduce duplication and apply consistent styling per project guidelines.  
+   - **Run Command:**  
+
+     ```xml
+     <execute_command>
+       <command>bunx @biomejs/biome check --write --max-diagnostics=100 <file></command>
+     </execute_command>
+     ```  
+
+     Resolve all reported issues until none remain.
+
+3. **Run Tests for Entire Codebase**  
+
+   ```xml
+   <execute_command>
+     <command>npm test</command>
+   </execute_command>
+   ```  
+
+   Fix any remaining errors/warnings across all project files until there are no issues.
+
+4. **Output Summary for Each File**  
+   After completing each file:  
+   - Provide a concise summary of changes (logic fixes, style improvements, optimizations).  
+   - Confirm that updated file passes its checks and all project tests without warnings.
+
+### Constraints
+
+- Maintain existing functionality unless otherwise explicitly stated.  
+- Follow the project’s style guide.  
+- Do not add external dependencies without prior approval.
+
+---
+
 # Task: Refactor and test all JavaScript (.js) files in this list lib/radix.js, lib/radisk.js, lib/store.js, lib/rindexed.js; use sorted from the smaller to the bigger
 
 For each file:

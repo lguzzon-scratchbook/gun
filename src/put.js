@@ -1,7 +1,13 @@
 ;(() => {
-  var Gun = require('./root')
+  const Gun = require('./root')
+  /**
+   * Puts data into the graph at the current chain location.
+   * @param {*} data - The data to put (object, primitive, or function).
+   * @param {function} [cb] - Callback for acknowledgments.
+   * @param {object} [as] - Internal options object.
+   * @returns {Gun.chain} The chain for chaining.
+   */
   Gun.chain.put = function (data, cb, as) {
-    // I rewrote it :)
     const at = this._
     const root = at.root
     as = as || {}
@@ -31,6 +37,9 @@
     as.turn = as.turn || turn
     as.ran = as.ran || ran
     // TODO: Perf! We only need to stun chains that are being modified, not necessarily written to.
+    /**
+     * Processes the todo queue for putting data into the graph.
+     */
     ;(function walk() {
       let to = as.todo,
         at = to.pop(),
@@ -113,6 +122,11 @@
               run: as.run,
               /*hatch: 0,*/ v2020: 1
             }) // TODO: BUG! This should be resolve ONLY soul to prevent full data from being loaded. // Fixed now?
+        /**
+         * Resolves the soul for a reference during put operation.
+         * @param {object} msg - The message from the get operation.
+         * @param {object} eve - The event object.
+         */
         function resolve(msg, eve) {
           const end = cat.link['#']
           if (eve) {
@@ -185,6 +199,11 @@
     return this
   }
 
+  /**
+   * Stuns a chain to prevent reads during writes.
+   * @param {object} as - The put operation context.
+   * @param {string|object} id - The chain ID to stun.
+   */
   function stun(as, id) {
     if (!id) {
       return
@@ -219,6 +238,10 @@
     })
   }
 
+  /**
+   * Finalizes the put operation and handles acknowledgments.
+   * @param {object} as - The put operation context.
+   */
   function ran(as) {
     if (as.err) {
       ran.end(as.stun, as.root)
@@ -287,6 +310,10 @@
     as.ran(as)
   }
 
+  /**
+   * Handles getting a soul for the put operation when none is provided.
+   * @param {object} as - The put operation context.
+   */
   function get(as) {
     const at = as.via._
     as.via = as.via.back((at) => {
@@ -304,6 +331,11 @@
 
     return
   }
+  /**
+   * Returns the type or constructor name of the data.
+   * @param {*} d - The data to check.
+   * @returns {string} The type or constructor name.
+   */
   function check(d) {
     return d?.constructor?.name || typeof d
   }

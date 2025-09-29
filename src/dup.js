@@ -7,11 +7,10 @@
   /**
    * Creates a Dup instance for tracking duplicate IDs with automatic cleanup.
    * @param {Object} [opt] - Options object.
-   * @param {number} [opt.age=9000] - Age in ms for cleanup.
-   * @param {number} [opt.max=999] - Max items.
+   * @param {number} [opt.age=9000] - Age in milliseconds for cleanup.
    * @returns {Object} Dup instance with check, track, drop methods.
    */
-  function Dup(opt = { age: 1000 * 9, max: 999 }) {
+  function Dup(opt = { age: 1000 * 9 }) {
     const dup = { s: new Map() }
     const s = dup.s
     /**
@@ -21,7 +20,7 @@
      */
     dup.check = (id) => {
       if (!s.has(id)) return false
-      return dt(id)
+      return trackFn(id)
     }
     /**
      * Tracks an ID with timestamp.
@@ -39,10 +38,11 @@
       if (!dup.to) {
         dup.to = setTimeout(dup.drop, opt.age + 9)
       }
-      dt.ed?.(id)
+      trackFn.ed?.(id)
       return it
     }
-    const dt = dup.track
+    // Alias for the track method to simplify internal calls
+    const trackFn = dup.track
     /**
      * Drops old tracked items based on age.
      * @param {number} [age] - Optional age override.

@@ -63,8 +63,7 @@
      */
     reconnectAllPeers() {
       const peers = Object.values(this.opt.peers || {})
-      const peerIter = peers.values()
-      const filteredPeers = peerIter.filter(
+      const filteredPeers = peers.filter(
         (peer) => peer.wire && peer.wire.readyState === WebSocket.CLOSED
       )
       for (const peer of filteredPeers) {

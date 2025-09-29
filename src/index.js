@@ -1,4 +1,5 @@
 ;(() => {
+  // Load all core Gun modules
   const Gun = require('./root')
   require('./shim')
   require('./onto')

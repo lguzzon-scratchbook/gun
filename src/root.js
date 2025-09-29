@@ -642,6 +642,9 @@
     window.Gun = Gun
     window.Gun.window = window
   }
+  if (typeof global !== 'undefined') {
+    global.Gun = Gun
+  }
   try {
     if (typeof MODULE !== 'undefined') {
       MODULE.exports = Gun
