@@ -1,19 +1,11 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.2.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/latest/schema.json",
   "assist": {
     "actions": {
       "source": {
-        "organizeImports": "on",
-        "useSortedKeys": "on"
+        "organizeImports": "on"
       }
     }
-  },
-  "files": {
-    "experimentalScannerIgnores": [
-      "gun.js",
-      "gun.min.js",
-      "get.js"
-    ]
   },
   "formatter": {
     "attributePosition": "auto",
@@ -47,15 +39,33 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "nursery": {
-        "noFloatingPromises": "error"
-      },
       "recommended": true
     }
   },
+  "overrides": [
+    {
+      "includes": [
+        "**/*.svelte",
+        "**/*.astro",
+        "**/*.vue"
+      ],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedImports": "off",
+            "noUnusedVariables": "off"
+          },
+          "style": {
+            "useConst": "off",
+            "useImportType": "off"
+          }
+        }
+      }
+    }
+  ],
   "vcs": {
     "clientKind": "git",
     "enabled": true,
-    "useIgnoreFile": false
+    "useIgnoreFile": true
   }
 }

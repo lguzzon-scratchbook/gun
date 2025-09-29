@@ -1,3 +1,31 @@
+# Task: Refactor and test all JavaScript (.js) files in this list lib/radix.js, lib/radisk.js, lib/store.js, lib/rindexed.js; use sorted from the smaller to the bigger
+
+For each file:
+
+1. Analyze the entire file to understand its purpose and logic.
+2. Refactor functions starting from the innermost to the outermost:
+   - No one-line multi var declaration and use let and cost constructs managing the var hoistings.
+   - Optimize for clarity (readable variable/function names, comments where needed).
+   - Ensure correctness by fixing logical errors.
+   - Improve maintainability (reduce code duplication, follow consistent styling).
+   - ALWAYS Run `bunx @biomejs/biome check --write --max-diagnostics=100 <file>`:
+     - ALWAYS Fix all reported errors and warnings until none remain.
+3. ALWAYS Run `npm test`:
+   - Resolve any remaining errors/warnings across the codebase until none remain.
+
+Output:
+
+- Provide a brief summary of changes for each file.
+- Ensure the final code passes all tests without warnings.
+
+Constraints:
+
+- Maintain existing functionality unless explicitly stated otherwise.
+- Follow project’s style guide if available.
+- Do not introduce external dependencies unless approved.
+
+---
+
 # Task: Refactor and test all JavaScript (.js) files in the "src" directory sorted from the bigger to the smaller
 
 For each file:
