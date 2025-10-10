@@ -1,27 +1,36 @@
 ;(function(){
 
   /* UNBUILD */
+/**
+ * Polyfill for CommonJS require or define module loader.
+ * @param {any} arg - Module path or function
+ * @param {boolean} req - Whether to require or define
+ * @returns {any} - Required module or define function
+ */
 // biome-ignore lint/correctness/noUnusedVariables: Odd case to be maintained
 function USE(arg, req) {
   return req
     ? require(arg)
     : arg.slice
-      ? USE[R(arg)]
-      : (mod, path) => {
-          mod = { exports: {} }
+      ? USE[resolveModuleName(arg)]
+      : (cache, path) => {
+          const mod = { exports: {} }
           arg(mod)
-          USE[R(path)] = mod.exports
+          cache[resolveModuleName(path)] = mod.exports
         }
-  function R(p) {
+  /**
+   * Resolves module name from path by taking filename without extension.
+   * @param {string} p - Module path
+   * @returns {string} - Resolved module name
+   */
+  function resolveModuleName(p) {
     const lastSlash = p.lastIndexOf('/')
     const filename = lastSlash === -1 ? p : p.substring(lastSlash + 1)
     return filename.replace('.js', '')
   }
 }
 if (typeof module !== 'undefined') {
-  // biome-ignore lint/correctness/noInnerDeclarations: Odd case to be maintained
-  // biome-ignore lint/correctness/noUnusedVariables: Odd case to be maintained
-  var MODULE = module
+  MODULE = module
 }
 
   /* UNBUILD */
@@ -1030,7 +1039,7 @@ if (typeof module !== 'undefined') {
 		  /**
 		   * Validates if a value is a valid Gun value.
 		   * Valid values include null, strings, booleans, finite numbers, and soul relations (objects with a single '#' key).
-		   * @param {*} v - The value to validate.
+		   * @param {*} value - The value to validate.
 		   * @returns {boolean} - Returns true if the value is valid, false otherwise.
 		   * @example
 		   * // Valid values
@@ -1045,23 +1054,23 @@ if (typeof module !== 'undefined') {
 		   * valid({}); // false
 		   * valid([]); // false
 		   */
-		  module.exports = (v) => {
+		  module.exports = (value) => {
 		    // "deletes", nulling out keys.
 		    return (
 		      // Allow null values (used for deletions)
-		      v === null ||
+		      value === null ||
 		      // Allow string values
-		      'string' === typeof v ||
+		      'string' === typeof value ||
 		      // Allow boolean values
-		      'boolean' === typeof v ||
+		      'boolean' === typeof value ||
 		      // Allow finite numbers (exclude Infinity and NaN)
-		      Number.isFinite(v) ||
+		      Number.isFinite(value) ||
 		      // Allow soul relations: objects with exactly one key '#' that is a non-empty string
-		      (!!v &&
-		        Object.hasOwn(v, '#') &&
-		        typeof v['#'] === 'string' &&
-		        Object.keys(v).length === 1 &&
-		        v['#'])
+		      (!!value &&
+		        Object.hasOwn(value, '#') &&
+		        typeof value['#'] === 'string' &&
+		        Object.keys(value).length === 1 &&
+		        value['#'])
 		    )
 		  }
 	})(USE, './valid');
@@ -1227,11 +1236,10 @@ if (typeof module !== 'undefined') {
 		  /**
 		   * Creates a Dup instance for tracking duplicate IDs with automatic cleanup.
 		   * @param {Object} [opt] - Options object.
-		   * @param {number} [opt.age=9000] - Age in ms for cleanup.
-		   * @param {number} [opt.max=999] - Max items.
+		   * @param {number} [opt.age=9000] - Age in milliseconds for cleanup.
 		   * @returns {Object} Dup instance with check, track, drop methods.
 		   */
-		  function Dup(opt = { age: 1000 * 9, max: 999 }) {
+		  function Dup(opt = { age: 1000 * 9 }) {
 		    const dup = { s: new Map() }
 		    const s = dup.s
 		    /**
@@ -1241,7 +1249,7 @@ if (typeof module !== 'undefined') {
 		     */
 		    dup.check = (id) => {
 		      if (!s.has(id)) return false
-		      return dt(id)
+		      return trackFn(id)
 		    }
 		    /**
 		     * Tracks an ID with timestamp.
@@ -1259,10 +1267,11 @@ if (typeof module !== 'undefined') {
 		      if (!dup.to) {
 		        dup.to = setTimeout(dup.drop, opt.age + 9)
 		      }
-		      dt.ed?.(id)
+		      trackFn.ed?.(id)
 		      return it
 		    }
-		    const dt = dup.track
+		    // Alias for the track method to simplify internal calls
+		    const trackFn = dup.track
 		    /**
 		     * Drops old tracked items based on age.
 		     * @param {number} [age] - Optional age override.
@@ -2045,6 +2054,9 @@ if (typeof module !== 'undefined') {
 		    window.GUN = Gun
 		    window.Gun = Gun
 		    window.Gun.window = window
+		  }
+		  if (typeof global !== 'undefined') {
+		    global.Gun = Gun
 		  }
 		  try {
 		    if (typeof MODULE !== 'undefined') {
@@ -3088,9 +3100,15 @@ if (typeof module !== 'undefined') {
 	})(USE, './get');
 
 	;USE(function(module){
-		var Gun = USE('./root')
+		const Gun = USE('./root')
+		  /**
+		   * Puts data into the graph at the current chain location.
+		   * @param {*} data - The data to put (object, primitive, or function).
+		   * @param {function} [cb] - Callback for acknowledgments.
+		   * @param {object} [as] - Internal options object.
+		   * @returns {Gun.chain} The chain for chaining.
+		   */
 		  Gun.chain.put = function (data, cb, as) {
-		    // I rewrote it :)
 		    const at = this._
 		    const root = at.root
 		    as = as || {}
@@ -3120,6 +3138,9 @@ if (typeof module !== 'undefined') {
 		    as.turn = as.turn || turn
 		    as.ran = as.ran || ran
 		    // TODO: Perf! We only need to stun chains that are being modified, not necessarily written to.
+		    /**
+		     * Processes the todo queue for putting data into the graph.
+		     */
 		    ;(function walk() {
 		      let to = as.todo,
 		        at = to.pop(),
@@ -3202,6 +3223,11 @@ if (typeof module !== 'undefined') {
 		              run: as.run,
 		              /*hatch: 0,*/ v2020: 1
 		            }) // TODO: BUG! This should be resolve ONLY soul to prevent full data from being loaded. // Fixed now?
+		        /**
+		         * Resolves the soul for a reference during put operation.
+		         * @param {object} msg - The message from the get operation.
+		         * @param {object} eve - The event object.
+		         */
 		        function resolve(msg, eve) {
 		          const end = cat.link['#']
 		          if (eve) {
@@ -3274,6 +3300,11 @@ if (typeof module !== 'undefined') {
 		    return this
 		  }
 
+		  /**
+		   * Stuns a chain to prevent reads during writes.
+		   * @param {object} as - The put operation context.
+		   * @param {string|object} id - The chain ID to stun.
+		   */
 		  function stun(as, id) {
 		    if (!id) {
 		      return
@@ -3308,6 +3339,10 @@ if (typeof module !== 'undefined') {
 		    })
 		  }
 
+		  /**
+		   * Finalizes the put operation and handles acknowledgments.
+		   * @param {object} as - The put operation context.
+		   */
 		  function ran(as) {
 		    if (as.err) {
 		      ran.end(as.stun, as.root)
@@ -3376,6 +3411,10 @@ if (typeof module !== 'undefined') {
 		    as.ran(as)
 		  }
 
+		  /**
+		   * Handles getting a soul for the put operation when none is provided.
+		   * @param {object} as - The put operation context.
+		   */
 		  function get(as) {
 		    const at = as.via._
 		    as.via = as.via.back((at) => {
@@ -3393,6 +3432,11 @@ if (typeof module !== 'undefined') {
 
 		    return
 		  }
+		  /**
+		   * Returns the type or constructor name of the data.
+		   * @param {*} d - The data to check.
+		   * @returns {string} The type or constructor name.
+		   */
 		  function check(d) {
 		    return d?.constructor?.name || typeof d
 		  }
@@ -3427,7 +3471,8 @@ if (typeof module !== 'undefined') {
 	})(USE, './core');
 
 	;USE(function(module){
-		const Gun = USE('./root')
+		// Load all core Gun modules
+		  const Gun = USE('./root')
 		  USE('./shim')
 		  USE('./onto')
 		  USE('./book')
@@ -3783,20 +3828,20 @@ if (typeof module !== 'undefined') {
 		// Utility Functions
 		  /** @function noop @returns {void} No-op function. */
 		  const noop = () => {}
-		  /** @function getSoul @param {object|string} lex - Input lex. @returns {string} Soul if present. */
-		  const getSoul = (lex) => {
+		  /** @function extractSoul @param {object|string} lex - Input lex. @returns {string} Soul if present. */
+		  const extractSoul = (lex) => {
 		    if (!lex) return ''
 		    const tmp = lex?.['#'] || ''
 		    if (Array.isArray(tmp)) return tmp[0] || ''
 		    return tmp?.['='] || tmp
 		  }
-		  /** @function getLexPattern @param {object|string} lex - Input lex. @returns {string} Lex pattern. */
-		  const getLexPattern = (lex) => {
+		  /** @function extractLexPattern @param {object|string} lex - Input lex. @returns {string} Lex pattern. */
+		  const extractLexPattern = (lex) => {
 		    if (!lex) return ''
 		    return lex?.['.'] || lex?.['#'] || lex
 		  }
-		  /** @function checkMapField @param {string|object} field - Field to check. @returns {boolean} True if valid map field. @throws {Error} For invalid inputs. */
-		  const checkMapField = (field) => {
+		  /** @function isValidMapField @param {string|object} field - Field to check. @returns {boolean} True if valid map field. @throws {Error} For invalid inputs. */
+		  const isValidMapField = (field) => {
 		    return (
 		      typeof field === 'string' ||
 		      (field && typeof field === 'object' && !Array.isArray(field))
@@ -3805,7 +3850,7 @@ if (typeof module !== 'undefined') {
 		  /** @function invokeLexSafely @param {Object} gun - Gun instance. @param {string|Object} query - Lex query. @param {function} next - Next function. @param {function} noop - Noop function. @returns {*} Result of lex or fallback. */
 		  const invokeLexSafely = (gun, query, next, noop) => {
 		    try {
-		      return lex(gun, query, next, noop)
+		      return processLex(gun, query, next, noop)
 		    } catch (error) {
 		      if (!gun._) {
 		        console.warn('GUN map.get.next: Internal fallback for missing gun._')
@@ -3814,8 +3859,8 @@ if (typeof module !== 'undefined') {
 		      throw error
 		    }
 		  }
-		  const Gun = USE('./root'),
-		    next = Gun.chain.get.next
+		  const Gun = USE('./root')
+		  const next = Gun.chain.get.next
 		  /** @function validateLexInput @param {object} node - Gun node instance. @param {string|object} lexQuery - Lex query. @throws {Error} For invalid node or lexQuery. */
 		  const validateLexInput = (node, lexQuery) => {
 		    if (!node || typeof node !== 'object')
@@ -3834,7 +3879,10 @@ if (typeof module !== 'undefined') {
 		  const createHandleLexEvent = (chainTmp, lexQuery) =>
 		    function (eve) {
 		      if (
-		        String.match(eve.get || (eve.put || '')['.'], getLexPattern(lexQuery))
+		        String.match(
+		          eve.get || (eve.put || '')['.'],
+		          extractLexPattern(lexQuery)
+		        )
 		      ) {
 		        chainTmp.on('in', eve)
 		      }
@@ -3847,15 +3895,15 @@ if (typeof module !== 'undefined') {
 		   * @param {function} [noop=() => {}]
 		   * @returns {IGunChainReference} Chain with optional off method
 		   * @throws {Error} Invalid inputs
-		   * @example lex(node, '#soul', cb)
+		   * @example processLex(node, '#soul', cb)
 		   */
-		  const lex = (node, lexQuery, next, noop) => {
+		  const processLex = (node, lexQuery, next, noop) => {
 		    validateLexInput(node, lexQuery)
 		    // Handles non-plain objects by direct callback
 		    if (!Object.plain(lexQuery)) {
 		      return (next || noop)(node, lexQuery)
 		    }
-		    const soul = getSoul(lexQuery)
+		    const soul = extractSoul(lexQuery)
 		    if (soul) {
 		      return node.get(soul)
 		    }
@@ -3883,19 +3931,19 @@ if (typeof module !== 'undefined') {
 		    ) {
 		      throw new Error('GUN map.get.next: Invalid gun instance')
 		    }
-		    if (!query || !checkMapField(query))
+		    if (!query || !isValidMapField(query))
 		      throw new Error('GUN map.get.next: Invalid lex query')
 		    return invokeLexSafely(gun, query, next, noop)
 		  }
 		  /** @function validateMapCallback @param {*} cb - Callback or field. @throws {Error} For invalid cb. */
 		  const validateMapCallback = (cb) => {
-		    if (cb != null && !checkMapField(cb) && typeof cb !== 'function')
+		    if (cb != null && !isValidMapField(cb) && typeof cb !== 'function')
 		      throw new Error('Invalid map argument')
 		  }
 		  /** @function isValidMapNode @param {object} at - Gun at object. @param {object} msg - Message. @returns {boolean} True if valid node. */
 		  const isValidMapNode = (at, msg) => at.soul || msg.$$
-		  /** @function handleMapCallbackResult @param {object} chain - Chain. @param {*} data - Data. @param {string} key - Key. @param {object} msg - Message. @param {object} _eve - Event. @param {*} next - Next value. */
-		  const handleMapCallbackResult = (chain, data, key, msg, _eve, next) => {
+		  /** @function handleMapCallbackResult @param {object} chain - Chain. @param {*} data - Data. @param {string} key - Key. @param {object} msg - Message. @param {*} next - Next value. */
+		  const handleMapCallbackResult = (chain, data, key, msg, next) => {
 		    // Handle different types of callback results: ignore undefined, pass through data, Gun instances, or transform to new put
 		    if (undefined === next) return
 		    if (data === next) return chain._.on('in', msg)
@@ -3916,10 +3964,10 @@ if (typeof module !== 'undefined') {
 		  Gun.chain.map = function (cb, _opt, _t) {
 		    const cat = this._
 		    validateMapCallback(cb)
-		    let lex
-		    if (checkMapField(cb)) {
+		    let lexQuery
+		    if (isValidMapField(cb)) {
 		      // If cb is a field, convert to lex query and set cb to undefined
-		      lex = cb['.'] ? cb : { '.': cb }
+		      lexQuery = cb['.'] ? cb : { '.': cb }
 		      cb = undefined
 		    }
 		    if (!cb) {
@@ -3927,7 +3975,7 @@ if (typeof module !== 'undefined') {
 		      if (chain) return chain
 		      const newChain = this.chain()
 		      cat.each = newChain
-		      newChain._.lex = lex || newChain._.lex || cat.lex
+		      newChain._.lex = lexQuery || newChain._.lex || cat.lex
 		      newChain._.nix = this.back('nix')
 		      this.on('in', map, newChain._)
 		      return newChain
@@ -3939,7 +3987,7 @@ if (typeof module !== 'undefined') {
 		    const chain = this.chain()
 		    this.map().on((data, key, msg, eve) => {
 		      const next = (cb || noop).call(this, data, key, msg, eve)
-		      handleMapCallbackResult(chain, data, key, msg, eve, next)
+		      handleMapCallbackResult(chain, data, key, msg, next)
 		    })
 		    return chain
 		  }
@@ -3950,48 +3998,58 @@ if (typeof module !== 'undefined') {
 		   * @param {Object} put - The put object.
 		   * @returns {boolean} True if matches, false otherwise.
 		   */
-		  const checkLex = (cat, msg, put) => {
+		  const isLexMatch = (cat, msg, put) => {
 		    const lex = cat.lex
 		    return (
-		      !lex || String.match(msg?.get || (put || '')?.['.'], getLexPattern(lex))
+		      !lex ||
+		      String.match(msg?.get || (put || '')?.['.'], extractLexPattern(lex))
 		    )
 		  }
 		  /**
 		   * Internal map function to handle messages.
 		   * @param {Object} msg - The message object.
 		   */
-		  function map(msg) {
+		  const map = function (msg) {
 		    this.to.next(msg)
 		    const cat = this.as
 		    const gun = msg.$
 		    const at = gun._
 		    const put = msg.put
 		    if (!isValidMapNode(at, msg)) return
-		    if (!checkLex(cat, msg, put)) return
+		    if (!isLexMatch(cat, msg, put)) return
 		    Gun.on.link(msg, cat)
 		  }
 		  const _event = { off: noop, stun: noop }
 	})(USE, './map');
 
 	;USE(function(module){
-		const Gun = USE('./root')
+		/**
+		   * Sets an item in the graph, handling nodes, links, and plain objects.
+		   * @param {*} item - The item to set
+		   * @param {function} cb - Callback function
+		   * @param {object} opt - Options
+		   * @returns {*} The item or chain
+		   */
+		  const Gun = USE('./root')
 		  Gun.chain.set = function (item, cb, opt) {
 		    const root = this.back(-1)
 		    let soul
-		    let tmp
 		    cb = cb || (() => {})
 		    opt = opt || {}
 		    opt.item = opt.item || item
+		    // Check if item is already a node reference
 		    soul = item?._?.['#']
 		    if (soul) {
 		      item = {}
 		      item['#'] = soul
 		    } // check if node, make link.
-		    tmp = Gun.valid(item)
-		    if (typeof tmp === 'string') {
-		      soul = tmp
+		    // Validate the item
+		    const validationResult = Gun.valid(item)
+		    if (typeof validationResult === 'string') {
+		      soul = validationResult
 		      return this.get(soul).put(item, cb, opt)
 		    } // check if link
+		    // If item is not a Gun node
 		    if (!Gun.is(item)) {
 		      if (Object.plain(item)) {
 		        soul = this.back('opt.uuid')()
@@ -3999,6 +4057,7 @@ if (typeof module !== 'undefined') {
 		      }
 		      return this.get(soul || root.back('opt.uuid')(7)).put(item, cb, opt)
 		    }
+		    // Set the item by retrieving its soul
 		    this.put((go) => {
 		      item.get((soul, _o, msg) => {
 		        // TODO: BUG! We no longer have this option? & go error not handled?
@@ -4007,9 +4066,9 @@ if (typeof module !== 'undefined') {
 		            err: Gun.log(`Only a node can be linked! Not "${msg.put}"!`)
 		          })
 		        }
-		        tmp = {}
-		        tmp[soul] = { '#': soul }
-		        go(tmp)
+		        const linkData = {}
+		        linkData[soul] = { '#': soul }
+		        go(linkData)
 		      }, true)
 		    })
 		    return item
@@ -4779,8 +4838,7 @@ if (typeof module !== 'undefined') {
 		     */
 		    reconnectAllPeers() {
 		      const peers = Object.values(this.opt.peers || {})
-		      const peerIter = peers.values()
-		      const filteredPeers = peerIter.filter(
+		      const filteredPeers = peers.filter(
 		        (peer) => peer.wire && peer.wire.readyState === WebSocket.CLOSED
 		      )
 		      for (const peer of filteredPeers) {
@@ -4971,7 +5029,7 @@ if (typeof module !== 'undefined') {
 		   * Sets up event listeners for get and put operations to persist data.
 		   * @param {Object} root - The GUN root instance.
 		   */
-		  Gun.on('create', function lg(root) {
+		  Gun.on('create', function localStoragePlugin(root) {
 		    this.to.next(root)
 		    const opt = root.opt
 		    const _graph = root.graph
@@ -4986,11 +5044,12 @@ if (typeof module !== 'undefined') {
 		    opt.prefix = opt.file || 'gun/'
 		    try {
 		      const item = store.getItem(opt.prefix)
-		      disk = lg[opt.prefix] =
-		        lg[opt.prefix] || new Map(Object.entries(JSON.parse(item) || {})) // Load persisted data from localStorage (blocking, but limited to 5MB)
+		      disk = localStoragePlugin[opt.prefix] =
+		        localStoragePlugin[opt.prefix] ||
+		        new Map(Object.entries(JSON.parse(item) || {})) // Load persisted data from localStorage (blocking, but limited to 5MB)
 		      size = (item || '').length
 		    } catch (_e) {
-		      disk = lg[opt.prefix] = new Map()
+		      disk = localStoragePlugin[opt.prefix] = new Map()
 		      size = 0
 		    }
 
