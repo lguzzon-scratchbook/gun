@@ -1,26 +1,7 @@
 {
-  "android": "browser.android.js",
-  "author": "Mark Nadal",
-  "browser": "browser.js",
-  "bugs": {
-    "url": "https://github.com/amark/gun/issues"
-  },
-  "dependencies": {
-    "ws": "^7.2.1"
-  },
+  "name": "gun",
+  "version": "0.2020.1239",
   "description": "A realtime, decentralized, offline-first, graph data synchronization engine.",
-  "devDependencies": {
-    "aws-sdk": "^2.528.0",
-    "emailjs": "^2.2.0",
-    "ip": "^1.1.5",
-    "mocha": "^6.2.0",
-    "uglify-js": "^3.6.0"
-  },
-  "engines": {
-    "node": ">=0.8.4"
-  },
-  "homepage": "https://github.com/amark/gun#readme",
-  "ios": "browser.ios.js",
   "keywords": [
     "gun",
     "gunDB",
@@ -42,16 +23,19 @@
     "localstorage",
     "S3"
   ],
-  "license": "(Zlib OR MIT OR Apache-2.0)",
-  "main": "index.js",
-  "name": "gun",
-  "optionalDependencies": {
-    "@peculiar/webcrypto": "^1.1.1"
+  "homepage": "https://github.com/amark/gun#readme",
+  "bugs": {
+    "url": "https://github.com/amark/gun/issues"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/amark/gun.git"
   },
+  "license": "(Zlib OR MIT OR Apache-2.0)",
+  "author": "Mark Nadal",
+  "main": "index.js",
+  "browser": "browser.js",
+  "types": "index.d.ts",
   "scripts": {
     "build": "node script/build.js  && npm run minify",
     "build:unbuild": "npm run build && npm run unbuild:script",
@@ -64,6 +48,8 @@
     "flint": "npm run format ; npm run lint",
     "format": "bunx @biomejs/biome format --write ./src/*.js ./src/**/*.js package.json",
     "format:file": "bunx @biomejs/biome format --write",
+    "format:json": "npx json-sort-cli",
+    "format:package": "npm run format:json -- package.json",
     "https": "HTTPS_KEY=test/https/server.key HTTPS_CERT=test/https/server.crt npm start",
     "lint": "bunx @biomejs/biome lint --write ./src/*.js ./src/**/*.js package.json",
     "lint:file": "bunx @biomejs/biome lint --write --max-diagnostics=100",
@@ -77,11 +63,28 @@
     "unbuild": "npm run unbuild:script",
     "unbuild:script": "mv src/footer.js . && node script/unbuild.js && mv footer.js src/ && npm run check",
     "unbuildMeta": "node script/unbuild.js lib/meta",
-    "unbuildSea": "node script/unbuild.js sea"
+    "unbuildSea": "node script/unbuild.js sea",
+    "update": "npx --yes -p npm-check-updates ncu -u"
   },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "aws-sdk": "^2.1692.0",
+    "emailjs": "^4.0.3",
+    "ip": "^2.0.1",
+    "mocha": "^11.7.4",
+    "uglify-js": "^3.19.3"
+  },
+  "optionalDependencies": {
+    "@peculiar/webcrypto": "^1.5.0"
+  },
+  "engines": {
+    "node": ">=0.8.4"
+  },
+  "android": "browser.android.js",
+  "ios": "browser.ios.js",
   "tsd": {
     "directory": "types"
-  },
-  "types": "index.d.ts",
-  "version": "0.2020.1239"
+  }
 }
